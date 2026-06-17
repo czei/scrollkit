@@ -19,7 +19,7 @@ if IS_CIRCUITPYTHON:
 else:
     # SLDK Simulator imports
     import os
-    sldk_path = os.path.join(os.path.dirname(__file__), '..', '..', 'sldk', 'src')
+    sldk_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sldk', 'src')
     if os.path.exists(sldk_path) and sldk_path not in sys.path:
         sys.path.insert(0, sldk_path)
 
@@ -167,8 +167,8 @@ class GenericDisplay(DisplayInterface):
         base = _os.path.dirname(__file__)
         search_paths.extend([
             _os.path.join(base, '..', 'fonts', 'tom-thumb.bdf'),
-            _os.path.join(base, '..', '..', 'sldk', 'src', 'sldk', 'simulator', 'fonts', 'tom-thumb.bdf'),
-            _os.path.join(base, '..', '..', 'sldk', 'src', 'sldk', 'simulator', 'fonts', 'viii.bdf'),
+            _os.path.join(base, '..', '..', '..', 'sldk', 'src', 'sldk', 'simulator', 'fonts', 'tom-thumb.bdf'),
+            _os.path.join(base, '..', '..', '..', 'sldk', 'src', 'sldk', 'simulator', 'fonts', 'viii.bdf'),
         ])
 
         for path in search_paths:
