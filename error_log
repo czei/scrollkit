@@ -1,3 +1,10 @@
+Loading settings settings.json
+Creating display for platform: CircuitPython
 Creating UnifiedDisplay (extends ScrollKit GenericDisplay) for Desktop/SLDK
 Initializing GenericDisplay (SLDK Simulator)
 GenericDisplay initialized successfully
+Running in development mode, using simulated WiFi
+Development mode - web server will be initialized differently
+Initializing Theme Park Waits application
+Starting initialization sequence...
+WiFi password initialized
