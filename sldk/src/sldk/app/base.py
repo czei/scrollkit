@@ -3,6 +3,8 @@
 Provides the three-process architecture with graceful degradation for ESP32.
 """
 
+from __future__ import annotations
+
 try:
     # Desktop Python
     import asyncio
@@ -42,7 +44,10 @@ except ImportError:
         await asyncio.sleep(seconds)
 
 import gc
+from typing import Optional, List
 from ..display.content import ContentQueue
+from ..display.interface import DisplayInterface
+from ..exceptions import DisplayError, NetworkError
 
 
 class SLDKApp:
@@ -54,7 +59,7 @@ class SLDKApp:
     3. Web server process - Optional, runs if memory allows
     """
     
-    def __init__(self, enable_web=True, update_interval=300):
+    def __init__(self, enable_web: bool = True, update_interval: int = 300) -> None:
         """Initialize SLDK application.
         
         Args:
@@ -63,25 +68,25 @@ class SLDKApp:
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
-        self.running = False
-        self.display = None
+        self.running: bool = False
+        self.display: Optional[DisplayInterface] = None
         self.content_queue = ContentQueue()
-        self._tasks = []
+        self._tasks: List[asyncio.Task] = []
         
         # Memory tracking
-        self._last_memory_report = 0
+        self._last_memory_report: float = 0
         self._memory_report_interval = 60  # Report every minute
     
     # Abstract methods to be implemented by subclasses
     
-    async def setup(self):
+    async def setup(self) -> None:
         """Initialize application resources.
         
         Called once at startup. Set up your display content here.
         """
         raise NotImplementedError("Subclass must implement setup()")
     
-    async def update_data(self):
+    async def update_data(self) -> None:
         """Update application data.
         
         Called periodically by data update process.
@@ -98,7 +103,7 @@ class SLDKApp:
         # Default implementation uses content queue
         return await self.content_queue.get_current()
     
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up resources on shutdown.
         
         Called when application is stopping.
@@ -107,7 +112,7 @@ class SLDKApp:
     
     # Core process implementations
     
-    async def _display_process(self):
+    async def _display_process(self) -> None:
         """Process 1: Handle display updates."""
         print("Display process started")
         
@@ -136,7 +141,7 @@ class SLDKApp:
                 print(f"Display error: {e}")
                 await sleep(1)
     
-    async def _data_update_process(self):
+    async def _data_update_process(self) -> None:
         """Process 2: Handle data updates."""
         print("Data update process started")
         
@@ -178,7 +183,7 @@ class SLDKApp:
         except ImportError:
             return None
     
-    async def _web_server_process(self):
+    async def _web_server_process(self) -> None:
         """Process 3: Handle web interface."""
         if not self.enable_web:
             return
@@ -211,10 +216,12 @@ class SLDKApp:
             
         except ImportError:
             print("Web server not available - install with 'pip install sldk[web]'")
+        except WebServerError as e:
+            print(f"Web server error: {e}")
         except Exception as e:
             print(f"Web server error: {e}")
     
-    async def _report_memory(self):
+    async def _report_memory(self) -> None:
         """Report memory usage periodically."""
         try:
             import time
@@ -232,7 +239,7 @@ class SLDKApp:
     
     # Main application lifecycle
     
-    async def run(self):
+    async def run(self) -> None:
         """Run the application with three processes."""
         print("Starting SLDK application")
         
@@ -280,7 +287,7 @@ class SLDKApp:
                 except Exception:
                     pass
     
-    async def create_display(self):
+    async def create_display(self) -> DisplayInterface:
         """Create display instance.
         
         Override this method to use custom hardware.
@@ -292,7 +299,7 @@ class SLDKApp:
         from ..display import UnifiedDisplay
         return UnifiedDisplay()
     
-    async def _initialize_display(self):
+    async def _initialize_display(self) -> None:
         """Initialize the display based on platform."""
         try:
             # Allow application to override display creation
@@ -302,7 +309,9 @@ class SLDKApp:
         except ImportError as e:
             print(f"Failed to initialize display: {e}")
             print("Install simulator with 'pip install sldk[simulator]' for desktop development")
+        except DisplayError as e:
+            print(f"Display initialization failed: {e}")
     
-    def stop(self):
+    def stop(self) -> None:
         """Stop the application."""
         self.running = False

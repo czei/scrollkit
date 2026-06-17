@@ -22,8 +22,8 @@ class FontScaler:
         fonts_path = os.path.join(base_path, 'fonts')
         
         # Scale 1: viii.bdf (already loaded as default FONT)
-        from . import FONT
-        self._fonts[1] = FONT
+        from .. import terminalio
+        self._fonts[1] = terminalio.FONT
         
         # Scale 2: Junction_regular_24.bdf
         junction_path = os.path.join(fonts_path, 'Arial_16.bdf')

@@ -5,8 +5,12 @@ These effects work with the strategy system and can modify how content
 is rendered to create visual enhancements.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Dict, Type, Callable, Any
+from typing import Dict, Type, Callable, Any, Optional, List
+
+from ..exceptions import DisplayError
 
 try:
     # CircuitPython compatibility
@@ -22,18 +26,18 @@ class Effect(ABC):
     like reveal animations, transitions, or other visual effects.
     """
     
-    def __init__(self, duration: float = 1.0, **kwargs):
+    def __init__(self, duration: float = 1.0, **kwargs: Any) -> None:
         """Initialize the effect.
         
         Args:
             duration: Effect duration in seconds
             **kwargs: Additional effect parameters
         """
-        self.duration = duration
-        self.params = kwargs
+        self.duration: float = duration
+        self.params: Dict[str, Any] = kwargs
     
     @abstractmethod
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply the effect to the rendering process.
         
         Args:
@@ -54,7 +58,7 @@ class Effect(ABC):
 class EffectRegistry:
     """Registry for display effects using decorator pattern."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._effects: Dict[str, Type[Effect]] = {}
     
     def register(self, name: str, effect_class: Type[Effect]) -> None:
@@ -80,7 +84,7 @@ class EffectRegistry:
         """
         return self._effects.get(name)
     
-    def create_effect(self, name: str, **kwargs) -> Effect:
+    def create_effect(self, name: str, **kwargs: Any) -> Optional[Effect]:
         """Create an effect instance by name.
         
         Args:
@@ -108,7 +112,7 @@ class EffectRegistry:
 _global_effect_registry = EffectRegistry()
 
 
-def register_effect(name: str):
+def register_effect(name: str) -> Callable[[Type[Effect]], Type[Effect]]:
     """Decorator to register a display effect.
     
     Args:
@@ -121,7 +125,7 @@ def register_effect(name: str):
                 # Custom fade logic
                 await render_func()
     """
-    def decorator(effect_class: Type[Effect]):
+    def decorator(effect_class: Type[Effect]) -> Type[Effect]:
         _global_effect_registry.register(name, effect_class)
         return effect_class
     return decorator
@@ -139,7 +143,7 @@ def get_effect_registry() -> EffectRegistry:
 class CompositeEffect(Effect):
     """Effect that combines multiple effects in sequence or parallel."""
     
-    def __init__(self, effects: list, mode: str = 'sequence', **kwargs):
+    def __init__(self, effects: List[Effect], mode: str = 'sequence', **kwargs: Any) -> None:
         """Initialize composite effect.
         
         Args:
@@ -149,22 +153,22 @@ class CompositeEffect(Effect):
         """
         # Calculate total duration
         if mode == 'sequence':
-            total_duration = sum(effect.get_total_duration() for effect in effects)
+            total_duration: float = sum(effect.get_total_duration() for effect in effects)
         else:  # parallel
             total_duration = max(effect.get_total_duration() for effect in effects) if effects else 0
         
         super().__init__(duration=total_duration, **kwargs)
-        self.effects = effects
-        self.mode = mode
+        self.effects: List[Effect] = effects
+        self.mode: str = mode
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply composite effect."""
         if self.mode == 'sequence':
             await self._apply_sequence(display, render_func)
         else:  # parallel
             await self._apply_parallel(display, render_func)
     
-    async def _apply_sequence(self, display, render_func: Callable) -> None:
+    async def _apply_sequence(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply effects in sequence."""
         current_render_func = render_func
         
@@ -172,8 +176,8 @@ class CompositeEffect(Effect):
         for effect in reversed(self.effects):
             effect_render_func = current_render_func
             
-            async def create_chained_func(eff, base_func):
-                async def chained():
+            async def create_chained_func(eff: Effect, base_func: Callable[..., Any]) -> Callable[..., Any]:
+                async def chained() -> None:
                     await eff.apply(display, base_func)
                 return chained
             
@@ -182,7 +186,7 @@ class CompositeEffect(Effect):
         # Execute the final chained function
         await current_render_func()
     
-    async def _apply_parallel(self, display, render_func: Callable) -> None:
+    async def _apply_parallel(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply effects in parallel."""
         if not self.effects:
             await render_func()
@@ -205,12 +209,12 @@ def with_effect_mixin():
         Class with effect support methods
     """
     class EffectMixin:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             if not hasattr(self, 'effects'):
-                self.effects = []
+                self.effects: List[Effect] = []
         
-        def with_effect(self, effect: Effect):
+        def with_effect(self, effect: Effect) -> 'EffectMixin':
             """Add an effect to this content.
             
             Args:
@@ -224,7 +228,7 @@ def with_effect_mixin():
             self.effects.append(effect)
             return self
         
-        def with_effects(self, effects: list):
+        def with_effects(self, effects: List[Effect]) -> 'EffectMixin':
             """Add multiple effects to this content.
             
             Args:

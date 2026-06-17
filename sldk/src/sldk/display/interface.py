@@ -4,35 +4,39 @@ This provides the abstract interface that all display implementations must follo
 Compatible with both CircuitPython and desktop Python.
 """
 
-# Note: CircuitPython doesn't have abc module, so we use duck typing
-# and raise NotImplementedError for abstract methods
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from ..exceptions import DisplayError
+
 
 class DisplayInterface:
     """Base interface for all display implementations."""
-    
+
     @property
-    def width(self):
+    def width(self) -> int:
         """Display width in pixels."""
         raise NotImplementedError("Subclass must implement width property")
-    
+
     @property
-    def height(self):
+    def height(self) -> int:
         """Display height in pixels."""
         raise NotImplementedError("Subclass must implement height property")
-    
-    async def initialize(self):
+
+    async def initialize(self) -> None:
         """Initialize the display hardware or simulator."""
         raise NotImplementedError("Subclass must implement initialize()")
-    
-    async def clear(self):
+
+    async def clear(self) -> None:
         """Clear the display."""
         raise NotImplementedError("Subclass must implement clear()")
-    
-    async def show(self):
+
+    async def show(self) -> None:
         """Update the physical display."""
         raise NotImplementedError("Subclass must implement show()")
-    
-    async def set_pixel(self, x, y, color):
+
+    async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel color.
         
         Args:
@@ -42,7 +46,7 @@ class DisplayInterface:
         """
         raise NotImplementedError("Subclass must implement set_pixel()")
     
-    async def fill(self, color):
+    async def fill(self, color: int) -> None:
         """Fill entire display with color.
         
         Args:
@@ -53,7 +57,7 @@ class DisplayInterface:
             for x in range(self.width):
                 await self.set_pixel(x, y, color)
     
-    async def set_brightness(self, brightness):
+    async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
         
         Args:
@@ -63,7 +67,7 @@ class DisplayInterface:
     
     # Higher-level convenience methods with default implementations
     
-    async def draw_text(self, text, x=0, y=0, color=0xFFFFFF, font=None):
+    async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display.
         
         Args:
@@ -76,7 +80,7 @@ class DisplayInterface:
         # Subclasses should override with proper text rendering
         pass
     
-    async def scroll_text(self, text, y=0, color=0xFFFFFF, speed=0.05):
+    async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.
         
         Args:

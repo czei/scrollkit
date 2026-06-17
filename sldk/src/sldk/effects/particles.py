@@ -3,6 +3,12 @@
 Simple particle systems optimized for ESP32 memory constraints.
 """
 
+from __future__ import annotations
+
+from typing import Any, List, Optional
+
+from ..exceptions import DisplayError
+
 try:
     import time
     get_time = time.monotonic
@@ -31,17 +37,17 @@ except ImportError:
 class ParticleEngine:
     """Lightweight particle engine for ESP32."""
     
-    def __init__(self, max_particles=8):
+    def __init__(self, max_particles: int = 8) -> None:
         """Initialize particle engine.
         
         Args:
             max_particles: Maximum number of particles (keep low for ESP32)
         """
-        self.max_particles = max_particles
-        self.particles = []
-        self.last_spawn_time = 0
+        self.max_particles: int = max_particles
+        self.particles: list = []
+        self.last_spawn_time: float = 0
     
-    def add_particle(self, particle):
+    def add_particle(self, particle: Any) -> bool:
         """Add particle to system.
         
         Args:
@@ -53,7 +59,7 @@ class ParticleEngine:
             return True
         return False
     
-    async def update(self, display):
+    async def update(self, display: Any) -> None:
         """Update all particles.
         
         Args:
@@ -75,11 +81,11 @@ class ParticleEngine:
             particle.update(elapsed)
             await particle.render(display)
     
-    def clear_particles(self):
+    def clear_particles(self) -> None:
         """Remove all particles."""
         self.particles.clear()
     
-    def get_particle_count(self):
+    def get_particle_count(self) -> int:
         """Get current particle count."""
         return len(self.particles)
 
@@ -87,7 +93,7 @@ class ParticleEngine:
 class Particle:
     """Base particle class."""
     
-    def __init__(self, x, y, lifetime=2.0):
+    def __init__(self, x: int, y: int, lifetime: float = 2.0) -> None:
         """Initialize particle.
         
         Args:
@@ -95,14 +101,14 @@ class Particle:
             y: Starting Y position
             lifetime: Particle lifetime in seconds
         """
-        self.start_x = x
-        self.start_y = y
-        self.x = float(x)
-        self.y = float(y)
-        self.lifetime = lifetime
-        self.spawn_time = 0
+        self.start_x: int = x
+        self.start_y: int = y
+        self.x: float = float(x)
+        self.y: float = float(y)
+        self.lifetime: float = lifetime
+        self.spawn_time: float = 0
     
-    def update(self, elapsed_time):
+    def update(self, elapsed_time: float) -> None:
         """Update particle physics.
         
         Args:
@@ -110,7 +116,7 @@ class Particle:
         """
         pass  # Override in subclasses
     
-    async def render(self, display):
+    async def render(self, display: Any) -> None:
         """Render particle to display.
         
         Args:
@@ -118,7 +124,7 @@ class Particle:
         """
         pass  # Override in subclasses
     
-    def is_dead(self, elapsed_time):
+    def is_dead(self, elapsed_time: float) -> bool:
         """Check if particle should be removed.
         
         Args:
@@ -129,7 +135,7 @@ class Particle:
         """
         return elapsed_time > self.lifetime
     
-    def get_life_ratio(self, elapsed_time):
+    def get_life_ratio(self, elapsed_time: float) -> float:
         """Get life ratio (0.0 = just born, 1.0 = about to die).
         
         Args:
@@ -144,7 +150,7 @@ class Particle:
 class Sparkle(Particle):
     """Simple sparkle particle."""
     
-    def __init__(self, x, y, color=0xFFFFFF, lifetime=1.0):
+    def __init__(self, x: int, y: int, color: int = 0xFFFFFF, lifetime: float = 1.0) -> None:
         """Initialize sparkle.
         
         Args:
@@ -154,10 +160,10 @@ class Sparkle(Particle):
             lifetime: How long sparkle lasts
         """
         super().__init__(x, y, lifetime)
-        self.color = color
-        self.peak_time = lifetime * 0.2  # Peak brightness at 20% of lifetime
+        self.color: int = color
+        self.peak_time: float = lifetime * 0.2  # Peak brightness at 20% of lifetime
     
-    async def render(self, display):
+    async def render(self, display: Any) -> None:
         """Render sparkle with fading."""
         # Check bounds
         x = int(self.x)
@@ -190,7 +196,7 @@ class Sparkle(Particle):
 class RainDrop(Particle):
     """Rain drop particle that falls down."""
     
-    def __init__(self, x, y, speed=10.0, color=0x0080FF, lifetime=3.0):
+    def __init__(self, x: int, y: int, speed: float = 10.0, color: int = 0x0080FF, lifetime: float = 3.0) -> None:
         """Initialize rain drop.
         
         Args:
@@ -201,15 +207,15 @@ class RainDrop(Particle):
             lifetime: Maximum lifetime
         """
         super().__init__(x, y, lifetime)
-        self.speed = speed
-        self.color = color
+        self.speed: float = speed
+        self.color: int = color
     
-    def update(self, elapsed_time):
+    def update(self, elapsed_time: float) -> None:
         """Update rain drop physics."""
         # Move down
         self.y = self.start_y + (self.speed * elapsed_time)
     
-    async def render(self, display):
+    async def render(self, display: Any) -> None:
         """Render rain drop."""
         x = int(self.x)
         y = int(self.y)
@@ -220,7 +226,7 @@ class RainDrop(Particle):
         
         await display.set_pixel(x, y, self.color)
     
-    def is_dead(self, elapsed_time):
+    def is_dead(self, elapsed_time: float) -> bool:
         """Rain drop dies when it falls off screen."""
         return (self.y >= 32) or super().is_dead(elapsed_time)  # Assume 32 pixel height
 
@@ -228,7 +234,7 @@ class RainDrop(Particle):
 class Ember(Particle):
     """Fire ember that rises and fades."""
     
-    def __init__(self, x, y, speed=5.0, drift=2.0, lifetime=2.0):
+    def __init__(self, x: int, y: int, speed: float = 5.0, drift: float = 2.0, lifetime: float = 2.0) -> None:
         """Initialize ember.
         
         Args:
@@ -244,9 +250,9 @@ class Ember(Particle):
         self.drift_direction = 1 if random.random() > 0.5 else -1
         
         # Ember colors (red to yellow to white)
-        self.colors = [0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00]
+        self.colors: list[int] = [0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00]
     
-    def update(self, elapsed_time):
+    def update(self, elapsed_time: float) -> None:
         """Update ember physics."""
         # Move up
         self.y = self.start_y - (self.speed * elapsed_time)
@@ -255,7 +261,7 @@ class Ember(Particle):
         drift_amount = self.drift * elapsed_time * self.drift_direction
         self.x = self.start_x + drift_amount
     
-    async def render(self, display):
+    async def render(self, display: Any) -> None:
         """Render ember with color transition."""
         x = int(self.x)
         y = int(self.y)
@@ -279,7 +285,7 @@ class Ember(Particle):
         final_color = (r << 16) | (g << 8) | b
         await display.set_pixel(x, y, final_color)
     
-    def is_dead(self, elapsed_time):
+    def is_dead(self, elapsed_time: float) -> bool:
         """Ember dies when it rises off screen or expires."""
         return (self.y < 0) or super().is_dead(elapsed_time)
 
@@ -287,7 +293,7 @@ class Ember(Particle):
 class Snow(Particle):
     """Snow flake that falls gently."""
     
-    def __init__(self, x, y, speed=3.0, sway=1.0, lifetime=5.0):
+    def __init__(self, x: int, y: int, speed: float = 3.0, sway: float = 1.0, lifetime: float = 5.0) -> None:
         """Initialize snow flake.
         
         Args:
@@ -300,9 +306,9 @@ class Snow(Particle):
         super().__init__(x, y, lifetime)
         self.speed = speed
         self.sway = sway
-        self.sway_phase = random.random() * 6.28  # Random phase for sway
+        self.sway_phase: float = random.random() * 6.28  # Random phase for sway
     
-    def update(self, elapsed_time):
+    def update(self, elapsed_time: float) -> None:
         """Update snow physics."""
         # Fall down
         self.y = self.start_y + (self.speed * elapsed_time)
@@ -312,7 +318,7 @@ class Snow(Particle):
         sway_offset = self.sway * math.sin(elapsed_time * 2 + self.sway_phase)
         self.x = self.start_x + sway_offset
     
-    async def render(self, display):
+    async def render(self, display: Any) -> None:
         """Render snow flake."""
         x = int(self.x)
         y = int(self.y)
@@ -323,6 +329,6 @@ class Snow(Particle):
         # White snow flake
         await display.set_pixel(x, y, 0xFFFFFF)
     
-    def is_dead(self, elapsed_time):
+    def is_dead(self, elapsed_time: float) -> bool:
         """Snow dies when it falls off screen."""
         return (self.y >= 32) or super().is_dead(elapsed_time)

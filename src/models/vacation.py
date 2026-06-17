@@ -4,9 +4,9 @@ Copyright 2024 3DUPFitters LLC
 """
 from adafruit_datetime import datetime
 
-from src.utils.error_handler import ErrorHandler
-from src.config.settings_manager import SettingsManager
-from src.utils.url_utils import url_decode
+from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.config.settings_manager import SettingsManager
+from scrollkit.utils.url_utils import url_decode
 
 # Initialize logger
 logger = ErrorHandler("error_log")

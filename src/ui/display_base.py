@@ -5,8 +5,8 @@ Copyright 2024 3DUPFitters LLC
 import asyncio
 import time
 
-from src.config.settings_manager import SettingsManager
-from src.utils.error_handler import ErrorHandler
+from scrollkit.config.settings_manager import SettingsManager
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

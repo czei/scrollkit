@@ -3,6 +3,8 @@
 Provides simple transition effects optimized for ESP32 performance.
 """
 
+from __future__ import annotations
+
 try:
     import time
     get_time = time.monotonic
@@ -10,16 +12,20 @@ except (ImportError, AttributeError):
     import time
     get_time = time.time
 
+from typing import Any, Optional
+
+from ..exceptions import DisplayError
+
 
 class TransitionEngine:
     """Engine for managing content transitions."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize transition engine."""
         self.active_transition = None
-        self.transition_start_time = 0
+        self.transition_start_time: float = 0
     
-    async def start_transition(self, transition, from_content, to_content):
+    async def start_transition(self, transition: Any, from_content: Any, to_content: Any) -> None:
         """Start a transition between content.
         
         Args:
@@ -33,7 +39,7 @@ class TransitionEngine:
         transition.to_content = to_content
         await transition.start()
     
-    async def update(self, display):
+    async def update(self, display: Any) -> None:
         """Update active transition.
         
         Args:
@@ -51,7 +57,7 @@ class TransitionEngine:
             await self.active_transition.complete()
             self.active_transition = None
     
-    def is_transitioning(self):
+    def is_transitioning(self) -> bool:
         """Check if a transition is active.
         
         Returns:
@@ -63,21 +69,21 @@ class TransitionEngine:
 class BaseTransition:
     """Base class for transitions."""
     
-    def __init__(self, duration=1.0):
+    def __init__(self, duration: float = 1.0) -> None:
         """Initialize transition.
         
         Args:
             duration: Transition duration in seconds
         """
-        self.duration = duration
-        self.from_content = None
-        self.to_content = None
+        self.duration: float = duration
+        self.from_content: Any = None
+        self.to_content: Any = None
     
-    async def start(self):
+    async def start(self) -> None:
         """Called when transition starts."""
         pass
     
-    async def update(self, display, progress):
+    async def update(self, display: Any, progress: float) -> None:
         """Update transition.
         
         Args:
@@ -86,7 +92,7 @@ class BaseTransition:
         """
         raise NotImplementedError("Subclass must implement update()")
     
-    async def complete(self):
+    async def complete(self) -> None:
         """Called when transition completes."""
         pass
 
@@ -94,7 +100,7 @@ class BaseTransition:
 class FadeTransition(BaseTransition):
     """Fade transition using display brightness."""
     
-    def __init__(self, duration=1.0, fade_color=0x000000):
+    def __init__(self, duration: float = 1.0, fade_color: int = 0x000000) -> None:
         """Initialize fade transition.
         
         Args:
@@ -102,11 +108,11 @@ class FadeTransition(BaseTransition):
             fade_color: Color to fade through (default black)
         """
         super().__init__(duration)
-        self.fade_color = fade_color
-        self.original_brightness = 1.0
-        self.phase = "fade_out"  # fade_out -> fade_in
+        self.fade_color: int = fade_color
+        self.original_brightness: float = 1.0
+        self.phase: str = "fade_out"  # fade_out -> fade_in
     
-    async def start(self):
+    async def start(self) -> None:
         """Store original brightness."""
         # Try to get original brightness
         if hasattr(self.from_content, 'display') and hasattr(self.from_content.display, 'brightness'):
@@ -114,7 +120,7 @@ class FadeTransition(BaseTransition):
         else:
             self.original_brightness = 1.0
     
-    async def update(self, display, progress):
+    async def update(self, display: Any, progress: float) -> None:
         """Update fade transition."""
         if not hasattr(display, 'brightness'):
             # Fallback to instant transition if brightness not supported
@@ -146,7 +152,7 @@ class FadeTransition(BaseTransition):
             if self.to_content:
                 await self.to_content.render(display)
     
-    async def complete(self):
+    async def complete(self) -> None:
         """Restore original brightness."""
         if hasattr(self.to_content, 'display') and hasattr(self.to_content.display, 'brightness'):
             self.to_content.display.brightness = self.original_brightness
@@ -155,7 +161,7 @@ class FadeTransition(BaseTransition):
 class WipeTransition(BaseTransition):
     """Wipe transition - progressive reveal."""
     
-    def __init__(self, duration=1.0, direction="left"):
+    def __init__(self, duration: float = 1.0, direction: str = "left") -> None:
         """Initialize wipe transition.
         
         Args:
@@ -163,9 +169,9 @@ class WipeTransition(BaseTransition):
             direction: Wipe direction ("left", "right", "up", "down")
         """
         super().__init__(duration)
-        self.direction = direction
+        self.direction: str = direction
     
-    async def update(self, display, progress):
+    async def update(self, display: Any, progress: float) -> None:
         """Update wipe transition."""
         width = display.width
         height = display.height
@@ -217,7 +223,7 @@ class WipeTransition(BaseTransition):
                         color = self._get_content_pixel_color(x, y, progress)
                         await display.set_pixel(x, y, color)
     
-    def _get_content_pixel_color(self, x, y, progress):
+    def _get_content_pixel_color(self, x: int, y: int, progress: float) -> int:
         """Get pixel color for new content at position.
         
         This is a simplified implementation - in reality you'd
@@ -246,7 +252,7 @@ class WipeTransition(BaseTransition):
 class SlideTransition(BaseTransition):
     """Slide transition - content slides in from edge."""
     
-    def __init__(self, duration=1.0, direction="left", easing="linear"):
+    def __init__(self, duration: float = 1.0, direction: str = "left", easing: str = "linear") -> None:
         """Initialize slide transition.
         
         Args:
@@ -255,10 +261,10 @@ class SlideTransition(BaseTransition):
             easing: Easing function ("linear", "ease_out")
         """
         super().__init__(duration)
-        self.direction = direction
-        self.easing = easing
+        self.direction: str = direction
+        self.easing: str = easing
     
-    def _apply_easing(self, progress):
+    def _apply_easing(self, progress: float) -> float:
         """Apply easing function to progress.
         
         Args:
@@ -274,9 +280,8 @@ class SlideTransition(BaseTransition):
             # Linear
             return progress
     
-    async def update(self, display, progress):
+    async def update(self, display: Any, progress: float) -> None:
         """Update slide transition."""
-        # Apply easing
         eased_progress = self._apply_easing(progress)
         
         width = display.width
@@ -313,7 +318,7 @@ class SlideTransition(BaseTransition):
             # Render new content at offset position
             await self._render_content_at_offset(display, self.to_content, 0, offset_y)
     
-    async def _render_content_at_offset(self, display, content, offset_x, offset_y):
+    async def _render_content_at_offset(self, display: Any, content: Any, offset_x: int, offset_y: int) -> None:
         """Render content at offset position.
         
         Args:

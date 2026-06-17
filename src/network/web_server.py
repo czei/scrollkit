@@ -12,10 +12,10 @@ from adafruit_httpserver import Response
 from adafruit_httpserver.methods import GET, POST
 
 from src.models.vacation import Vacation
-from src.utils.color_utils import ColorUtils
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.color_utils import ColorUtils
+from scrollkit.utils.error_handler import ErrorHandler
 from adafruit_httpserver import REQUEST_HANDLED_RESPONSE_SENT
-from src.ui.display_factory import is_circuitpython
+from scrollkit.display.display_factory import is_circuitpython
 
 # Initialize logger
 logger = ErrorHandler("error_log")

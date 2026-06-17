@@ -103,11 +103,14 @@ def mock_display():
     display.brightness = 0.8
     
     # Make async methods actually async
+    display.initialize = AsyncMock()
     display.clear = AsyncMock()
     display.set_pixel = AsyncMock()
     display.render = AsyncMock()
     display.show = AsyncMock()
     display.draw_text = AsyncMock()
+    display.scroll_text = AsyncMock()
+    display.fill = AsyncMock()
     
     return display
 

@@ -15,6 +15,9 @@ if is_circuitpython:
         sys.path.append('/src/lib')
     if '/lib' not in sys.path:
         sys.path.append('/lib')  # Fallback
+    # Ensure src/ is on path so scrollkit.* imports resolve
+    if '/src' not in sys.path:
+        sys.path.insert(0, '/src')
 
 # Import asyncio (required for the main app)
 try:

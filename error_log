@@ -6,8 +6,41 @@ Unified display initialized successfully
 Running in development mode, using simulated WiFi
 Development mode - web server will be initialized differently
 Initializing Theme Park Waits application
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
 Starting initialization sequence...
 WiFi password initialized
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
 Dev mode - using simulated socket pool
 Dev mode - using urllib-based HTTP client
 HTTP client session updated
@@ -18,13 +51,19 @@ Clock initialized
 Vacation data loaded from settings
 Attempting to fetch park list (attempt 1/3)
 Fetching park list from https://queue-times.com/parks.json (attempt 1/3)
-Successfully fetched 133 parks
-Successfully fetched 133 parks on attempt 1
+Successfully fetched 131 parks
+Successfully fetched 131 parks on attempt 1
 Theme park service initialized. Steps completed: vacation_loaded, fetch_park_list, load_park_settings, load_vacation_settings
 Park list initialized
 Updating theme park data
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
 Starting parallel update of 2 selected parks
 Fetching data for park ID 334 from https://queue-times.com/parks/334/queue_times.json (attempt 1/2)
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
 Successfully fetched data for park ID 334
 Fetching data for park ID 5 from https://queue-times.com/parks/5/queue_times.json (attempt 1/2)
 Successfully fetched data for park ID 5
@@ -40,3 +79,3319 @@ Development web server started at http://localhost:8080
 Development web server started at http://localhost:8080
 Web server started successfully: DevThemeParkWebServer
 Development mode: Running display loop with threaded web server
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 205, in set_text
+    logger.info(f"Text length: {text_length}, height %: {height_percentage:.2f}, scale: {scale_factor:.2f}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 421, in show_scroll_message
+    logger.info(f"Scroll message: {message}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Error in display loop:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/app.py", line 588, in run_display_loop
+    await self.message_queue.show()
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/message_queue.py", line 269, in show
+    await asyncio.create_task(
+        self.func_queue[self.index](params))
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 428, in show_scroll_message
+    self.scroll(0.03)  # Slightly slower scroll speed for better readability
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 228, in scroll
+    logger.debug(f"Set scroll speed: {self.frame_delay} seconds between frames")
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 220, in debug
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Error rendering text: Choose theme park at http://themeparkwaits.local:[Errno 32] Broken pipe
+stack trace:Traceback (most recent call last):
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/ui/simulator_display.py", line 213, in set_text
+    logger.info(f"Rendered text at size: {scaled_width}x{scaled_height}")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src/scrollkit/utils/error_handler.py", line 257, in info
+    print(message)
+    ~~~~~^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128
+Scroll message: Choose theme park at http://themeparkwaits.local
+Text length: 48, height %: 0.40, scale: 2.37
+Rendered text at size: 2685x128

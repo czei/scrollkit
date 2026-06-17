@@ -116,10 +116,29 @@ class TestAsyncHttpRequest:
         # Verify body combines chunks correctly
         assert body == b"chunk1\r\nabc"
     
-    @pytest.mark.skip("This test requires complex mocking of asyncio open_connection")
     @pytest.mark.asyncio
     async def test_async_read_url(self):
         """Test the main async_read_url function"""
-        # This test requires complex mocking of asyncio open_connection
-        # and is left as an exercise for further implementation
-        pass
+        from src.network.async_http_request import async_read_url
+        from unittest.mock import AsyncMock
+
+        mock_reader = AsyncMock()
+        mock_writer = AsyncMock()
+
+        # Simulate HTTP response
+        mock_reader.readline.side_effect = [
+            b"HTTP/1.1 200 OK\r\n",
+            b"Content-Type: application/json\r\n",
+            b"Content-Length: 13\r\n",
+            b"\r\n",
+        ]
+        mock_reader.readexactly.return_value = b'{"key":"val"}'
+
+        with patch('ssl.create_default_context'):
+            with patch('asyncio.open_connection', new_callable=AsyncMock) as mock_connect:
+                mock_connect.return_value = (mock_reader, mock_writer)
+
+                header, body = await async_read_url("example.com", "/test")
+
+                assert "200" in header
+                assert body == b'{"key":"val"}'

@@ -62,12 +62,30 @@ class TestHttpClientErrors:
                 assert response.status_code == 500
     
     @pytest.mark.asyncio
-    @pytest.mark.skip("Test requires complex setup with dynamic imports")
     async def test_out_of_retries_exception_handling(self):
         """Test specific handling of OutOfRetries exception"""
-        # This test requires mocking a lot of imports that happen inside the method
-        # and is causing issues with the test suite. Skip for now.
-        pass
+        mock_session = MagicMock()
+
+        # Create a simple OutOfRetries-like exception
+        class OutOfRetries(Exception):
+            pass
+
+        mock_session.get.side_effect = OutOfRetries("Socket failures")
+
+        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+            with patch('src.network.http_client.logger'):
+                client = HttpClient(session=mock_session)
+                client.using_adafruit = True
+
+                # Mock internal session recreation attempt
+                with patch('src.network.http_client.adafruit_requests', create=True):
+                    with patch('src.network.http_client.socketpool', create=True):
+                        with patch('src.network.http_client.wifi', create=True):
+                            with patch('src.network.http_client.ssl', create=True):
+                                response = await client.get("https://example.com/api/test", max_retries=2)
+
+                                # Verify sleep was called during retry cycle
+                                assert mock_sleep.call_count > 0
     
     @pytest.mark.asyncio
     async def test_post_request_error(self):

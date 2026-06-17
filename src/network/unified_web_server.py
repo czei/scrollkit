@@ -6,7 +6,7 @@ Copyright 2024 3DUPFitters LLC
 import sys
 from src.network.web_server_core import WebServerCore
 from src.network.server_adapters import create_server_adapter
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

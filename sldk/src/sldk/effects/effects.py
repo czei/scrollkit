@@ -3,6 +3,12 @@
 Provides lightweight visual effects optimized for ESP32 performance.
 """
 
+from __future__ import annotations
+
+from typing import Any, List, Optional
+
+from ..exceptions import DisplayError
+
 try:
     import time
     get_time = time.monotonic
@@ -36,22 +42,22 @@ class EffectsEngine:
     Designed to work within CircuitPython memory and performance constraints.
     """
     
-    def __init__(self, max_effects=2, target_fps=5):
+    def __init__(self, max_effects: int = 2, target_fps: int = 5) -> None:
         """Initialize effects engine.
         
         Args:
             max_effects: Maximum concurrent effects (memory constraint)
             target_fps: Target effects frame rate (performance constraint)
         """
-        self.max_effects = max_effects
-        self.target_fps = target_fps
-        self.frame_duration = 1.0 / target_fps
+        self.max_effects: int = max_effects
+        self.target_fps: int = target_fps
+        self.frame_duration: float = 1.0 / target_fps
         
-        self.active_effects = []
-        self.last_frame_time = 0
+        self.active_effects: list = []
+        self.last_frame_time: float = 0
         
         # Pre-allocated color tables to save memory
-        self.rainbow_colors = [
+        self.rainbow_colors: list[int] = [
             0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00,
             0xCCFF00, 0x99FF00, 0x66FF00, 0x33FF00, 0x00FF00, 0x00FF33,
             0x00FF66, 0x00FF99, 0x00FFCC, 0x00FFFF, 0x00CCFF, 0x0099FF,
@@ -59,10 +65,10 @@ class EffectsEngine:
             0xCC00FF, 0xFF00FF, 0xFF00CC, 0xFF0099, 0xFF0066, 0xFF0033
         ]
         
-        self.warm_colors = [0xFF4500, 0xFF6347, 0xFF7F50, 0xFFA500, 0xFFD700]
-        self.cool_colors = [0x00FFFF, 0x87CEEB, 0x4169E1, 0x0000FF, 0x8A2BE2]
+        self.warm_colors: list[int] = [0xFF4500, 0xFF6347, 0xFF7F50, 0xFFA500, 0xFFD700]
+        self.cool_colors: list[int] = [0x00FFFF, 0x87CEEB, 0x4169E1, 0x0000FF, 0x8A2BE2]
     
-    def add_effect(self, effect):
+    def add_effect(self, effect: Any) -> bool:
         """Add effect to active list.
         
         Args:
@@ -74,7 +80,7 @@ class EffectsEngine:
             return True
         return False
     
-    def remove_effect(self, effect):
+    def remove_effect(self, effect: Any) -> None:
         """Remove effect from active list.
         
         Args:
@@ -83,7 +89,7 @@ class EffectsEngine:
         if effect in self.active_effects:
             self.active_effects.remove(effect)
     
-    async def update(self, display):
+    async def update(self, display: Any) -> None:
         """Update all active effects.
         
         Args:
@@ -113,11 +119,11 @@ class EffectsEngine:
                 print(f"Effect error: {e}")
                 self.active_effects.pop(i)
     
-    def clear_effects(self):
+    def clear_effects(self) -> None:
         """Clear all active effects."""
         self.active_effects.clear()
     
-    def get_rainbow_color(self, position, time_offset=0):
+    def get_rainbow_color(self, position: float, time_offset: float = 0) -> int:
         """Get rainbow color from pre-calculated table.
         
         Args:
@@ -134,7 +140,7 @@ class EffectsEngine:
         index = int(animated_position * len(self.rainbow_colors)) % len(self.rainbow_colors)
         return self.rainbow_colors[index]
     
-    def blend_colors(self, color1, color2, ratio):
+    def blend_colors(self, color1: int, color2: int, ratio: float) -> int:
         """Blend two colors together.
         
         Args:
@@ -165,16 +171,16 @@ class EffectsEngine:
 class SimpleEffect:
     """Base class for simple effects."""
     
-    def __init__(self, duration=None):
+    def __init__(self, duration: Optional[float] = None) -> None:
         """Initialize effect.
         
         Args:
             duration: Effect duration in seconds (None = infinite)
         """
-        self.duration = duration
-        self.start_time = 0
+        self.duration: Optional[float] = duration
+        self.start_time: float = 0
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Update effect for current frame.
         
         Args:
@@ -187,7 +193,7 @@ class SimpleEffect:
 class RainbowCycleEffect(SimpleEffect):
     """Rainbow color cycling effect."""
     
-    def __init__(self, speed=1.0, duration=None):
+    def __init__(self, speed: float = 1.0, duration: Optional[float] = None) -> None:
         """Initialize rainbow cycle.
         
         Args:
@@ -195,11 +201,11 @@ class RainbowCycleEffect(SimpleEffect):
             duration: Effect duration
         """
         super().__init__(duration)
-        self.speed = speed
-        self.last_update_time = 0
-        self.update_interval = 0.2  # Update every 200ms for performance
+        self.speed: float = speed
+        self.last_update_time: float = 0
+        self.update_interval: float = 0.2  # Update every 200ms for performance
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Apply rainbow cycling to entire display."""
         # Throttle updates for performance
         if elapsed_time - self.last_update_time < self.update_interval:
@@ -242,7 +248,7 @@ class RainbowCycleEffect(SimpleEffect):
 class SparkleEffect(SimpleEffect):
     """Simple sparkle effect with minimal memory usage."""
     
-    def __init__(self, intensity=3, duration=None):
+    def __init__(self, intensity: int = 3, duration: Optional[float] = None) -> None:
         """Initialize sparkle effect.
         
         Args:
@@ -250,13 +256,13 @@ class SparkleEffect(SimpleEffect):
             duration: Effect duration
         """
         super().__init__(duration)
-        self.intensity = min(intensity, 5)  # Limit for performance
-        self.sparkle_positions = []
-        self.sparkle_life = []
-        self.last_spawn_time = 0
-        self.spawn_interval = 0.3  # New sparkle every 300ms
+        self.intensity: int = min(intensity, 5)  # Limit for performance
+        self.sparkle_positions: list = []
+        self.sparkle_life: list = []
+        self.last_spawn_time: float = 0
+        self.spawn_interval: float = 0.3  # New sparkle every 300ms
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Update sparkles."""
         # Spawn new sparkle occasionally
         if elapsed_time - self.last_spawn_time > self.spawn_interval:
@@ -289,7 +295,7 @@ class SparkleEffect(SimpleEffect):
 class PulseEffect(SimpleEffect):
     """Brightness pulse effect using display brightness control."""
     
-    def __init__(self, speed=1.0, min_brightness=0.1, max_brightness=1.0, duration=None):
+    def __init__(self, speed: float = 1.0, min_brightness: float = 0.1, max_brightness: float = 1.0, duration: Optional[float] = None) -> None:
         """Initialize pulse effect.
         
         Args:
@@ -299,12 +305,12 @@ class PulseEffect(SimpleEffect):
             duration: Effect duration
         """
         super().__init__(duration)
-        self.speed = speed
-        self.min_brightness = min_brightness
-        self.max_brightness = max_brightness
-        self.original_brightness = None
+        self.speed: float = speed
+        self.min_brightness: float = min_brightness
+        self.max_brightness: float = max_brightness
+        self.original_brightness: Optional[float] = None
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Update brightness pulse."""
         # Store original brightness on first update
         if self.original_brightness is None:
@@ -326,7 +332,7 @@ class PulseEffect(SimpleEffect):
 class EdgeGlowEffect(SimpleEffect):
     """Simple edge glow effect."""
     
-    def __init__(self, color=0x00FFFF, duration=None):
+    def __init__(self, color: int = 0x00FFFF, duration: Optional[float] = None) -> None:
         """Initialize edge glow.
         
         Args:
@@ -334,11 +340,11 @@ class EdgeGlowEffect(SimpleEffect):
             duration: Effect duration
         """
         super().__init__(duration)
-        self.color = color
-        self.last_update = 0
-        self.update_interval = 0.1  # Update every 100ms
+        self.color: int = color
+        self.last_update: float = 0
+        self.update_interval: float = 0.1  # Update every 100ms
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Update edge glow."""
         if elapsed_time - self.last_update < self.update_interval:
             return
@@ -372,7 +378,7 @@ class EdgeGlowEffect(SimpleEffect):
 class CornerFlashEffect(SimpleEffect):
     """Flash the corners of the display."""
     
-    def __init__(self, color=0xFFFFFF, flash_duration=0.2, interval=1.0, duration=None):
+    def __init__(self, color: int = 0xFFFFFF, flash_duration: float = 0.2, interval: float = 1.0, duration: Optional[float] = None) -> None:
         """Initialize corner flash.
         
         Args:
@@ -382,11 +388,11 @@ class CornerFlashEffect(SimpleEffect):
             duration: Total effect duration
         """
         super().__init__(duration)
-        self.color = color
-        self.flash_duration = flash_duration
-        self.interval = interval
+        self.color: int = color
+        self.flash_duration: float = flash_duration
+        self.interval: float = interval
     
-    async def update(self, display, elapsed_time):
+    async def update(self, display: Any, elapsed_time: float) -> None:
         """Update corner flash."""
         # Calculate if we're in a flash period
         cycle_time = elapsed_time % self.interval

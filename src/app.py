@@ -8,15 +8,15 @@ import gc
 import time
 import sys
 
-from src.config.settings_manager import SettingsManager
+from scrollkit.config.settings_manager import SettingsManager
 from src.api.theme_park_service import ThemeParkService
 from src.ui.message_queue import MessageQueue
-from src.utils.error_handler import ErrorHandler
-from src.utils.timer import Timer
-from src.network.wifi_manager import WiFiManager
-from src.utils.url_utils import load_credentials
-from src.ui.display_factory import is_dev_mode, is_circuitpython
-from src.ota.ota_updater import OTAUpdater
+from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.utils.timer import Timer
+from scrollkit.network.wifi_manager import WiFiManager
+from scrollkit.utils.url_utils import load_credentials
+from scrollkit.display.display_factory import is_dev_mode, is_circuitpython
+from scrollkit.ota.ota_updater import OTAUpdater
 
 # Initialize logger
 logger = ErrorHandler("error_log")
@@ -299,7 +299,7 @@ class ThemeParkApp:
             import wifi
             
             # Import set_system_clock function
-            from src.utils.system_utils import set_system_clock
+            from scrollkit.utils.system_utils import set_system_clock
             
             # Pass both HTTP client and socketpool for flexibility
             await set_system_clock(self.http_client, self.socket_pool)

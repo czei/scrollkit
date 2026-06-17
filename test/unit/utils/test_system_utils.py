@@ -37,7 +37,7 @@ class TestSystemUtils(unittest.TestCase):
                 
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_with_live_server(self, mock_error_handler):
         """Test NTP time synchronization with real NTP server"""
         # Import adafruit_ntp if available, otherwise skip test
@@ -129,7 +129,7 @@ class TestSystemUtils(unittest.TestCase):
         
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_different_servers(self, mock_error_handler):
         """Test NTP with different NTP servers"""
         try:
@@ -174,7 +174,7 @@ class TestSystemUtils(unittest.TestCase):
             
     @patch('src.utils.system_utils.HAS_NTP', False)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_ntp_module(self, mock_error_handler):
         """Test when NTP module is not available"""
         from src.utils.system_utils import set_system_clock_ntp
@@ -191,7 +191,7 @@ class TestSystemUtils(unittest.TestCase):
         
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', False)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_hardware(self, mock_error_handler):
         """Test when hardware is not available"""
         from src.utils.system_utils import set_system_clock_ntp
@@ -208,7 +208,7 @@ class TestSystemUtils(unittest.TestCase):
         
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_invalid_socket_pool(self, mock_error_handler):
         """Test with invalid socket pool"""
         from src.utils.system_utils import set_system_clock_ntp
@@ -227,7 +227,7 @@ class TestSystemUtils(unittest.TestCase):
         
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_getaddrinfo(self, mock_error_handler):
         """Test with socket pool missing getaddrinfo"""
         from src.utils.system_utils import set_system_clock_ntp
@@ -249,7 +249,7 @@ class TestSystemUtils(unittest.TestCase):
         
     @patch('src.utils.system_utils.HAS_NTP', True)
     @patch('src.utils.system_utils.HAS_HARDWARE', True)
-    @patch('src.utils.error_handler.ErrorHandler')
+    @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_network_timeout(self, mock_error_handler):
         """Test NTP with network issues (unreachable server)"""
         try:

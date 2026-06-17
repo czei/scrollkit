@@ -4,10 +4,13 @@ Implements a priority-based queue system for managing display items.
 Supports manual processing, expiration handling, and fair scheduling.
 """
 
+from __future__ import annotations
+
 import heapq
 import time
-from typing import List, Optional, Callable, Any
+from typing import Any, Callable, List, Optional
 from .strategy import DisplayItem, Priority, get_strategy_registry
+from ..exceptions import ContentError, ValidationError
 
 try:
     # CircuitPython compatibility
@@ -31,12 +34,12 @@ class DisplayQueue:
             max_items: Maximum number of items to keep in queue
             default_duration: Default duration for items without duration set
         """
-        self.max_items = max_items
-        self.default_duration = default_duration
+        self.max_items: int = max_items
+        self.default_duration: float = default_duration
         self._queue: List[DisplayItem] = []
         self._current_item: Optional[DisplayItem] = None
         self._item_start_time: Optional[float] = None
-        self._on_item_expired: Optional[Callable] = None
+        self._on_item_expired: Optional[Callable[[DisplayItem], None]] = None
         
         # Statistics
         self.stats = {
@@ -154,7 +157,7 @@ class DisplayQueue:
             self.stats['items_processed'] += 1
             return True
             
-        except Exception as e:
+        except (ContentError, ValidationError, ValueError, OSError) as e:
             # Log error and move to next item
             print(f"Error processing display item: {e}")
             self._current_item = None

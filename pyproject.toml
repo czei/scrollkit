@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "scrollkit"
+version = "0.1.0"
+description = "LED Matrix Display Framework for CircuitPython and Desktop"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "3DUPFitters LLC"}
+]
+keywords = ["circuitpython", "led-matrix", "display", "matrixportal", "simulator"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Hardware",
+]
+
+[project.optional-dependencies]
+simulator = ["pygame>=2.0", "Pillow>=9.0"]
+
+[project.urls]
+Homepage = "https://github.com/Czeiszperger/scrollkit"
+Repository = "https://github.com/Czeiszperger/scrollkit"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["scrollkit*"]

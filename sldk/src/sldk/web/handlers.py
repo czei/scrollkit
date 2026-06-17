@@ -3,61 +3,78 @@
 Provides base classes for handling HTTP requests and serving content.
 """
 
+from __future__ import annotations
+
 import os
+from typing import Any, Dict, Optional, Tuple, Union
 
 from .adapters import route, MockResponse
 
 
 class WebHandler:
     """Base class for web request handlers.
-    
+
     Provides common functionality for handling HTTP requests
     and generating responses.
     """
-    
-    def __init__(self, adapter):
+
+    adapter: Any
+    _static_cache: Dict[str, Tuple[Union[str, bytes], str]]
+
+    def __init__(self, adapter: Any) -> None:
         """Initialize web handler.
-        
+
         Args:
             adapter: Server adapter instance
         """
         self.adapter = adapter
         self._static_cache = {}
-    
-    def create_response(self, body, status=200, content_type="text/html"):
+
+    def create_response(
+        self,
+        body: Union[str, bytes],
+        status: int = 200,
+        content_type: str = "text/html",
+    ) -> MockResponse:
         """Create an HTTP response.
-        
+
         Args:
             body: Response body content
             status: HTTP status code
             content_type: MIME content type
-            
+
         Returns:
             Response object
         """
         return MockResponse(body, status, content_type)
-    
-    def create_redirect_response(self, message, status="success", redirect_url="/", delay=3):
+
+    def create_redirect_response(
+        self,
+        message: str,
+        status: str = "success",
+        redirect_url: str = "/",
+        delay: int = 3,
+    ) -> MockResponse:
         """Create a redirect response with status message.
-        
+
         Args:
             message: Message to display
             status: Status type (success, error, info)
             redirect_url: URL to redirect to
             delay: Delay in seconds before redirect
-            
+
         Returns:
             Response object with redirect HTML
         """
-        status_colors = {
+        status_colors: Dict[str, str] = {
             "success": "#4CAF50",
-            "error": "#f44336", 
+            "error": "#f44336",
             "info": "#2196F3",
-            "warning": "#ff9800"
+            "warning": "#ff9800",
         }
-        
+
         color = status_colors.get(status, "#2196F3")
-        
+
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -132,19 +149,19 @@ class WebHandler:
 </html>
 """
         return self.create_response(html)
-    
-    def get_content_type(self, filename):
+
+    def get_content_type(self, filename: str) -> str:
         """Get MIME content type for a file.
-        
+
         Args:
             filename: Name of the file
-            
+
         Returns:
             str: MIME content type
         """
         ext = os.path.splitext(filename)[1].lower()
-        
-        content_types = {
+
+        content_types: Dict[str, str] = {
             '.html': 'text/html',
             '.css': 'text/css',
             '.js': 'application/javascript',
@@ -156,60 +173,56 @@ class WebHandler:
             '.ico': 'image/x-icon',
             '.svg': 'image/svg+xml',
             '.txt': 'text/plain',
-            '.xml': 'application/xml'
+            '.xml': 'application/xml',
         }
-        
+
         return content_types.get(ext, 'application/octet-stream')
-    
-    def serve_static_file(self, filename, static_dir=None):
+
+    def serve_static_file(
+        self,
+        filename: str,
+        static_dir: Optional[str] = None,
+    ) -> Optional[MockResponse]:
         """Serve a static file.
-        
+
         Args:
             filename: Name of the file to serve
             static_dir: Directory containing static files
-            
+
         Returns:
             Response object or None if file not found
         """
         if static_dir is None:
             static_dir = self.adapter.static_dir
-        
-        # Security check - prevent directory traversal
+
         if '..' in filename or filename.startswith('/'):
             return None
-        
+
         file_path = os.path.join(static_dir, filename)
-        
-        # Check cache first
+
         if file_path in self._static_cache:
             content, content_type = self._static_cache[file_path]
             return self.create_response(content, content_type=content_type)
-        
+
         try:
-            # Determine if file should be read as binary
             content_type = self.get_content_type(filename)
             is_binary = content_type.startswith('image/') or content_type == 'application/octet-stream'
-            
-            # Read file
+
             mode = 'rb' if is_binary else 'r'
             encoding = None if is_binary else 'utf-8'
-            
+
             with open(file_path, mode, encoding=encoding) as f:
                 content = f.read()
-            
-            # Cache the content
+
             self._static_cache[file_path] = (content, content_type)
-            
+
             return self.create_response(content, content_type=content_type)
-            
+
         except (OSError, IOError):
-            # File not found or can't be read
             return None
-    
-    # Example route handlers - override these in subclasses
-    
+
     @route("/")
-    def route_index(self, request):
+    def route_index(self, request: Any) -> MockResponse:
         """Handle index page requests."""
         return self.create_response("""
 <!DOCTYPE html>
@@ -259,13 +272,13 @@ class WebHandler:
 
 class StaticFileHandler(WebHandler):
     """Handler specifically for serving static files.
-    
+
     Provides efficient static file serving with caching.
     """
-    
-    def __init__(self, adapter, static_dir=None):
+
+    def __init__(self, adapter: Any, static_dir: Optional[str] = None) -> None:
         """Initialize static file handler.
-        
+
         Args:
             adapter: Server adapter instance
             static_dir: Directory containing static files
@@ -273,44 +286,41 @@ class StaticFileHandler(WebHandler):
         super().__init__(adapter)
         if static_dir:
             self.adapter.static_dir = static_dir
-    
+
     @route("/static/<path:filename>")
-    def route_static(self, request):
+    def route_static(self, request: Any) -> MockResponse:
         """Handle static file requests."""
-        # Extract filename from path
         path = request.path
         if path.startswith('/static/'):
-            filename = path[8:]  # Remove '/static/' prefix
+            filename = path[8:]
         else:
             filename = os.path.basename(path)
-        
+
         response = self.serve_static_file(filename)
         if response:
             return response
         else:
             return self.create_response("File not found", status=404, content_type="text/plain")
-    
+
     @route("/style.css")
-    def route_css(self, request):
+    def route_css(self, request: Any) -> MockResponse:
         """Handle CSS file requests."""
         response = self.serve_static_file("style.css")
         if response:
             return response
         else:
-            # Return default CSS if file not found
             return self.create_response(self.get_default_css(), content_type="text/css")
-    
+
     @route("/favicon.ico")
-    def route_favicon(self, request):
+    def route_favicon(self, request: Any) -> MockResponse:
         """Handle favicon requests."""
         response = self.serve_static_file("favicon.ico")
         if response:
             return response
         else:
-            # Return 204 No Content for missing favicon
             return self.create_response("", status=204)
-    
-    def get_default_css(self):
+
+    def get_default_css(self) -> str:
         """Get default CSS styles for SLDK applications."""
         return """
 /* SLDK Default Styles */
@@ -431,25 +441,24 @@ body {
     gap: 20px;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .container {
         margin: 10px;
         border-radius: 10px;
     }
-    
+
     .header {
         padding: 20px;
     }
-    
+
     .header h1 {
         font-size: 28px;
     }
-    
+
     .content {
         padding: 20px;
     }
-    
+
     .grid {
         grid-template-columns: 1fr;
     }
@@ -459,58 +468,62 @@ body {
 
 class APIHandler(WebHandler):
     """Handler for API endpoints that return JSON responses."""
-    
-    def create_json_response(self, data, status=200):
+
+    def create_json_response(self, data: Any, status: int = 200) -> MockResponse:
         """Create a JSON response.
-        
+
         Args:
             data: Data to serialize as JSON
             status: HTTP status code
-            
+
         Returns:
             Response object with JSON content
         """
         import json
-        
+
         try:
             json_data = json.dumps(data)
             return self.create_response(json_data, status=status, content_type="application/json")
         except (TypeError, ValueError) as e:
-            # JSON serialization error
             error_data = {"error": "Failed to serialize response", "details": str(e)}
             return self.create_response(
-                json.dumps(error_data), 
-                status=500, 
-                content_type="application/json"
+                json.dumps(error_data),
+                status=500,
+                content_type="application/json",
             )
-    
-    def create_error_response(self, message, status=400, error_code=None):
+
+    def create_error_response(
+        self,
+        message: str,
+        status: int = 400,
+        error_code: Optional[str] = None,
+    ) -> MockResponse:
         """Create a JSON error response.
-        
+
         Args:
             message: Error message
             status: HTTP status code
             error_code: Optional error code
-            
+
         Returns:
             Response object with JSON error
         """
-        error_data = {
+        error_data: Dict[str, Any] = {
             "error": message,
-            "status": status
+            "status": status,
         }
-        
+
         if error_code:
             error_data["code"] = error_code
-        
+
         return self.create_json_response(error_data, status=status)
-    
+
     @route("/api/status")
-    def route_api_status(self, request):
+    def route_api_status(self, request: Any) -> MockResponse:
         """Handle API status requests."""
-        status_data = {
+        status_data: Dict[str, str] = {
             "status": "running",
             "framework": "SLDK",
-            "version": "0.1.0"
+            "version": "0.1.0",
         }
         return self.create_json_response(status_data)

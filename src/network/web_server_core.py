@@ -4,7 +4,7 @@ This eliminates the duplication between web_server.py and dev_web_server.py.
 Copyright 2024 3DUPFitters LLC
 """
 import json
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

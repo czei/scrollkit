@@ -84,9 +84,18 @@ class BaseDevice(ABC):
         # Add display to manager
         self.display_manager.add_display(self.matrix)
         
-        # Create window and run
+        # Create window and run with enhanced update callback
         self.display_manager.create_window(title=title)
-        self.display_manager.run(update_callback)
+        
+        def enhanced_update_callback():
+            # Call user's update callback first
+            if update_callback:
+                update_callback()
+            # Refresh the displayio content to the matrix
+            if self.display:
+                self.display.refresh()
+        
+        self.display_manager.run(enhanced_update_callback)
         
     def run_once(self):
         """Run a single update cycle without entering main loop."""

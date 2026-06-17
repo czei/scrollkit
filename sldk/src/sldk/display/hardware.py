@@ -3,7 +3,12 @@
 Provides display interface for actual LED matrix hardware.
 """
 
+from __future__ import annotations
+
 import sys
+from typing import Any, Optional
+
+from ..exceptions import DisplayError
 
 # Verify we're on CircuitPython
 if not (hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython'):
@@ -20,39 +25,39 @@ from .interface import DisplayInterface
 class HardwareDisplay(DisplayInterface):
     """Hardware display implementation for LED matrices."""
     
-    def __init__(self, width=64, height=32):
+    def __init__(self, width: int = 64, height: int = 32):
         """Initialize hardware display.
         
         Args:
             width: Display width in pixels
             height: Display height in pixels
         """
-        self._width = width
-        self._height = height
-        self._brightness = 0.3
+        self._width: int = width
+        self._height: int = height
+        self._brightness: float = 0.3
         
         # Hardware components
-        self.matrix = None
-        self.display = None
+        self.matrix: Any = None
+        self.display: Any = None
         
         # Display groups
-        self.main_group = None
-        self._initialized = False
+        self.main_group: Any = None
+        self._initialized: bool = False
         
         # Default font
-        self.font = terminalio.FONT
+        self.font: Any = terminalio.FONT
         
     @property
-    def width(self):
+    def width(self) -> int:
         """Display width in pixels."""
         return self._width
         
     @property
-    def height(self):
+    def height(self) -> int:
         """Display height in pixels."""
         return self._height
     
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the display hardware."""
         if self._initialized:
             return
@@ -72,11 +77,11 @@ class HardwareDisplay(DisplayInterface):
             self._initialized = True
             print("Hardware display initialized")
             
-        except Exception as e:
+        except (DisplayError, ImportError, OSError) as e:
             print(f"Failed to initialize hardware: {e}")
             raise
     
-    async def clear(self):
+    async def clear(self) -> None:
         """Clear the display."""
         # Hide all groups
         for i in range(len(self.main_group)):
@@ -85,13 +90,13 @@ class HardwareDisplay(DisplayInterface):
         # Fill with black
         self.matrix.fill(0x000000)
     
-    async def show(self):
+    async def show(self) -> bool:
         """Update the physical display."""
         if self.display:
             self.display.refresh(minimum_frames_per_second=0)
         return True
     
-    async def set_pixel(self, x, y, color):
+    async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel color.
         
         Args:
@@ -102,7 +107,7 @@ class HardwareDisplay(DisplayInterface):
         if self.matrix and 0 <= x < self._width and 0 <= y < self._height:
             self.matrix[x, y] = color
     
-    async def fill(self, color):
+    async def fill(self, color: int) -> None:
         """Fill entire display with color.
         
         Args:
@@ -111,7 +116,7 @@ class HardwareDisplay(DisplayInterface):
         if self.matrix:
             self.matrix.fill(color)
     
-    async def set_brightness(self, brightness):
+    async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
         
         Args:
@@ -122,10 +127,10 @@ class HardwareDisplay(DisplayInterface):
         if self.display:
             try:
                 self.display.brightness = self._brightness
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 print(f"Failed to set brightness: {e}")
     
-    async def draw_text(self, text, x=0, y=0, color=0xFFFFFF, font=None):
+    async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display.
         
         Args:
@@ -149,7 +154,7 @@ class HardwareDisplay(DisplayInterface):
         label_group.append(label)
         self.main_group.append(label_group)
     
-    async def scroll_text(self, text, y=0, color=0xFFFFFF, speed=0.05):
+    async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.
         
         Args:

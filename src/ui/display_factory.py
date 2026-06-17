@@ -5,7 +5,7 @@ Copyright 2024 3DUPFitters LLC
 """
 import sys
 import os
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

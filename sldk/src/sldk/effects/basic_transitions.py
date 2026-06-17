@@ -4,8 +4,12 @@ Provides simple but effective transition effects that work well on
 LED matrices with CircuitPython performance constraints.
 """
 
+from __future__ import annotations
+
 import time
-from typing import Callable
+from typing import Any, Callable, Dict, Optional, Tuple
+
+from ..exceptions import DisplayError
 from .base import Effect, register_effect
 
 try:
@@ -28,7 +32,7 @@ class FadeInEffect(Effect):
         """
         super().__init__(duration=duration, **kwargs)
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply fade in effect."""
         # Store original brightness
         original_brightness = getattr(display, 'brightness', 1.0)
@@ -83,7 +87,7 @@ class SlideInEffect(Effect):
         super().__init__(duration=duration, **kwargs)
         self.direction = direction
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply slide in effect."""
         # Get display dimensions
         width = getattr(display, 'width', 64)
@@ -123,7 +127,7 @@ class SlideInEffect(Effect):
                 else:
                     time.sleep(step_duration)
     
-    def _calculate_slide_offset(self, distance: int, progress: float) -> tuple:
+    def _calculate_slide_offset(self, distance: int, progress: float) -> Tuple[int, int]:
         """Calculate slide offset for current progress.
         
         Args:
@@ -151,7 +155,7 @@ class SlideInEffect(Effect):
         else:
             return (0, 0)
     
-    async def _render_with_offset(self, display, render_func: Callable, 
+    async def _render_with_offset(self, display: Any, render_func: Callable[..., Any], 
                                 offset_x: int, offset_y: int) -> None:
         """Render content with position offset.
         
@@ -192,7 +196,7 @@ class WipeEffect(Effect):
         super().__init__(duration=duration, **kwargs)
         self.direction = direction
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply wipe effect.
         
         Note: This is a simplified implementation. A full wipe effect
@@ -232,7 +236,7 @@ class WipeEffect(Effect):
                     time.sleep(step_duration)
     
     def _calculate_wipe_area(self, width: int, height: int, 
-                           step: int, total_steps: int) -> dict:
+                           step: int, total_steps: int) -> Dict[str, Any]:
         """Calculate the wiped area for current step."""
         progress = step / total_steps if total_steps > 0 else 1.0
         
@@ -281,8 +285,8 @@ class WipeEffect(Effect):
                 'y_end': height
             }
     
-    async def _render_with_wipe_clipping(self, display, render_func: Callable, 
-                                       wipe_area: dict) -> None:
+    async def _render_with_wipe_clipping(self, display: Any, render_func: Callable[..., Any], 
+                                       wipe_area: Dict[str, Any]) -> None:
         """Render content with wipe clipping."""
         # Set clipping area if supported
         if hasattr(display, 'set_clip_area'):
@@ -324,7 +328,7 @@ class PulseEffect(Effect):
         self.min_brightness = min_brightness
         self.max_brightness = max_brightness
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply pulse effect."""
         # Store original brightness
         original_brightness = getattr(display, 'brightness', 1.0)
@@ -385,7 +389,7 @@ class FlashEffect(Effect):
         self.flashes = flashes
         self.flash_brightness = flash_brightness
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply flash effect."""
         # Store original brightness
         original_brightness = getattr(display, 'brightness', 1.0)

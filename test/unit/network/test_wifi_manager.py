@@ -41,96 +41,66 @@ class TestWiFiManager:
                     assert wifi_manager.is_connected is False
                     assert "WifiManager_" in wifi_manager.AP_SSID
     
-    @pytest.mark.skip("Test needs complex import mocking")
     def test_initialization_without_wifi(self):
         """Test initialization without WiFi module available"""
-        # Mock the import to raise ImportError
-        with patch('src.network.wifi_manager.wifi', side_effect=ImportError("No wifi module")):
-            # Mock settings manager
-            mock_sm = MagicMock()
-            
-            # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
-                mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
-                
-                # Create WiFiManager
-                wifi_manager = WiFiManager(mock_sm)
-                
-                # Verify initialization with fallback
-                assert wifi_manager.HAS_WIFI is False
-                assert wifi_manager.ssid == 'TestSSID'
-                assert wifi_manager.password == 'TestPassword'
-                assert wifi_manager.is_connected is False
+        mock_sm = MagicMock()
+
+        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
+            # Simulate no wifi module by not adding it to sys.modules
+            wifi_manager = WiFiManager(mock_sm)
+
+            assert wifi_manager.HAS_WIFI is False
+            assert wifi_manager.ssid == 'TestSSID'
+            assert wifi_manager.password == 'TestPassword'
+            assert wifi_manager.is_connected is False
     
     @pytest.mark.asyncio
-    @pytest.mark.skip("Test needs complex module mocking")
     async def test_connect_success(self):
         """Test successful WiFi connection"""
-        # Mock the wifi module
-        with patch('src.network.wifi_manager.wifi') as mock_wifi:
-            # Setup mock
-            mock_wifi.radio.connect = MagicMock()
-            mock_wifi.radio.ipv4_address = "192.168.1.100"
-            
-            # Mock settings manager
-            mock_sm = MagicMock()
-            
-            # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
-                mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
-                
-                # Create WiFiManager with mocked methods
+        mock_wifi = MagicMock()
+        mock_wifi.radio.connect = MagicMock()
+        mock_wifi.radio.ipv4_address = "192.168.1.100"
+
+        mock_sm = MagicMock()
+
+        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
+
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
                 wifi_manager = WiFiManager(mock_sm)
                 wifi_manager.create_http_session = MagicMock(return_value=MagicMock())
-                
-                # Mock display callback
+
                 mock_callback = AsyncMock()
-                
-                # Connect to WiFi
                 result = await wifi_manager.connect(display_callback=mock_callback)
-                
-                # Verify connection was successful
+
                 assert result is True
                 assert wifi_manager.is_connected is True
                 mock_wifi.radio.connect.assert_called_once_with('TestSSID', 'TestPassword')
-                # Verify HTTP session was created after successful connection
                 assert wifi_manager.create_http_session.called
     
     @pytest.mark.asyncio
-    @pytest.mark.skip("Test needs complex module mocking")
     async def test_connect_failure(self):
         """Test failed WiFi connection"""
-        # Mock the wifi module
-        with patch('src.network.wifi_manager.wifi') as mock_wifi:
-            # Setup mock to fail connection
-            mock_wifi.radio.connect = MagicMock(side_effect=Exception("Connection failed"))
-            
-            # Mock settings manager
-            mock_sm = MagicMock()
-            
-            # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
-                mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
-                
-                # Mock asyncio.sleep to avoid delays
-                with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-                    # Create WiFiManager
+        mock_wifi = MagicMock()
+        mock_wifi.radio.connect = MagicMock(side_effect=Exception("Connection failed"))
+
+        mock_sm = MagicMock()
+
+        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
+
+            with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+                with patch.dict('sys.modules', {'wifi': mock_wifi}):
                     wifi_manager = WiFiManager(mock_sm)
-                    
-                    # Mock display callback
+
                     mock_callback = AsyncMock()
-                    
-                    # Connect to WiFi (should fail)
                     result = await wifi_manager.connect(display_callback=mock_callback)
-                    
-                    # Verify connection failed
+
                     assert result is False
                     assert wifi_manager.is_connected is False
-                    # Verify connect was attempted multiple times
                     assert mock_wifi.radio.connect.call_count == 3
-                    # Verify display callback was called for each attempt
                     assert mock_callback.call_count == 3
-                    # Verify sleep was called between retries
                     assert mock_sleep.call_count == 3
     
     @pytest.mark.asyncio
@@ -149,7 +119,7 @@ class TestWiFiManager:
                 mock_load_credentials.return_value = ('', '')
                 
                 # Mock logger to prevent actual logging
-                with patch('src.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
                     # Mock the import statement
                     with patch.dict('sys.modules', {'wifi': mock_wifi}):
                         # Create WiFiManager
@@ -177,7 +147,7 @@ class TestWiFiManager:
                 mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                 
                 # Mock logger to prevent actual logging
-                with patch('src.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
                     # Mock the import statement
                     with patch.dict('sys.modules', {'wifi': mock_wifi}):
                         # Create WiFiManager with connect method mocked
@@ -196,11 +166,35 @@ class TestWiFiManager:
                         assert result is True
                         assert wifi_manager.connect.called
     
-    @pytest.mark.skip("Test needs complex dependencies that are imported within methods")
     def test_create_http_session(self):
         """Test HTTP session creation"""
-        # This test requires too much module patching to be practical
-        pass
+        mock_wifi = MagicMock()
+        mock_sm = MagicMock()
+
+        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
+
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                wifi_manager = WiFiManager(mock_sm)
+                wifi_manager.is_connected = True
+
+                mock_ssl = MagicMock()
+                mock_pool = MagicMock()
+                mock_requests = MagicMock()
+                mock_socketpool = MagicMock()
+                mock_socketpool.SocketPool = MagicMock(return_value=mock_pool)
+                mock_session = MagicMock()
+                mock_requests.Session.return_value = mock_session
+
+                with patch.dict('sys.modules', {
+                    'ssl': mock_ssl,
+                    'socketpool': mock_socketpool,
+                    'adafruit_requests': mock_requests,
+                }):
+                    result = wifi_manager.create_http_session()
+
+                    assert result is not None
+                    mock_requests.Session.assert_called_once()
     
     def test_scan_networks(self):
         """Test scanning for WiFi networks"""
@@ -223,7 +217,7 @@ class TestWiFiManager:
             # Mock load_credentials
             with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
                 # Mock logger to prevent actual logging
-                with patch('src.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
                     mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                     
                     # Mock the import statement
@@ -257,7 +251,7 @@ class TestWiFiManager:
                 # Mock _save_to_secrets_file method
                 with patch.object(WiFiManager, '_save_to_secrets_file', MagicMock()) as mock_save_to_secrets:
                     # Mock logger to prevent actual logging
-                    with patch('src.network.wifi_manager.logger') as mock_logger:
+                    with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
                         mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                         
                         # Mock the import statement

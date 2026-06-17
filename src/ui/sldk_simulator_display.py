@@ -22,8 +22,8 @@ from sldk.simulator.terminalio import FONT as terminalio_FONT
 
 from src.ui.display_interface import DisplayInterface
 from src.ui.reveal_animation import show_reveal_splash
-from src.utils.color_utils import ColorUtils
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.color_utils import ColorUtils
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

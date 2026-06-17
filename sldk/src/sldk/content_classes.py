@@ -5,7 +5,11 @@ These classes offer a higher-level interface for creating display content with
 built-in support for effects.
 """
 
-from typing import Dict, Any, Optional
+from __future__ import annotations
+
+from typing import Dict, Any, Optional, List
+
+from .exceptions import ContentError
 from .display.strategy import DisplayItem, Priority
 
 
@@ -19,7 +23,7 @@ class BaseContent:
                  strategy_name: str,
                  data: Dict[str, Any],
                  priority: int = Priority.NORMAL,
-                 duration: Optional[float] = None):
+                 duration: Optional[float] = None) -> None:
         """Initialize content.
         
         Args:
@@ -28,13 +32,13 @@ class BaseContent:
             priority: Display priority
             duration: Display duration in seconds
         """
-        self.strategy_name = strategy_name
-        self.data = data
-        self.priority = priority
-        self.duration = duration
-        self.effects = []
+        self.strategy_name: str = strategy_name
+        self.data: Dict[str, Any] = data
+        self.priority: int = priority
+        self.duration: Optional[float] = duration
+        self.effects: List[Any] = []
     
-    def with_effect(self, effect):
+    def with_effect(self, effect: Any) -> 'BaseContent':
         """Add an effect to this content.
         
         Args:
@@ -46,7 +50,7 @@ class BaseContent:
         self.effects.append(effect)
         return self
     
-    def with_effects(self, effects: list):
+    def with_effects(self, effects: List[Any]) -> 'BaseContent':
         """Add multiple effects to this content.
         
         Args:
@@ -86,9 +90,9 @@ class TextContent(BaseContent):
                  x: int = 0,
                  y: int = 10,
                  color: int = 0xFFFFFF,
-                 font: str = None,
+                 font: Optional[str] = None,
                  priority: int = Priority.NORMAL,
-                 duration: Optional[float] = None):
+                 duration: Optional[float] = None) -> None:
         """Initialize text content.
         
         Args:
@@ -100,7 +104,7 @@ class TextContent(BaseContent):
             priority: Display priority
             duration: Display duration
         """
-        data = {
+        data: Dict[str, Any] = {
             'text': text,
             'x': x,
             'y': y,
@@ -110,7 +114,7 @@ class TextContent(BaseContent):
             data['font'] = font
         
         super().__init__('static_text', data, priority, duration)
-        self.text = text
+        self.text: str = text
 
 
 class ScrollingTextContent(BaseContent):
@@ -122,7 +126,7 @@ class ScrollingTextContent(BaseContent):
                  color: int = 0xFFFFFF,
                  speed: float = 0.05,
                  priority: int = Priority.NORMAL,
-                 duration: Optional[float] = None):
+                 duration: Optional[float] = None) -> None:
         """Initialize scrolling text content.
         
         Args:
@@ -133,7 +137,7 @@ class ScrollingTextContent(BaseContent):
             priority: Display priority
             duration: Display duration (auto-calculated if None)
         """
-        data = {
+        data: Dict[str, Any] = {
             'text': text,
             'y': y,
             'color': color,
@@ -141,7 +145,7 @@ class ScrollingTextContent(BaseContent):
         }
         
         super().__init__('scrolling_text', data, priority, duration)
-        self.text = text
+        self.text: str = text
 
 
 class SplashContent(BaseContent):
@@ -156,9 +160,9 @@ class SplashContent(BaseContent):
                  x: int = 0,
                  y: int = 10,
                  color: int = 0xFFFFFF,
-                 font: str = None,
+                 font: Optional[str] = None,
                  priority: int = Priority.HIGH,
-                 duration: float = 4.0):
+                 duration: float = 4.0) -> None:
         """Initialize splash content.
         
         Args:
@@ -170,7 +174,7 @@ class SplashContent(BaseContent):
             priority: Display priority (default HIGH)
             duration: Display duration (default 4 seconds)
         """
-        data = {
+        data: Dict[str, Any] = {
             'text': text,
             'x': x,
             'y': y,
@@ -180,7 +184,7 @@ class SplashContent(BaseContent):
             data['font'] = font
         
         super().__init__('static_text', data, priority, duration)
-        self.text = text
+        self.text: str = text
 
 
 class AlertContent(BaseContent):
@@ -190,7 +194,7 @@ class AlertContent(BaseContent):
                  message: str,
                  color: int = 0xFF0000,  # Red by default
                  priority: int = Priority.URGENT,
-                 duration: float = 3.0):
+                 duration: float = 3.0) -> None:
         """Initialize alert content.
         
         Args:
@@ -199,7 +203,7 @@ class AlertContent(BaseContent):
             priority: Display priority (default URGENT)
             duration: Display duration (default 3 seconds)
         """
-        data = {
+        data: Dict[str, Any] = {
             'text': message,
             'x': 0,
             'y': 10,
@@ -207,7 +211,7 @@ class AlertContent(BaseContent):
         }
         
         super().__init__('static_text', data, priority, duration)
-        self.message = message
+        self.message: str = message
 
 
 class CustomContent(BaseContent):
@@ -217,7 +221,7 @@ class CustomContent(BaseContent):
                  strategy_name: str,
                  data: Dict[str, Any],
                  priority: int = Priority.NORMAL,
-                 duration: Optional[float] = None):
+                 duration: Optional[float] = None) -> None:
         """Initialize custom content.
         
         Args:
@@ -230,7 +234,7 @@ class CustomContent(BaseContent):
 
 
 # Factory functions for convenience
-def create_text(text: str, **kwargs) -> TextContent:
+def create_text(text: str, **kwargs: Any) -> TextContent:
     """Create static text content.
     
     Args:
@@ -243,7 +247,7 @@ def create_text(text: str, **kwargs) -> TextContent:
     return TextContent(text, **kwargs)
 
 
-def create_scrolling_text(text: str, **kwargs) -> ScrollingTextContent:
+def create_scrolling_text(text: str, **kwargs: Any) -> ScrollingTextContent:
     """Create scrolling text content.
     
     Args:
@@ -256,7 +260,7 @@ def create_scrolling_text(text: str, **kwargs) -> ScrollingTextContent:
     return ScrollingTextContent(text, **kwargs)
 
 
-def create_splash(text: str, **kwargs) -> SplashContent:
+def create_splash(text: str, **kwargs: Any) -> SplashContent:
     """Create splash content.
     
     Args:
@@ -269,7 +273,7 @@ def create_splash(text: str, **kwargs) -> SplashContent:
     return SplashContent(text, **kwargs)
 
 
-def create_alert(message: str, **kwargs) -> AlertContent:
+def create_alert(message: str, **kwargs: Any) -> AlertContent:
     """Create alert content.
     
     Args:
@@ -283,7 +287,7 @@ def create_alert(message: str, **kwargs) -> AlertContent:
 
 
 # Example usage functions that demonstrate the desired API
-def example_usage():
+def example_usage() -> list:
     """Example of how to use the content system with effects."""
     from .effects import RevealEffect, FadeInEffect, PulseEffect
     

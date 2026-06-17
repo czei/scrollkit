@@ -3,6 +3,12 @@
 Provides base classes and implementations for displayable content.
 """
 
+from __future__ import annotations
+
+from typing import Any, List, Optional
+
+from ..exceptions import ContentError
+
 try:
     # Desktop Python
     import asyncio
@@ -16,26 +22,26 @@ except (ImportError, AttributeError):
 class DisplayContent:
     """Base class for displayable content."""
     
-    def __init__(self, duration=None):
+    def __init__(self, duration: Optional[float] = None):
         """Initialize display content.
         
         Args:
             duration: How long to display in seconds (None = forever)
         """
-        self.duration = duration
-        self._start_time = None
-        self._is_complete = False
+        self.duration: Optional[float] = duration
+        self._start_time: Optional[float] = None
+        self._is_complete: bool = False
     
-    async def start(self):
+    async def start(self) -> None:
         """Called when content starts displaying."""
         self._start_time = get_time()
         self._is_complete = False
     
-    async def stop(self):
+    async def stop(self) -> None:
         """Called when content stops displaying."""
         self._is_complete = True
     
-    async def render(self, display):
+    async def render(self, display) -> None:
         """Render content to display.
         
         Args:
@@ -44,14 +50,14 @@ class DisplayContent:
         raise NotImplementedError("Subclass must implement render()")
     
     @property
-    def elapsed(self):
+    def elapsed(self) -> float:
         """Time elapsed since content started displaying."""
         if self._start_time is None:
             return 0.0
         return get_time() - self._start_time
     
     @property
-    def is_complete(self):
+    def is_complete(self) -> bool:
         """Check if content display is complete."""
         if self._is_complete:
             return True
@@ -63,7 +69,7 @@ class DisplayContent:
 class StaticText(DisplayContent):
     """Static text display content."""
     
-    def __init__(self, text, x=0, y=0, color=0xFFFFFF, duration=None):
+    def __init__(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, duration: Optional[float] = None):
         """Initialize static text.
         
         Args:
@@ -74,12 +80,12 @@ class StaticText(DisplayContent):
             duration: Display duration in seconds
         """
         super().__init__(duration)
-        self.text = text
-        self.x = x
-        self.y = y
-        self.color = color
+        self.text: str = text
+        self.x: int = x
+        self.y: int = y
+        self.color: int = color
     
-    async def render(self, display):
+    async def render(self, display) -> None:
         """Render static text to display."""
         await display.draw_text(self.text, self.x, self.y, self.color)
 
@@ -87,7 +93,7 @@ class StaticText(DisplayContent):
 class ScrollingText(DisplayContent):
     """Scrolling text display content."""
     
-    def __init__(self, text, x=None, y=0, color=0xFFFFFF, speed=30):
+    def __init__(self, text: str, x: Optional[int] = None, y: int = 0, color: int = 0xFFFFFF, speed: int = 30):
         """Initialize scrolling text.
         
         Args:
@@ -98,21 +104,21 @@ class ScrollingText(DisplayContent):
             speed: Scroll speed in pixels per second
         """
         super().__init__(duration=None)  # Scrolls until complete
-        self.text = text
-        self.x = x
-        self.y = y
-        self.color = color
-        self.speed = speed
-        self._position = None
-        self._text_width = None
+        self.text: str = text
+        self.x: Optional[int] = x
+        self.y: int = y
+        self.color: int = color
+        self.speed: int = speed
+        self._position: Optional[int] = None
+        self._text_width: Optional[int] = None
     
-    async def start(self):
+    async def start(self) -> None:
         """Start scrolling from right edge."""
         await super().start()
         # Position will be set on first render when we have display
         self._position = None
     
-    async def render(self, display):
+    async def render(self, display) -> None:
         """Render scrolling text to display."""
         # Initialize position on first render
         if self._position is None:
@@ -134,7 +140,7 @@ class ScrollingText(DisplayContent):
             self._is_complete = True
             
     @property
-    def is_complete(self):
+    def is_complete(self) -> bool:
         """Check if text has scrolled off screen."""
         return self._is_complete
 
@@ -142,18 +148,18 @@ class ScrollingText(DisplayContent):
 class ContentQueue:
     """Queue for managing display content."""
     
-    def __init__(self, loop=True):
+    def __init__(self, loop: bool = True):
         """Initialize content queue.
         
         Args:
             loop: Whether to loop back to start when queue ends
         """
-        self.loop = loop
-        self._items = []
-        self._current_index = 0
-        self._current_content = None
+        self.loop: bool = loop
+        self._items: List[Any] = []
+        self._current_index: int = 0
+        self._current_content: Optional[Any] = None
     
-    def add(self, content):
+    def add(self, content) -> None:
         """Add content to queue.
         
         Args:
@@ -161,7 +167,7 @@ class ContentQueue:
         """
         self._items.append(content)
     
-    def add_content(self, content):
+    def add_content(self, content) -> None:
         """Add content to queue (alias for add).
         
         Args:
@@ -169,17 +175,17 @@ class ContentQueue:
         """
         self.add(content)
     
-    def clear(self):
+    def clear(self) -> None:
         """Clear all content from queue."""
         self._items.clear()
         self._current_index = 0
         self._current_content = None
     
-    def get_content_count(self):
+    def get_content_count(self) -> int:
         """Get number of items in queue."""
         return len(self._items)
     
-    def get_current_content(self):
+    def get_current_content(self) -> Optional[Any]:
         """Get current content item (synchronous version)."""
         if not self._items:
             return None
@@ -187,7 +193,7 @@ class ContentQueue:
             self._current_content = self._items[0]
         return self._current_content
     
-    async def get_current(self):
+    async def get_current(self) -> Optional[Any]:
         """Get current content to display."""
         if not self._items:
             return None
@@ -215,6 +221,6 @@ class ContentQueue:
         return iter(self._items)
     
     @property
-    def is_empty(self):
+    def is_empty(self) -> bool:
         """Check if queue is empty."""
         return len(self._items) == 0

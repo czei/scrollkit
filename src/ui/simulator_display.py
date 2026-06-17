@@ -10,7 +10,7 @@ import os
 import asyncio
 from PIL import Image, ImageDraw, ImageFont
 from src.ui.display_interface import DisplayInterface
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 
 # Initialize logger

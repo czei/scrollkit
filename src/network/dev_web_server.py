@@ -13,7 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 import threading
 
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")
@@ -874,7 +874,7 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
         page += "<h3>Color Settings</h3>"
         
         # Import color utilities
-        from src.utils.color_utils import ColorUtils
+        from scrollkit.utils.color_utils import ColorUtils
         
         for color_setting_name, color_value in settings.items():
             if "color" in color_setting_name:

@@ -3,6 +3,12 @@
 Provides content classes that combine text/graphics with visual effects.
 """
 
+from __future__ import annotations
+
+from typing import Any, List, Optional
+
+from ..exceptions import ContentError
+
 from .content import DisplayContent, ScrollingText, StaticText
 from ..effects import EffectsEngine
 from ..effects.effects import SparkleEffect, EdgeGlowEffect
@@ -12,7 +18,7 @@ from ..effects.particles import ParticleEngine, Sparkle
 class EnhancedDisplayContent(DisplayContent):
     """Display content with integrated effects support."""
     
-    def __init__(self, duration=None, enable_effects=True):
+    def __init__(self, duration: Optional[float] = None, enable_effects: bool = True):
         """Initialize enhanced content.
         
         Args:
@@ -20,16 +26,16 @@ class EnhancedDisplayContent(DisplayContent):
             enable_effects: Whether to enable visual effects
         """
         super().__init__(duration)
-        self.enable_effects = enable_effects
+        self.enable_effects: bool = enable_effects
         
         if enable_effects:
-            self.effects_engine = EffectsEngine(max_effects=2, target_fps=8)
-            self.particle_engine = ParticleEngine(max_particles=4)
+            self.effects_engine: Any = EffectsEngine(max_effects=2, target_fps=8)
+            self.particle_engine: Any = ParticleEngine(max_particles=4)
         else:
-            self.effects_engine = None
-            self.particle_engine = None
+            self.effects_engine: Any = None
+            self.particle_engine: Any = None
     
-    async def render(self, display):
+    async def render(self, display) -> None:
         """Render content with effects.
         
         Args:
@@ -45,7 +51,7 @@ class EnhancedDisplayContent(DisplayContent):
             if self.particle_engine:
                 await self.particle_engine.update(display)
     
-    async def render_base_content(self, display):
+    async def render_base_content(self, display) -> None:
         """Render the base content without effects.
         
         Override this in subclasses.
@@ -55,7 +61,7 @@ class EnhancedDisplayContent(DisplayContent):
         """
         pass
     
-    def add_effect(self, effect):
+    def add_effect(self, effect) -> bool:
         """Add visual effect.
         
         Args:
@@ -65,7 +71,7 @@ class EnhancedDisplayContent(DisplayContent):
             return self.effects_engine.add_effect(effect)
         return False
     
-    def add_particle(self, particle):
+    def add_particle(self, particle) -> bool:
         """Add particle effect.
         
         Args:
@@ -75,7 +81,7 @@ class EnhancedDisplayContent(DisplayContent):
             return self.particle_engine.add_particle(particle)
         return False
     
-    def clear_effects(self):
+    def clear_effects(self) -> None:
         """Clear all effects and particles."""
         if self.effects_engine:
             self.effects_engine.clear_effects()
@@ -86,8 +92,8 @@ class EnhancedDisplayContent(DisplayContent):
 class SparklingText(EnhancedDisplayContent):
     """Text display with sparkle effects."""
     
-    def __init__(self, text, color=0xFFFFFF, sparkle_color=0xFFFFFF, 
-                 sparkle_intensity=2, duration=None):
+    def __init__(self, text: str, color: int = 0xFFFFFF, sparkle_color: int = 0xFFFFFF, 
+                 sparkle_intensity: int = 2, duration: Optional[float] = None):
         """Initialize sparkling text.
         
         Args:
@@ -98,17 +104,17 @@ class SparklingText(EnhancedDisplayContent):
             duration: Display duration
         """
         super().__init__(duration, enable_effects=True)
-        self.text = text
-        self.color = color
-        self.sparkle_color = sparkle_color
-        self.sparkle_intensity = sparkle_intensity
+        self.text: str = text
+        self.color: int = color
+        self.sparkle_color: int = sparkle_color
+        self.sparkle_intensity: int = sparkle_intensity
         
         # Add sparkle effect
         if self.effects_engine:
             sparkle = SparkleEffect(intensity=sparkle_intensity)
             self.add_effect(sparkle)
     
-    async def render_base_content(self, display):
+    async def render_base_content(self, display) -> None:
         """Render text content."""
         # Simple text rendering - draw text pixels
         # This is a simplified version - real implementation would use font rendering
@@ -120,7 +126,7 @@ class SparklingText(EnhancedDisplayContent):
             if 0 <= x < display.width and 0 <= y < display.height:
                 await display.set_pixel(x, y, self.color)
     
-    def _get_text_pixels(self):
+    def _get_text_pixels(self) -> List[tuple]:
         """Get pixel positions for text.
         
         Returns:
@@ -160,7 +166,7 @@ class SparklingText(EnhancedDisplayContent):
 class GlowingText(EnhancedDisplayContent):
     """Text with edge glow effect."""
     
-    def __init__(self, text, text_color=0xFFFFFF, glow_color=0x00FFFF, duration=None):
+    def __init__(self, text: str, text_color: int = 0xFFFFFF, glow_color: int = 0x00FFFF, duration: Optional[float] = None):
         """Initialize glowing text.
         
         Args:
@@ -170,16 +176,16 @@ class GlowingText(EnhancedDisplayContent):
             duration: Display duration
         """
         super().__init__(duration, enable_effects=True)
-        self.text = text
-        self.text_color = text_color
-        self.glow_color = glow_color
+        self.text: str = text
+        self.text_color: int = text_color
+        self.glow_color: int = glow_color
         
         # Add glow effect
         if self.effects_engine:
             glow = EdgeGlowEffect(color=glow_color)
             self.add_effect(glow)
     
-    async def render_base_content(self, display):
+    async def render_base_content(self, display) -> None:
         """Render text with center focus."""
         # Dark background for contrast
         for y in range(display.height):
@@ -193,7 +199,7 @@ class GlowingText(EnhancedDisplayContent):
             if 0 <= x < display.width and 0 <= y < display.height:
                 await display.set_pixel(x, y, self.text_color)
     
-    def _get_centered_text_pixels(self, display):
+    def _get_centered_text_pixels(self, display) -> List[tuple]:
         """Get centered text pixels.
         
         Args:
@@ -230,8 +236,8 @@ class GlowingText(EnhancedDisplayContent):
 class AnimatedBackground(EnhancedDisplayContent):
     """Animated background with particle effects."""
     
-    def __init__(self, background_color=0x001133, particle_type="sparkle", 
-                 particle_intensity=3, duration=None):
+    def __init__(self, background_color: int = 0x001133, particle_type: str = "sparkle", 
+                 particle_intensity: int = 3, duration: Optional[float] = None):
         """Initialize animated background.
         
         Args:
@@ -241,13 +247,13 @@ class AnimatedBackground(EnhancedDisplayContent):
             duration: Display duration
         """
         super().__init__(duration, enable_effects=True)
-        self.background_color = background_color
-        self.particle_type = particle_type
-        self.particle_intensity = particle_intensity
-        self.last_spawn_time = 0
-        self.spawn_interval = 0.5  # Spawn particles every 500ms
+        self.background_color: int = background_color
+        self.particle_type: str = particle_type
+        self.particle_intensity: int = particle_intensity
+        self.last_spawn_time: float = 0
+        self.spawn_interval: float = 0.5  # Spawn particles every 500ms
     
-    async def render_base_content(self, display):
+    async def render_base_content(self, display) -> None:
         """Render animated background."""
         # Fill with background color
         for y in range(display.height):
@@ -262,7 +268,7 @@ class AnimatedBackground(EnhancedDisplayContent):
             self._spawn_particles(display)
             self.last_spawn_time = current_time
     
-    def _spawn_particles(self, display):
+    def _spawn_particles(self, display) -> None:
         """Spawn particles based on type."""
         import random
         
@@ -289,7 +295,7 @@ class AnimatedBackground(EnhancedDisplayContent):
 class RainbowText(EnhancedDisplayContent):
     """Text with rainbow color cycling."""
     
-    def __init__(self, text, cycle_speed=1.0, duration=None):
+    def __init__(self, text: str, cycle_speed: float = 1.0, duration: Optional[float] = None):
         """Initialize rainbow text.
         
         Args:
@@ -298,11 +304,11 @@ class RainbowText(EnhancedDisplayContent):
             duration: Display duration
         """
         super().__init__(duration, enable_effects=False)  # No effects engine needed
-        self.text = text
-        self.cycle_speed = cycle_speed
+        self.text: str = text
+        self.cycle_speed: float = cycle_speed
         
         # Pre-calculated rainbow colors
-        self.rainbow_colors = [
+        self.rainbow_colors: List[int] = [
             0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00,
             0xCCFF00, 0x99FF00, 0x66FF00, 0x33FF00, 0x00FF00, 0x00FF33,
             0x00FF66, 0x00FF99, 0x00FFCC, 0x00FFFF, 0x00CCFF, 0x0099FF,
@@ -310,7 +316,7 @@ class RainbowText(EnhancedDisplayContent):
             0xCC00FF, 0xFF00FF, 0xFF00CC, 0xFF0099, 0xFF0066, 0xFF0033
         ]
     
-    async def render_base_content(self, display):
+    async def render_base_content(self, display) -> None:
         """Render rainbow text."""
         # Calculate current color based on elapsed time
         color_index = int(self.elapsed * self.cycle_speed * 5) % len(self.rainbow_colors)
@@ -323,7 +329,7 @@ class RainbowText(EnhancedDisplayContent):
             if 0 <= x < display.width and 0 <= y < display.height:
                 await display.set_pixel(x, y, current_color)
     
-    def _get_text_pixels(self):
+    def _get_text_pixels(self) -> List[tuple]:
         """Get text pixel positions."""
         # Simple text pattern for demo
         return [(4, x) for x in range(5, 25)]  # Horizontal line of text

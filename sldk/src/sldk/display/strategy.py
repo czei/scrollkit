@@ -5,9 +5,13 @@ Strategy pattern. Applications can register custom strategies to handle
 different types of display content.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Dict, Type, Any, Optional
+from typing import Any, Dict, Optional, Type
 import time
+
+from ..exceptions import ContentError, ValidationError
 
 try:
     # CircuitPython compatibility
@@ -18,12 +22,12 @@ except ImportError:
 
 class Priority:
     """Priority levels for display items."""
-    IDLE = 0
-    LOW = 1
-    NORMAL = 2
-    HIGH = 3
-    URGENT = 4
-    SYSTEM = 5
+    IDLE: int = 0
+    LOW: int = 1
+    NORMAL: int = 2
+    HIGH: int = 3
+    URGENT: int = 4
+    SYSTEM: int = 5
 
 
 class DisplayStrategy(ABC):

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Simple demo of the RevealEffect for SLDK.
 
-This demonstrates text reveal effects using direct device approach.
+This demonstrates text reveal effects using proper text rendering.
+
+NOTE: This is a simplified demo showing manual reveal implementation.
+For the full SLDK effects framework usage, see reveal_effect_sldk_demo.py
 """
 
 import os
@@ -13,22 +16,49 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
 def simple_reveal_demo():
-    """Simple reveal effect demo using direct device approach."""
+    """Simple reveal effect demo using proper text rendering."""
     print("SLDK Reveal Effect Demo")
     print("=" * 40)
-    print("Demonstrating text reveal effects")
+    print("Demonstrating text reveal effects with proper text rendering")
     
-    # Import device directly
+    # Import device and display components
     from sldk.simulator.devices import MatrixPortalS3
+    from sldk.simulator.displayio import Group
+    from sldk.simulator.adafruit_display_text import Label
+    from sldk.simulator.terminalio import FONT
     
     # Create device
     device = MatrixPortalS3()
     device.initialize()
     
+    # Create main display group
+    main_group = Group()
+    
     # Demo state
     demo_stage = 0
     stage_start = 0
-    stage_names = ["Right Reveal", "Down Reveal", "Center Reveal"]
+    stage_names = ["Right Reveal", "Character Reveal", "Center Reveal"]
+    
+    # Create labels for each stage (initially empty)
+    label1 = Label(font=FONT, text="", color=0x00FF00, scale=1)  # Green
+    label1.x = 1  # Adjusted for longer text
+    label1.y = 16
+    
+    label2 = Label(font=FONT, text="", color=0xFF0000, scale=1)  # Red
+    label2.x = 2
+    label2.y = 16
+    
+    label3 = Label(font=FONT, text="", color=0x0000FF, scale=1)  # Blue
+    label3.x = 16  # Will be centered dynamically
+    label3.y = 16
+    
+    # Add all labels to group (we'll control visibility via text content)
+    main_group.append(label1)
+    main_group.append(label2)
+    main_group.append(label3)
+    
+    # Show the group on display
+    device.display.show(main_group)
     
     def update():
         """Update function called each frame."""
@@ -40,89 +70,86 @@ def simple_reveal_demo():
         
         elapsed = current_time - stage_start
         
-        # Clear to black
-        device.matrix.fill(0x000000)
-        
-        if demo_stage == 0 and elapsed < 6:
-            # Stage 1: Right reveal of "THEME PARK WAITS"
-            text = "THEME PARK WAITS"
+        if demo_stage == 0:
+            # Stage 1: Right reveal of "WE LOVE ADAFRUIT"
+            text = "WE LOVE ADAFRUIT"
             reveal_duration = 3.0
+            
+            # Clear other labels
+            label2.text = ""
+            label3.text = ""
             
             if elapsed < reveal_duration:
                 # Revealing from left to right
-                progress = elapsed / reveal_duration
+                progress = min(elapsed / reveal_duration, 1.0)
                 reveal_chars = int(len(text) * progress)
-                
-                for i, char in enumerate(text[:reveal_chars]):
-                    char_x = 2 + i * 3
-                    if char_x < device.width:
-                        # Draw simple pixel representation of text
-                        device.matrix.set_pixel(char_x, 12, 0x00FF00)  # Green
-                        device.matrix.set_pixel(char_x, 13, 0x00FF00)
-                        device.matrix.set_pixel(char_x, 14, 0x00FF00)
-            else:
-                # Fully revealed - show complete text
-                for i, char in enumerate(text):
-                    char_x = 2 + i * 3
-                    if char_x < device.width:
-                        device.matrix.set_pixel(char_x, 12, 0x00FF00)
-                        device.matrix.set_pixel(char_x, 13, 0x00FF00)
-                        device.matrix.set_pixel(char_x, 14, 0x00FF00)
-                        
-        elif demo_stage == 1 and elapsed < 6:
-            # Stage 2: Down reveal of "SLDK EFFECTS"  
-            text = "SLDK EFFECTS"
-            reveal_duration = 3.0
-            
-            if elapsed < reveal_duration:
-                # Revealing from top to bottom
-                progress = elapsed / reveal_duration
-                reveal_rows = int(20 * progress)
-                
-                for i, char in enumerate(text):
-                    char_x = 2 + i * 4
-                    if char_x < device.width:
-                        for y in range(min(reveal_rows, 16)):
-                            if y + 8 < device.height:
-                                device.matrix.set_pixel(char_x, y + 8, 0xFF0000)  # Red
+                label1.text = text[:reveal_chars]
             else:
                 # Fully revealed
-                for i, char in enumerate(text):
-                    char_x = 2 + i * 4
-                    if char_x < device.width:
-                        for y in range(16):
-                            if y + 8 < device.height:
-                                device.matrix.set_pixel(char_x, y + 8, 0xFF0000)
+                label1.text = text
+                        
+        elif demo_stage == 1:
+            # Stage 2: Character-by-character reveal of "SLDK DEMO"
+            text = "SLDK DEMO"
+            reveal_duration = 3.0
+            
+            # Clear other labels
+            label1.text = ""
+            label3.text = ""
+            
+            if elapsed < reveal_duration:
+                # Revealing character by character
+                progress = min(elapsed / reveal_duration, 1.0)
+                reveal_chars = int(len(text) * progress)
+                label2.text = text[:reveal_chars]
+            else:
+                # Fully revealed
+                label2.text = text
                                 
         elif demo_stage == 2:
             # Stage 3: Center reveal of "REVEAL"
             text = "REVEAL"
             reveal_duration = 3.0
             
+            # Clear other labels
+            label1.text = ""
+            label2.text = ""
+            
             if elapsed < reveal_duration:
                 # Revealing from center outwards
-                progress = elapsed / reveal_duration
-                center_x = device.width // 2
-                reveal_width = int(device.width * progress)
+                progress = min(elapsed / reveal_duration, 1.0)
+                text_len = len(text)
+                center = text_len // 2
                 
-                for i, char in enumerate(text):
-                    char_x = center_x - len(text) * 2 + i * 4
-                    if abs(char_x - center_x) <= reveal_width // 2 and 0 <= char_x < device.width:
-                        device.matrix.set_pixel(char_x, 12, 0x0000FF)  # Blue
-                        device.matrix.set_pixel(char_x, 13, 0x0000FF)
-                        device.matrix.set_pixel(char_x, 14, 0x0000FF)
+                # Calculate how many characters to show from center
+                chars_to_show = int(text_len * progress)
+                half_chars = chars_to_show // 2
+                
+                if chars_to_show > 0:
+                    # Build the revealed text from center outwards
+                    if chars_to_show == 1:
+                        # Start with center character
+                        label3.text = text[center]
+                    else:
+                        # Expand from center
+                        start_idx = max(0, center - half_chars)
+                        end_idx = min(text_len, center + half_chars + 1)
+                        label3.text = text[start_idx:end_idx]
+                    
+                    # Center the label
+                    label3.x = 32 - (len(label3.text) * 3)
+                else:
+                    label3.text = ""
             else:
                 # Fully revealed
-                center_x = device.width // 2
-                for i, char in enumerate(text):
-                    char_x = center_x - len(text) * 2 + i * 4
-                    if 0 <= char_x < device.width:
-                        device.matrix.set_pixel(char_x, 12, 0x0000FF)
-                        device.matrix.set_pixel(char_x, 13, 0x0000FF)
-                        device.matrix.set_pixel(char_x, 14, 0x0000FF)
+                label3.text = text
+                label3.x = 32 - (len(text) * 3)
+        
+        # Force display refresh
+        device.display.show(main_group)
         
         # Advance stages
-        stage_duration = 6
+        stage_duration = 5
         if elapsed >= stage_duration:
             demo_stage = (demo_stage + 1) % 3  # 3 total stages
             stage_start = current_time

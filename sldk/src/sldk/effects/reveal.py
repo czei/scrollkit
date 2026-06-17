@@ -4,8 +4,12 @@ Provides a reveal animation that gradually shows content by unveiling
 it from one side to the other, similar to wiping away a cover.
 """
 
+from __future__ import annotations
+
 import time
-from typing import Callable
+from typing import Any, Callable, Dict, Optional
+
+from ..exceptions import DisplayError
 from .base import Effect, register_effect
 
 try:
@@ -48,7 +52,7 @@ class RevealEffect(Effect):
         self.steps = steps
         self.pause_at_end = pause_at_end
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply the reveal effect.
         
         Args:
@@ -101,7 +105,7 @@ class RevealEffect(Effect):
             else:
                 time.sleep(self.pause_at_end)
     
-    def _calculate_reveal_area(self, width: int, height: int, step: int) -> dict:
+    def _calculate_reveal_area(self, width: int, height: int, step: int) -> Dict[str, Any]:
         """Calculate the reveal area for the given step.
         
         Args:
@@ -159,7 +163,7 @@ class RevealEffect(Effect):
                 'y_end': height
             }
     
-    async def _render_with_clipping(self, display, render_func: Callable, reveal_area: dict) -> None:
+    async def _render_with_clipping(self, display: Any, render_func: Callable[..., Any], reveal_area: Dict[str, Any]) -> None:
         """Render content with clipping to the reveal area.
         
         Args:
@@ -215,7 +219,7 @@ class RevealCenterEffect(Effect):
         self.mode = mode
         self.pause_at_end = pause_at_end
     
-    async def apply(self, display, render_func: Callable) -> None:
+    async def apply(self, display: Any, render_func: Callable[..., Any]) -> None:
         """Apply the center reveal effect."""
         start_time = time.time()
         
@@ -265,7 +269,7 @@ class RevealCenterEffect(Effect):
                 time.sleep(self.pause_at_end)
     
     def _calculate_center_reveal_area(self, width: int, height: int, 
-                                    center_x: int, center_y: int, radius: int) -> dict:
+                                    center_x: int, center_y: int, radius: int) -> Dict[str, Any]:
         """Calculate the center reveal area."""
         if self.mode == 'iris':
             # Circular reveal
@@ -286,7 +290,7 @@ class RevealCenterEffect(Effect):
                 'y_end': min(height, center_y + half_radius)
             }
     
-    async def _render_with_center_clipping(self, display, render_func: Callable, reveal_area: dict) -> None:
+    async def _render_with_center_clipping(self, display: Any, render_func: Callable[..., Any], reveal_area: Dict[str, Any]) -> None:
         """Render content with center clipping."""
         # For simplicity, we'll use rectangular clipping even for circular mode
         # Advanced displays could implement true circular clipping

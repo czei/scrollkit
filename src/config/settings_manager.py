@@ -4,8 +4,8 @@ Copyright 2024 3DUPFitters LLC
 """
 import json
 
-from src.utils.error_handler import ErrorHandler
-from src.utils.color_utils import ColorUtils
+from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.utils.color_utils import ColorUtils
 
 # Initialize logger
 logger = ErrorHandler("error_log")

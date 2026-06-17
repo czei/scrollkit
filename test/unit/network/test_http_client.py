@@ -35,12 +35,22 @@ class TestHttpClient:
         assert data["status"] == "success"
         assert data["data"]["message"] == "Hello World"
     
-    @pytest.mark.skip("Test needs to be updated to match implementation")
     @pytest.mark.asyncio
     async def test_get_request_urllib(self):
         """Test making a GET request with the urllib client"""
-        # Skip this test until we can properly mock the dependencies
-        pass
+        mock_urllib = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.read.return_value = b'{"status": "ok"}'
+        mock_urllib.request.urlopen.return_value.__enter__.return_value = mock_response
+
+        client = HttpClient(session=None)
+        client.using_adafruit = False
+        client.urllib = mock_urllib.request
+
+        response = await client.get("https://example.com/api/test")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
     
     @pytest.mark.asyncio
     async def test_post_request_adafruit(self):
@@ -71,12 +81,20 @@ class TestHttpClient:
         data = json.loads(response.text)
         assert data["status"] == "created"
     
-    @pytest.mark.skip("Test needs to be updated to match implementation")
     @pytest.mark.asyncio
     async def test_error_handling(self):
         """Test error handling in the client"""
-        # Skip this test for now
-        pass
+        mock_session = MagicMock()
+        mock_session.get.side_effect = Exception("Connection error")
+
+        with patch('asyncio.sleep', new_callable=AsyncMock):
+            with patch('src.network.http_client.logger'):
+                client = HttpClient(session=mock_session)
+                client.using_adafruit = True
+
+                response = await client.get("https://example.com/api/test", max_retries=2)
+                assert response.status_code == 500
+                assert mock_session.get.call_count == 2
     
     @pytest.mark.asyncio
     async def test_json_request(self):

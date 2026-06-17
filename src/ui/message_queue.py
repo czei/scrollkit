@@ -4,7 +4,7 @@ Copyright 2024 3DUPFitters LLC
 """
 import asyncio
 
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 from src.models.vacation import Vacation
 from src.models.theme_park_list import ThemeParkList
 

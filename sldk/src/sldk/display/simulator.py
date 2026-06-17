@@ -3,7 +3,12 @@
 Provides display interface using the LED simulator for desktop development.
 """
 
+from __future__ import annotations
+
 import sys
+from typing import Any, Optional
+
+from ..exceptions import SimulatorError
 
 # Verify we're NOT on CircuitPython
 if hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython':
@@ -35,7 +40,7 @@ from .interface import DisplayInterface
 class SimulatorDisplay(DisplayInterface):
     """Simulator display implementation for desktop development."""
     
-    def __init__(self, width=64, height=32, scale=10):
+    def __init__(self, width: int = 64, height: int = 32, scale: int = 10):
         """Initialize simulator display.
         
         Args:
@@ -43,37 +48,37 @@ class SimulatorDisplay(DisplayInterface):
             height: Display height in pixels
             scale: Scale factor for window size
         """
-        self._width = width
-        self._height = height
-        self._scale = scale
-        self._brightness = 0.3
+        self._width: int = width
+        self._height: int = height
+        self._scale: int = scale
+        self._brightness: float = 0.3
         
         # Simulator components
-        self.device = None
-        self.matrix = None
-        self.display = None
+        self.device: Any = None
+        self.matrix: Any = None
+        self.display: Any = None
         
         # Display groups
-        self.main_group = None
-        self._initialized = False
+        self.main_group: Any = None
+        self._initialized: bool = False
         
         # Default font
-        self.font = terminalio.FONT
+        self.font: Any = terminalio.FONT
         
         # For pygame window
-        self._window_created = False
+        self._window_created: bool = False
         
     @property
-    def width(self):
+    def width(self) -> int:
         """Display width in pixels."""
         return self._width
         
     @property 
-    def height(self):
+    def height(self) -> int:
         """Display height in pixels."""
         return self._height
     
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the display simulator."""
         if self._initialized:
             return
@@ -104,11 +109,11 @@ class SimulatorDisplay(DisplayInterface):
             self._initialized = True
             print("Simulator display initialized")
             
-        except Exception as e:
+        except (ImportError, OSError, SimulatorError) as e:
             print(f"Failed to initialize simulator: {e}")
             raise
     
-    async def clear(self):
+    async def clear(self) -> None:
         """Clear the display."""
         # Hide all groups
         for child in self.main_group:
@@ -119,7 +124,7 @@ class SimulatorDisplay(DisplayInterface):
         if self.matrix and hasattr(self.matrix, 'fill'):
             self.matrix.fill(0x000000)
     
-    async def show(self):
+    async def show(self) -> bool:
         """Update the simulated display."""
         if not self.display:
             return True
@@ -175,7 +180,7 @@ class SimulatorDisplay(DisplayInterface):
         
         return True
     
-    async def set_pixel(self, x, y, color):
+    async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel color.
         
         Args:
@@ -200,7 +205,7 @@ class SimulatorDisplay(DisplayInterface):
             else:
                 print(f"Matrix object has no set_pixel method: {type(self.matrix)}")
     
-    async def fill(self, color):
+    async def fill(self, color: int) -> None:
         """Fill entire display with color.
         
         Args:
@@ -209,7 +214,7 @@ class SimulatorDisplay(DisplayInterface):
         if self.matrix and hasattr(self.matrix, 'fill'):
             self.matrix.fill(color)
     
-    async def set_brightness(self, brightness):
+    async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
         
         Args:
@@ -220,10 +225,10 @@ class SimulatorDisplay(DisplayInterface):
         if self.display:
             try:
                 self.display.brightness = self._brightness
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 print(f"Failed to set brightness: {e}")
     
-    async def draw_text(self, text, x=0, y=0, color=0xFFFFFF, font=None):
+    async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display.
         
         Args:
@@ -247,7 +252,7 @@ class SimulatorDisplay(DisplayInterface):
         label_group.append(label)
         self.main_group.append(label_group)
     
-    async def scroll_text(self, text, y=0, color=0xFFFFFF, speed=0.05):
+    async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.
         
         Args:
@@ -281,7 +286,7 @@ class SimulatorDisplay(DisplayInterface):
         # Remove the group
         self.main_group.remove(scroll_group)
     
-    async def create_window(self, title="SLDK Simulator"):
+    async def create_window(self, title: str = "SLDK Simulator") -> None:
         """Create the simulator window.
         
         Args:
@@ -327,7 +332,7 @@ class SimulatorDisplay(DisplayInterface):
             print("Pygame not available for window creation")
             pass
     
-    async def run_event_loop(self):
+    async def run_event_loop(self) -> None:
         """Run the display event loop.
         
         This keeps the simulator window responsive.

@@ -4,11 +4,14 @@ Provides the core orchestrator that coordinates display queue processing,
 strategy execution, and display management.
 """
 
+from __future__ import annotations
+
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from .strategy import Priority, get_strategy_registry
 from .queue import DisplayQueue, DisplayItem
 from .interface import DisplayInterface
+from ..exceptions import ContentError, DisplayError
 
 try:
     # CircuitPython compatibility
@@ -31,14 +34,14 @@ class DisplayManager:
             display: Display interface to render to
             queue: Display queue to use (creates default if None)
         """
-        self.display = display
-        self.queue = queue or DisplayQueue()
-        self._is_running = False
-        self._last_process_time = 0
-        self._process_interval = 0.1  # Process queue every 100ms by default
+        self.display: DisplayInterface = display
+        self.queue: DisplayQueue = queue or DisplayQueue()
+        self._is_running: bool = False
+        self._last_process_time: float = 0
+        self._process_interval: float = 0.1  # Process queue every 100ms by default
         
         # Statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             'render_time_total': 0.0,
             'render_time_avg': 0.0,
             'renders_completed': 0,
@@ -100,7 +103,7 @@ class DisplayManager:
             
             return True
             
-        except Exception as e:
+        except (ContentError, DisplayError, OSError) as e:
             self.stats['errors_encountered'] += 1
             print(f"Error in display manager: {e}")
             return True  # Continue processing despite errors
@@ -108,7 +111,7 @@ class DisplayManager:
     def add_item(self, strategy_name: str, data: Dict[str, Any], 
                  priority: int = Priority.NORMAL, 
                  duration: Optional[float] = None,
-                 effects: Optional[list] = None) -> bool:
+                 effects: Optional[List[Any]] = None) -> bool:
         """Add an item to the display queue.
         
         Args:

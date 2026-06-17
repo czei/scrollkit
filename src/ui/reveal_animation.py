@@ -13,7 +13,7 @@ except ImportError:
     # Fall back to CircuitPython displayio
     import displayio
 
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 logger = ErrorHandler("error_log")
 

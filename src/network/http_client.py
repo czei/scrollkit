@@ -4,7 +4,7 @@ Copyright 2024 3DUPFitters LLC
 """
 import json
 import gc
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")
@@ -122,7 +122,7 @@ class HttpClient:
         
         # Check if we're in dev mode
         try:
-            from src.ui.display_factory import is_dev_mode
+            from scrollkit.display.display_factory import is_dev_mode
             dev_mode = is_dev_mode()
         except ImportError:
             dev_mode = False

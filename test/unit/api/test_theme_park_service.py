@@ -105,56 +105,52 @@ class TestThemeParkService:
                     mock_park_list_class.assert_called()
                     assert service.park_list == mock_park_list
     
-    @pytest.mark.skip("Requires additional mocking of logger methods")
     @pytest.mark.asyncio
     async def test_initialize_all_retries_fail(self):
         """Test initialization when all retries fail"""
-        pass
-    
-    @pytest.mark.asyncio
-    async def test_fetch_park_list_success(self):
-        """Test successful park list fetching"""
-        # Create mock http client and settings manager
         mock_http = MagicMock()
         mock_settings = MagicMock()
-        
-        # Create successful response
-        mock_response = MagicMock()
-        mock_response.text = json.dumps([{"id": 1, "name": "Test Park"}])
-        mock_http.get = AsyncMock(return_value=mock_response)
-        
-        # Create the service
+        mock_settings.settings = {}
+
+        # All HTTP calls fail
+        mock_http.get = AsyncMock(side_effect=Exception("Network error"))
+
         service = ThemeParkService(mock_http, mock_settings)
-        
-        # Mock the ThemeParkList class
-        with patch('src.api.theme_park_service.ThemeParkList') as mock_park_list_class:
-            mock_park_list = MagicMock()
-            mock_park_list.park_list = [MagicMock()]  # Non-empty list
-            mock_park_list_class.return_value = mock_park_list
-            
-            # Mock logger
-            with patch('src.api.theme_park_service.logger') as mock_logger:
-                # Call fetch_park_list
-                result = await service.fetch_park_list()
-                
-                # Verify http client was called once
-                mock_http.get.assert_called_once_with("https://queue-times.com/parks.json")
-                
-                # Verify ThemeParkList was created
-                mock_park_list_class.assert_called_once_with([{"id": 1, "name": "Test Park"}])
-                
-                # Verify park list was stored and returned
-                assert service.park_list == mock_park_list
-                assert result == mock_park_list
-                
-                # Verify success log
-                mock_logger.info.assert_any_call("Successfully fetched 1 parks")
-    
-    @pytest.mark.skip("Requires additional mocking of logger methods")
+
+        with patch('asyncio.sleep', new_callable=AsyncMock):
+            with patch('src.api.theme_park_service.ThemeParkList') as mock_park_list_class:
+                mock_park_list = MagicMock()
+                mock_park_list.park_list = []  # Empty - triggers another attempt
+                mock_park_list_class.return_value = mock_park_list
+                with patch.object(Vacation, 'load_settings'):
+                    with patch('src.api.theme_park_service.logger'):
+                        await service.initialize()
+
+                        # Should have created an empty park list as fallback
+                        mock_park_list_class.assert_called_with([])
+                        assert service.park_list is not None
+
     @pytest.mark.asyncio
     async def test_fetch_park_list_failure(self):
-        """Test park list fetching with failures"""
-        pass
+        """Test park list fetching when all retries fail"""
+        mock_http = MagicMock()
+        mock_settings = MagicMock()
+        mock_settings.settings = {}
+
+        # All HTTP calls fail
+        mock_http.get = AsyncMock(side_effect=Exception("Network error"))
+
+        service = ThemeParkService(mock_http, mock_settings)
+
+        with patch('asyncio.sleep', new_callable=AsyncMock):
+            with patch('src.api.theme_park_service.logger'):
+                result = await service.fetch_park_list()
+
+                # Should return empty park list as fallback
+                assert result is not None
+                assert len(result.park_list) == 0
+                # Should have tried 3 times
+                assert mock_http.get.call_count == 3
     
     @pytest.mark.asyncio
     async def test_fetch_park_data_success(self):

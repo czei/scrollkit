@@ -19,8 +19,8 @@ if not is_circuitpython:
     import argparse  # argparse is not available in CircuitPython
 
 from src.app import ThemeParkApp
-from src.utils.error_handler import ErrorHandler
-from src.ui.display_factory import create_display, is_circuitpython, is_dev_mode
+from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.display.display_factory import create_display, is_circuitpython, is_dev_mode
 
 # Initialize logger
 logger = ErrorHandler("error_log")
@@ -53,7 +53,7 @@ async def main():
     
     try:
         # Create a settings manager
-        from src.config.settings_manager import SettingsManager
+        from scrollkit.config.settings_manager import SettingsManager
         settings_manager = SettingsManager("settings.json")
         
         # Create display using the factory (will automatically choose simulator or hardware)
@@ -73,7 +73,7 @@ async def main():
             # For CircuitPython hardware
             import wifi
             import mdns
-            from src.network.http_client import HttpClient
+            from scrollkit.network.http_client import HttpClient
             
             # Configure mDNS for hostname resolution
             # Use domain_name from settings (with fallback to "themeparkwaits" if not set)
@@ -92,7 +92,7 @@ async def main():
             
         else:
             # For non-hardware testing or dev mode
-            from src.network.http_client import HttpClient
+            from scrollkit.network.http_client import HttpClient
             
             # Create HTTP client
             http_client = HttpClient()

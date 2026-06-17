@@ -4,24 +4,40 @@ Unified web server that works on both CircuitPython and development environments
 Extracted from Theme Park API for the SLDK framework.
 """
 
-import sys
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
 
 try:
     import asyncio
 except ImportError:
-    # CircuitPython
     import asyncio
 
-from .adapters import create_server_adapter, IS_CIRCUITPYTHON
+from .adapters import create_server_adapter, IS_CIRCUITPYTHON, ServerAdapter
 from .handlers import WebHandler, StaticFileHandler, APIHandler
 
 
 class SLDKWebServer:
     """SLDK web server that works on both CircuitPython and development platforms."""
-    
-    def __init__(self, app=None, handler_class=None, socket_pool=None, static_dir=None):
+
+    app: Any
+    socket_pool: Any
+    static_dir: Optional[str]
+    handler_class: type
+    adapter: ServerAdapter
+    _running: bool
+    _host: Optional[str]
+    _port: Optional[int]
+
+    def __init__(
+        self,
+        app: Any = None,
+        handler_class: Optional[type] = None,
+        socket_pool: Any = None,
+        static_dir: Optional[str] = None,
+    ) -> None:
         """Initialize the SLDK web server.
-        
+
         Args:
             app: SLDK application instance
             handler_class: Custom handler class (default: WebHandler)
@@ -31,69 +47,66 @@ class SLDKWebServer:
         self.app = app
         self.socket_pool = socket_pool
         self.static_dir = static_dir
-        
-        # Use provided handler class or create composite handler
+
         if handler_class:
             self.handler_class = handler_class
         else:
             self.handler_class = self._create_composite_handler()
-        
-        # Create platform-specific adapter
+
         self.adapter = create_server_adapter(
-            self.handler_class, 
+            self.handler_class,
             socket_pool=socket_pool,
-            static_dir=static_dir
+            static_dir=static_dir,
         )
-        
+
         self._running = False
         self._host = None
         self._port = None
-    
-    def _create_composite_handler(self):
+
+    def _create_composite_handler(self) -> type:
         """Create a composite handler that combines multiple handler types."""
         class CompositeHandler(WebHandler, StaticFileHandler, APIHandler):
-            def __init__(self, adapter):
+            def __init__(self, adapter: ServerAdapter) -> None:
                 WebHandler.__init__(self, adapter)
                 StaticFileHandler.__init__(self, adapter)
                 APIHandler.__init__(self, adapter)
-        
+
         return CompositeHandler
-    
-    async def start(self, host=None, port=None):
+
+    async def start(self, host: Optional[str] = None, port: Optional[int] = None) -> bool:
         """Start the web server.
-        
+
         Args:
             host: Host to bind to (optional, platform-specific defaults)
             port: Port to bind to (optional, platform-specific defaults)
-            
+
         Returns:
             bool: True if server started successfully
         """
         try:
-            # Set platform-appropriate defaults
             if IS_CIRCUITPYTHON:
                 self._host = host or "0.0.0.0"
                 self._port = port or 80
             else:
                 self._host = host or "localhost"
                 self._port = port or 8080
-            
+
             print(f"Starting SLDK web server on {self._host}:{self._port}")
-            
+
             success = self.adapter.start_server(self._host, self._port)
             if success:
                 self._running = True
                 print("SLDK web server started successfully")
             else:
                 print("Failed to start SLDK web server")
-                
+
             return success
-            
+
         except Exception as e:
             print(f"Error starting SLDK web server: {e}")
             return False
-    
-    async def stop(self):
+
+    async def stop(self) -> None:
         """Stop the web server."""
         try:
             if self._running:
@@ -103,59 +116,53 @@ class SLDKWebServer:
                 print("SLDK web server stopped")
         except Exception as e:
             print(f"Error stopping SLDK web server: {e}")
-    
+
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         """Check if the web server is running."""
         return self._running and getattr(self.adapter, 'is_running', False)
-    
-    async def handle_requests(self):
-        """Handle incoming requests.
-        
-        For CircuitPython, this polls for new requests.
-        For development servers, this is mostly a no-op since
-        requests are handled in a separate thread.
-        """
+
+    async def handle_requests(self) -> None:
+        """Handle incoming requests."""
         if self._running:
             await self.adapter.handle_requests()
-    
-    def get_server_url(self):
+
+    def get_server_url(self) -> str:
         """Get the server URL.
-        
+
         Returns:
             str: Server URL
         """
         if IS_CIRCUITPYTHON and self.socket_pool:
-            # Try to get IP from socket pool or WiFi manager
             try:
-                # This would need to be adapted based on actual socket pool implementation
                 return f"http://{self._host}:{self._port}"
             except Exception:
                 return f"http://{self._host}:{self._port}"
         else:
             return f"http://{self._host}:{self._port}"
-    
-    async def run_forever(self):
-        """Run the web server forever (async version).
-        
-        This method handles requests in a loop and should be run
-        as a background task.
-        """
+
+    async def run_forever(self) -> None:
+        """Run the web server forever (async version)."""
         while self._running:
             await self.handle_requests()
-            await asyncio.sleep(0.1)  # Small delay to prevent busy waiting
+            await asyncio.sleep(0.1)
 
 
 class SLDKWebApplication:
     """Web application framework for SLDK.
-    
+
     Provides a more structured way to build web applications
     with multiple handlers and middleware.
     """
-    
-    def __init__(self, sldk_app=None):
+
+    sldk_app: Any
+    handlers: List[type]
+    middleware: List[Any]
+    _routes: Dict[str, Dict[str, Any]]
+
+    def __init__(self, sldk_app: Any = None) -> None:
         """Initialize web application.
-        
+
         Args:
             sldk_app: Parent SLDK application instance
         """
@@ -163,96 +170,98 @@ class SLDKWebApplication:
         self.handlers = []
         self.middleware = []
         self._routes = {}
-    
-    def add_handler(self, handler_class):
+
+    def add_handler(self, handler_class: type) -> None:
         """Add a handler class to the application.
-        
+
         Args:
             handler_class: Handler class to add
         """
         self.handlers.append(handler_class)
-    
-    def add_middleware(self, middleware_func):
+
+    def add_middleware(self, middleware_func: Any) -> None:
         """Add middleware to the application.
-        
+
         Args:
             middleware_func: Middleware function
         """
         self.middleware.append(middleware_func)
-    
-    def route(self, path, methods=None):
+
+    def route(self, path: str, methods: Optional[List[str]] = None) -> Any:
         """Decorator to add routes to the application.
-        
+
         Args:
             path: URL path
             methods: List of HTTP methods
         """
-        def decorator(func):
+        def decorator(func: Any) -> Any:
             if methods is None:
                 route_methods = ['GET']
             else:
                 route_methods = methods
-            
+
             self._routes[path] = {
                 'function': func,
-                'methods': route_methods
+                'methods': route_methods,
             }
             return func
         return decorator
-    
-    def create_server(self, socket_pool=None, static_dir=None):
+
+    def create_server(
+        self,
+        socket_pool: Any = None,
+        static_dir: Optional[str] = None,
+    ) -> SLDKWebServer:
         """Create a web server for this application.
-        
+
         Args:
             socket_pool: Socket pool (CircuitPython only)
             static_dir: Directory for static files
-            
+
         Returns:
             SLDKWebServer instance
         """
-        # Create a composite handler from all registered handlers
         handler_classes = self.handlers or [WebHandler, StaticFileHandler, APIHandler]
-        
-        class ApplicationHandler(*handler_classes):
-            def __init__(self, adapter):
+
+        class ApplicationHandler(*handler_classes):  # type: ignore
+            def __init__(self, adapter: ServerAdapter) -> None:
                 for handler_class in handler_classes:
                     handler_class.__init__(self, adapter)
-                
-                # Add routes from application
+
                 for path, route_info in app._routes.items():
                     func = route_info['function']
                     methods = route_info['methods']
-                    
-                    # Create route method name
+
                     route_name = f"route_{path.replace('/', '_').replace('<', '').replace('>', '').strip('_')}"
-                    
-                    # Add route info to the function
+
                     func._route_info = {'path': path, 'methods': methods}
-                    
-                    # Add function as method
+
                     setattr(self, route_name, func)
-        
-        app = self  # Capture reference for closure
-        
+
+        app = self
+
         return SLDKWebServer(
             app=self.sldk_app,
             handler_class=ApplicationHandler,
             socket_pool=socket_pool,
-            static_dir=static_dir
+            static_dir=static_dir,
         )
 
 
-# Convenience functions
-
-def create_web_server(app=None, handler_class=None, socket_pool=None, static_dir=None):
+def create_web_server(
+    app: Any = None,
+    handler_class: Optional[type] = None,
+    socket_pool: Any = None,
+    static_dir: Optional[str] = None,
+) -> SLDKWebServer:
     """Create an SLDK web server instance.
-    
+
     Args:
         app: SLDK application instance
         handler_class: Custom handler class
         socket_pool: Socket pool (CircuitPython only)
         static_dir: Directory for static files
-        
+
     Returns:
         SLDKWebServer instance
     """
@@ -260,14 +269,20 @@ def create_web_server(app=None, handler_class=None, socket_pool=None, static_dir
         app=app,
         handler_class=handler_class,
         socket_pool=socket_pool,
-        static_dir=static_dir
+        static_dir=static_dir,
     )
 
 
-async def start_web_server(app=None, handler_class=None, socket_pool=None, 
-                          static_dir=None, host=None, port=None):
+async def start_web_server(
+    app: Any = None,
+    handler_class: Optional[type] = None,
+    socket_pool: Any = None,
+    static_dir: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+) -> Optional[SLDKWebServer]:
     """Start an SLDK web server.
-    
+
     Args:
         app: SLDK application instance
         handler_class: Custom handler class
@@ -275,7 +290,7 @@ async def start_web_server(app=None, handler_class=None, socket_pool=None,
         static_dir: Directory for static files
         host: Host to bind to
         port: Port to bind to
-        
+
     Returns:
         SLDKWebServer instance if successful, None otherwise
     """

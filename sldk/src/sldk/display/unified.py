@@ -4,8 +4,13 @@ Provides a unified interface that works on both CircuitPython hardware
 and desktop development environments using the LED simulator.
 """
 
+from __future__ import annotations
+
 import sys
 import gc
+from typing import Any, Dict, Optional
+
+from ..exceptions import DisplayError, SimulatorError
 
 try:
     # Desktop Python
@@ -52,42 +57,42 @@ from .interface import DisplayInterface
 class UnifiedDisplay(DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
     
-    def __init__(self, width=64, height=32):
+    def __init__(self, width: int = 64, height: int = 32):
         """Initialize unified display.
         
         Args:
             width: Display width in pixels
             height: Display height in pixels
         """
-        self._width = width
-        self._height = height
-        self._brightness = 0.3
+        self._width: int = width
+        self._height: int = height
+        self._brightness: float = 0.3
         
         # Platform specific components
-        self.hardware = None
-        self.matrix = None
-        self.display = None
-        self.device = None  # For simulator
+        self.hardware: Any = None
+        self.matrix: Any = None
+        self.display: Any = None
+        self.device: Any = None  # For simulator
         
         # Display components
-        self.main_group = None
-        self._initialized = False
+        self.main_group: Any = None
+        self._initialized: bool = False
         
         # For text rendering
-        self.font = None
-        self._text_labels = {}  # Cache for text labels
+        self.font: Any = None
+        self._text_labels: Dict[str, Any] = {}  # Cache for text labels
         
     @property
-    def width(self):
+    def width(self) -> int:
         """Display width in pixels."""
         return self._width
         
     @property
-    def height(self):
+    def height(self) -> int:
         """Display height in pixels."""
         return self._height
     
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the display hardware or simulator."""
         if self._initialized:
             return
@@ -109,11 +114,11 @@ class UnifiedDisplay(DisplayInterface):
             self._initialized = True
             print(f"Display initialized ({'CircuitPython' if IS_CIRCUITPYTHON else 'Simulator'})")
             
-        except Exception as e:
+        except (DisplayError, ImportError, OSError) as e:
             print(f"Failed to initialize display: {e}")
             raise
     
-    def _initialize_hardware(self):
+    def _initialize_hardware(self) -> None:
         """Initialize the display hardware/simulator."""
         if IS_CIRCUITPYTHON:
             # Try hardware auto-detection first
@@ -160,7 +165,7 @@ class UnifiedDisplay(DisplayInterface):
             if hasattr(self.matrix, 'initialize_surface'):
                 self.matrix.initialize_surface()
     
-    async def clear(self):
+    async def clear(self) -> None:
         """Clear the display."""
         # Hide all groups
         for child in self.main_group:
@@ -171,7 +176,7 @@ class UnifiedDisplay(DisplayInterface):
         if self.matrix and hasattr(self.matrix, 'fill'):
             self.matrix.fill(0x000000)
     
-    async def show(self):
+    async def show(self) -> bool:
         """Update the physical display."""
         if IS_CIRCUITPYTHON:
             if self.hardware:
@@ -181,7 +186,7 @@ class UnifiedDisplay(DisplayInterface):
             # Simulator needs pygame event handling
             return await self._update_simulator()
     
-    async def _update_simulator(self):
+    async def _update_simulator(self) -> bool:
         """Update the simulator display."""
         if not self.display:
             return True
@@ -234,7 +239,7 @@ class UnifiedDisplay(DisplayInterface):
         
         return True
     
-    async def set_pixel(self, x, y, color):
+    async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel color.
         
         Args:
@@ -259,7 +264,7 @@ class UnifiedDisplay(DisplayInterface):
             else:
                 print(f"Matrix object has no set_pixel method: {type(self.matrix)}")
     
-    async def fill(self, color):
+    async def fill(self, color: int) -> None:
         """Fill entire display with color.
         
         Args:
@@ -271,7 +276,7 @@ class UnifiedDisplay(DisplayInterface):
             # Fallback to pixel-by-pixel
             await super().fill(color)
     
-    async def set_brightness(self, brightness):
+    async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
         
         Args:
@@ -285,10 +290,10 @@ class UnifiedDisplay(DisplayInterface):
                     self.hardware.display.brightness = self._brightness
                 else:
                     self.display.brightness = self._brightness
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 print(f"Failed to set brightness: {e}")
     
-    async def draw_text(self, text, x=0, y=0, color=0xFFFFFF, font=None):
+    async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display using displayio labels.
         
         Args:
@@ -327,7 +332,7 @@ class UnifiedDisplay(DisplayInterface):
             label_group.append(label)
             self.main_group.append(label_group)
     
-    def _convert_color(self, color):
+    def _convert_color(self, color: Any) -> int:
         """Convert color to platform-appropriate format.
         
         Args:
@@ -340,7 +345,7 @@ class UnifiedDisplay(DisplayInterface):
             return int(color, 16)
         return int(color)
     
-    async def create_window(self, title="SLDK Display"):
+    async def create_window(self, title: str = "SLDK Display") -> None:
         """Create display window (simulator only).
         
         Args:
@@ -371,7 +376,7 @@ class UnifiedDisplay(DisplayInterface):
         except ImportError:
             pass  # Pygame not available
     
-    async def run_event_loop(self):
+    async def run_event_loop(self) -> None:
         """Run the display event loop (simulator only).
         
         This keeps the simulator window responsive.
