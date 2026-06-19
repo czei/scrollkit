@@ -21,7 +21,14 @@ class TestMockResponse:
         response = MockResponse(404, "Not Found")
         assert response.status_code == 404
         assert response.text == "Not Found"
-    
+
+    def test_response_headers(self):
+        """Responses expose headers (used to read the HTTP 'Date' header as a
+        fallback time source). Defaults to an empty dict, never None."""
+        assert MockResponse().headers == {}
+        resp = MockResponse(200, "", headers={"Date": "Wed, 21 Oct 2025 07:28:00 GMT"})
+        assert resp.headers.get("Date") == "Wed, 21 Oct 2025 07:28:00 GMT"
+
     def test_json_parsing(self):
         """Test JSON parsing of response text"""
         # Test valid JSON

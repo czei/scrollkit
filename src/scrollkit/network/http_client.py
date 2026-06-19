@@ -13,10 +13,14 @@ logger = ErrorHandler("error_log")
 class BaseResponse:
     """Base class for all response types with common functionality"""
 
-    def __init__(self, status_code=200, text="", content=None):
+    def __init__(self, status_code=200, text="", content=None, headers=None):
         self.status_code = status_code
         self.text = text
         self.content = content if content is not None else text.encode('utf-8')
+        # Response headers (e.g. for reading the 'Date' header as a time source).
+        # The native adafruit_requests response already exposes .headers; these
+        # wrappers carry it through so the same code works on desktop and device.
+        self.headers = headers if headers is not None else {}
         self._json_cache = None
         self._read_position = 0
 
@@ -60,7 +64,11 @@ class UrllibResponse(BaseResponse):
             text = content.decode('utf-8')
         except UnicodeDecodeError:
             text = ""
-        super().__init__(urllib_response.status, text, content)
+        try:
+            hdrs = {k: v for k, v in urllib_response.getheaders()}
+        except Exception:
+            hdrs = {}
+        super().__init__(urllib_response.status, text, content, headers=hdrs)
 
 
 class MockResponse(BaseResponse):
