@@ -23,7 +23,7 @@ A window opens with scrolling text. Press `Ctrl-C` (or close the window) to stop
 | `demos/easy/hello_world.py` | Scrolling text | No |
 | `demos/easy/colors.py` | A word cycling through colors | No |
 | `demos/easy/clock.py` | A digital clock | No |
-| `demos/medium/rainbow.py` | Animated per-letter rainbow scroll | No |
+| `demos/medium/rainbow.py` | Big-font rainbow scroll — tall letters that fill the display height | No |
 | `demos/medium/temperature.py` | Live temperature | Yes |
 | `demos/hard/crypto_dashboard.py` | Animated multi-row dashboard: rainbow intro, live crypto + weather, scrolling ticker | Yes |
 
