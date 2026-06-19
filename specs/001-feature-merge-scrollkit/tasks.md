@@ -94,7 +94,7 @@ This is a **migration/consolidation**, not greenfield. SLDK (`sldk/src/sldk/`) i
 - [X] **T028** Migrate SLDK unit tests into `test/unit/` (`app/`, `display/`, `effects/`, `content/`, `web/`, `simulator/`). Replace `sldk.*` imports with `scrollkit.*`. (Source: SLDK `test/unit/` tree — `test_sldk_app.py`, `test_minimal_app.py`, `test_content_classes.py`, `test_content_queue.py`, `test_effects_engine.py`, `test_particles.py`, `test_template_engine.py`, `test_simulator_imports.py`, `test_circuitpython_compat.py`.)
 - [X] **T029** Confirm retained ScrollKit unit tests for `config/`, `network/`, `utils/` still pass against the merged package; update any imports that referenced retired modules (`message_queue`, `server_adapters`, `ota_updater`, `generic_display`).
 - [X] **T030** Write `test/memory_baseline.py`: runs `gc.collect()` then prints `gc.mem_free()` (a) after `import scrollkit` and (b) after constructing a `ScrollKitApp`. Capture the SLDK pre-merge numbers, commit `test/fixtures/memory_baseline.json`, and assert merged readings are ≤ baseline (FR-046). Mark the device-only path with a skip when `gc.mem_free` is absent (desktop).
-- [ ] **T031** Run the full unit suite: `make test-unit` (`python -m pytest test/unit -v`). Iterate until green. Then `make lint-errors`.
+- [X] **T031** Run the full unit suite: `make test-unit` (`python -m pytest test/unit -v`). Iterate until green. Then `make lint-errors`.
 - [X] **T032** Retire the `sldk/` directory (`git rm -r sldk/`) ONLY after T027–T031 are green. Grep the repo for stray `import sldk` / `from sldk` and fix any remaining references.
 
 ---

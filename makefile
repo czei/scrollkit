@@ -25,12 +25,12 @@ test-unit:
 	@echo "Running unit tests (working around code.py naming conflict)..."
 	@if [ -f code.py ]; then \
 		mv code.py code_temp_backup.py && \
-		$(PYTHON) -m pytest test/unit -v; \
+		PYTHONPATH=src $(PYTHON) -m pytest test/unit -v; \
 		test_result=$$?; \
 		mv code_temp_backup.py code.py; \
 		exit $$test_result; \
 	else \
-		$(PYTHON) -m pytest test/unit -v; \
+		PYTHONPATH=src $(PYTHON) -m pytest test/unit -v; \
 	fi
 
 # Run all tests
@@ -38,12 +38,12 @@ test-all:
 	@echo "Running all tests (working around code.py naming conflict)..."
 	@if [ -f code.py ]; then \
 		mv code.py code_temp_backup.py && \
-		$(PYTHON) -m pytest; \
+		PYTHONPATH=src $(PYTHON) -m pytest; \
 		test_result=$$?; \
 		mv code_temp_backup.py code.py; \
 		exit $$test_result; \
 	else \
-		$(PYTHON) -m pytest; \
+		PYTHONPATH=src $(PYTHON) -m pytest; \
 	fi
 
 # Run tests with coverage report
@@ -51,12 +51,12 @@ test-coverage:
 	@echo "Running tests with coverage (working around code.py naming conflict)..."
 	@if [ -f code.py ]; then \
 		mv code.py code_temp_backup.py && \
-		$(PYTHON) -m pytest --cov=src --cov-report=term --cov-report=html; \
+		PYTHONPATH=src $(PYTHON) -m pytest --cov=src --cov-report=term --cov-report=html; \
 		test_result=$$?; \
 		mv code_temp_backup.py code.py; \
 		exit $$test_result; \
 	else \
-		$(PYTHON) -m pytest --cov=src --cov-report=term --cov-report=html; \
+		PYTHONPATH=src $(PYTHON) -m pytest --cov=src --cov-report=term --cov-report=html; \
 	fi
 
 # Install test dependencies
@@ -153,12 +153,3 @@ test-system:
 
 test-integration:
 	$(PYTHON) -m pytest test/experiments/integration/ -v
-
-# SLDK Testing
-test-sldk: test-sldk-unit
-
-# Run SLDK unit tests
-test-sldk-unit:
-	@echo "Running SLDK unit tests..."
-	@cd sldk && SLDK_TESTING=1 $(PYTHON) -m pytest tests/unit -v
-
