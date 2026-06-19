@@ -115,3 +115,18 @@ async def test_hard_crypto_demo_renders():
     # The display loop actually rendered something visible.
     surface = app.display.matrix.get_surface()
     assert _bright_pixels(surface) > 20, "hard demo rendered no visible pixels"
+
+
+@pytest.mark.parametrize("relpath,cls", [
+    ("easy/colors.py", "ColorsApp"),
+    ("easy/clock.py", "ClockApp"),
+    ("medium/rainbow.py", "RainbowApp"),
+])
+@pytest.mark.asyncio
+async def test_offline_demo_renders(relpath, cls):
+    """The no-network demos must run the loop and render visible pixels."""
+    mod = _load_demo(relpath, "demo_" + cls)
+    app = getattr(mod, cls)()
+    await _run_briefly(app)
+    surface = app.display.matrix.get_surface()
+    assert _bright_pixels(surface) > 20, relpath + " rendered no visible pixels"
