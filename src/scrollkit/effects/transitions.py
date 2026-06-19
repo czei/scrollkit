@@ -12,7 +12,10 @@ except (ImportError, AttributeError):
     import time
     get_time = time.time
 
-from typing import Any, Optional
+try:
+    from typing import Any, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 

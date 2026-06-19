@@ -7,7 +7,10 @@ Designed for memory-constrained CircuitPython environments.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Match, Optional, Tuple, Union
+try:
+    from typing import Any, Dict, List, Match, Optional, Tuple, Union
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import ResourceNotFoundError
 

@@ -7,8 +7,17 @@ different types of display content.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type
+try:
+    from abc import ABC, abstractmethod
+except ImportError:  # CircuitPython has no 'abc' module
+    class ABC:
+        pass
+    def abstractmethod(func):
+        return func
+try:
+    from typing import Any, Dict, Optional, Type
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 import time
 
 from ..exceptions import ContentError, ValidationError

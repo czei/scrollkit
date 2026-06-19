@@ -5,7 +5,10 @@ Provides lightweight visual effects optimized for ESP32 performance.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+try:
+    from typing import Any, List, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 

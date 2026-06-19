@@ -15,7 +15,10 @@ import sys
 import os
 
 # Make `scrollkit` importable when run straight from the repo.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+except AttributeError:
+    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
 
 import asyncio
 

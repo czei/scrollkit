@@ -7,7 +7,10 @@ strategy execution, and display management.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+try:
+    from typing import Any, Dict, List, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 from .strategy import Priority, get_strategy_registry
 from .queue import DisplayQueue, DisplayItem
 from .interface import DisplayInterface
@@ -188,13 +191,13 @@ class DisplayManager:
         """
         uptime = time.time() - self.stats['uptime_start']
         
+        # Build explicitly — CircuitPython doesn't support {**dict} literal unpacking.
+        dm_stats = dict(self.stats)
+        dm_stats['uptime_seconds'] = uptime
+        dm_stats['is_running'] = self._is_running
+        dm_stats['process_interval'] = self._process_interval
         return {
-            'display_manager': {
-                **self.stats,
-                'uptime_seconds': uptime,
-                'is_running': self._is_running,
-                'process_interval': self._process_interval
-            },
+            'display_manager': dm_stats,
             'queue': self.queue.get_statistics(),
             'display': {
                 'width': getattr(self.display, 'width', 'unknown'),
@@ -218,7 +221,8 @@ class DisplayManager:
         Returns:
             True if item was added successfully
         """
-        data = {'text': text, **kwargs}
+        data = {'text': text}
+        data.update(kwargs)
         return self.add_item('static_text', data, priority, duration)
     
     def show_scrolling_text(self, text: str, duration: Optional[float] = None,
@@ -234,7 +238,8 @@ class DisplayManager:
         Returns:
             True if item was added successfully
         """
-        data = {'text': text, **kwargs}
+        data = {'text': text}
+        data.update(kwargs)
         return self.add_item('scrolling_text', data, priority, duration)
     
     def show_alert(self, message: str, priority: int = Priority.HIGH,
@@ -250,11 +255,8 @@ class DisplayManager:
         Returns:
             True if item was added successfully
         """
-        data = {
-            'text': message,
-            'color': kwargs.get('color', 0xFF0000),  # Red by default
-            **kwargs
-        }
+        data = {'text': message, 'color': kwargs.get('color', 0xFF0000)}  # Red default
+        data.update(kwargs)
         return self.add_item('static_text', data, priority, duration)
     
     async def show_sequence(self, items: list) -> None:

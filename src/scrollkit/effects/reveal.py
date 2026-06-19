@@ -7,7 +7,10 @@ it from one side to the other, similar to wiping away a cover.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Dict, Optional
+try:
+    from typing import Any, Callable, Dict, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 from .base import Effect, register_effect

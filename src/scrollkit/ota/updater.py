@@ -6,7 +6,10 @@ Provides easy-to-use OTA update functionality.
 from __future__ import annotations
 
 import gc
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+try:
+    from typing import Any, Callable, Dict, Optional, Tuple, Union
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import OTAError, UpdateError
 from .client import OTAClient

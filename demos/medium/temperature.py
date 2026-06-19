@@ -17,7 +17,10 @@ on desktop it uses urllib.
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+except AttributeError:
+    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
 
 import asyncio
 

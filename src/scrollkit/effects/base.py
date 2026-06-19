@@ -7,8 +7,17 @@ is rendered to create visual enhancements.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Dict, Type, Callable, Any, Optional, List
+try:
+    from abc import ABC, abstractmethod
+except ImportError:  # CircuitPython has no 'abc' module
+    class ABC:
+        pass
+    def abstractmethod(func):
+        return func
+try:
+    from typing import Dict, Type, Callable, Any, Optional, List
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 

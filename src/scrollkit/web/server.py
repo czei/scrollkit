@@ -6,7 +6,10 @@ Extracted from Theme Park API for the SLDK framework.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+try:
+    from typing import Any, Dict, List, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 try:
     import asyncio

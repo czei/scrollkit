@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List
+try:
+    from typing import List
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from .server import SLDKWebServer
 from .handlers import WebHandler, StaticFileHandler, APIHandler

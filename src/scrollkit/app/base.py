@@ -29,7 +29,10 @@ async def sleep(seconds):
     await asyncio.sleep(seconds)
 
 import gc
-from typing import Optional, List
+try:
+    from typing import Optional, List
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 from ..display.content import ContentQueue
 from ..display.interface import DisplayInterface
 from ..exceptions import DisplayError, NetworkError, WebServerError

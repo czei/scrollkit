@@ -7,7 +7,10 @@ built-in support for effects.
 
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, List
+try:
+    from typing import Dict, Any, Optional, List
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from .exceptions import ContentError
 from .display.strategy import DisplayItem, Priority

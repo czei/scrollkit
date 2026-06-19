@@ -5,7 +5,10 @@ Provides form building, validation, and processing capabilities.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+try:
+    from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 
 class FormField:

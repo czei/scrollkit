@@ -6,7 +6,10 @@ Re-exports content classes from display.content for convenience.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+try:
+    from typing import Any, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from .exceptions import ContentError
 from .display.content import DisplayContent, StaticText, ScrollingText, ContentQueue

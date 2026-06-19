@@ -7,7 +7,10 @@ LED matrices with CircuitPython performance constraints.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Dict, Optional, Tuple
+try:
+    from typing import Any, Callable, Dict, Optional, Tuple
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 from .base import Effect, register_effect

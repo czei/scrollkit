@@ -8,7 +8,10 @@ from __future__ import annotations
 import gc
 import json
 import hashlib
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+try:
+    from typing import Any, Callable, Dict, Optional, Tuple, Union
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import NetworkError, OTAError, UpdateError
 from .manifest import UpdateManifest

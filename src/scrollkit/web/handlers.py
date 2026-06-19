@@ -6,7 +6,10 @@ Provides base classes for handling HTTP requests and serving content.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional, Tuple, Union
+try:
+    from typing import Any, Dict, Optional, Tuple, Union
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from .adapters import route, MockResponse
 

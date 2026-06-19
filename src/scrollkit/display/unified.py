@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import sys
 import gc
-from typing import Any, Dict, List, Optional
+try:
+    from typing import Any, Dict, List, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError, SimulatorError
 

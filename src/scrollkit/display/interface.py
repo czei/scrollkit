@@ -6,7 +6,10 @@ Compatible with both CircuitPython and desktop Python.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+try:
+    from typing import Any, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import DisplayError
 

@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import heapq
 import time
-from typing import Any, Callable, List, Optional
+try:
+    from typing import Any, Callable, List, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 from .strategy import DisplayItem, Priority, get_strategy_registry
 from ..exceptions import ContentError, ValidationError
 
@@ -386,8 +389,8 @@ class DisplayQueue:
         Returns:
             Dictionary with queue statistics
         """
-        return {
-            **self.stats,
-            'current_queue_depth': len(self._queue),
-            'current_item': self._current_item.strategy_name if self._current_item else None
-        }
+        # Build explicitly — CircuitPython doesn't support {**dict} literal unpacking.
+        stats = dict(self.stats)
+        stats['current_queue_depth'] = len(self._queue)
+        stats['current_item'] = self._current_item.strategy_name if self._current_item else None
+        return stats

@@ -6,7 +6,10 @@ Provides display interface using the LED simulator for desktop development.
 from __future__ import annotations
 
 import sys
-from typing import Any, Optional
+try:
+    from typing import Any, Optional
+except ImportError:  # CircuitPython has no 'typing' module
+    pass
 
 from ..exceptions import SimulatorError
 
