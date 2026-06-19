@@ -1,87 +1,35 @@
-# ThemeParkAPI Tests
+# ScrollKit tests
 
-This directory contains the test suite for the ThemeParkAPI application.
+The test suite for the ScrollKit library. Tests run headlessly against the
+desktop pygame simulator (SDL dummy driver), so they need no display and no
+hardware.
 
-## Test Structure
+## Layout
 
-The tests are organized following these patterns:
+- `unit/` — the test suite (run by CI), organized by area: `app/`, `display/`,
+  `simulator/`, `dev/`, `network/`, `config/`, `content/`, `effects/`, `utils/`.
+- `claude/` — host-side device tooling (not collected as tests): `cpy_repl.py`
+  (CircuitPython raw-REPL driver), `calibrate_device.py` (captures the hardware
+  timing/RAM baseline), and `device_benchmarks.py` (per-operation microbenchmarks).
+- `helpers.py` — shared test utilities (`MockHardwareContext`, `with_temp_file`,
+  `mock_network_response`).
+- `conftest.py` — forces the headless SDL driver before pygame loads.
+- `memory_baseline.py` — checks free RAM after `import scrollkit` (spec FR-046).
 
-- `unit/`: Contains unit tests organized by module (models, network, utils, etc.)
-- `integration/`: Contains tests that verify multiple components working together (currently empty)
-- `experiments/`: Contains experimental tests, debugging tools, and verification scripts
-- `fixtures/` and `data/`: Contains test data and shared fixtures
-- `helpers.py`: Contains utility functions to simplify test writing
-- `conftest.py`: Contains pytest fixtures and CircuitPython mocking
-
-## Running Tests
-
-Tests can be run using pytest:
+## Running
 
 ```bash
-# Run all tests
-python -m pytest
-
-# Run tests for a specific module
-python -m pytest test/unit/models
-
-# Run a specific test file
-python -m pytest test/unit/models/test_theme_park.py
-
-# Run a specific test
-python -m pytest test/unit/models/test_theme_park.py::TestThemePark::test_initialization
-
-# Run tests with verbose output
-python -m pytest -v
+make test-unit                 # or: PYTHONSAFEPATH=1 PYTHONPATH=src python -m pytest test/unit
+make lint-errors               # critical-error lint (run before deploying)
 ```
 
-## Test Data
+`PYTHONSAFEPATH=1 PYTHONPATH=src` is needed because the repo's package lives under
+`src/` and `PYTHONSAFEPATH` keeps the CWD off `sys.path`.
 
-The test directory includes several JSON files used as test data:
+## Writing tests
 
-- `theme-park-list.json` - List of available theme parks
-- `magic-kingdom.json` - Wait time data for Disney Magic Kingdom
-- `universal.json` - Wait time data for Universal Studios
-- `closed-park.json` - Data for a closed theme park
-- `epcot-test-data.json` - Data for EPCOT including "Meet & Greet" attractions
-
-## Test Functionality
-
-The test suite includes tests for:
-
-1. Fetching and parsing theme park lists
-2. Fetching and parsing ride data
-3. Vacation countdown calculation
-4. Park parameter parsing
-5. Settings management
-6. HTTP requests
-7. URL utilities
-8. Error handling and logging
-
-## Writing New Tests
-
-When writing new tests:
-
-1. Use pytest fixtures from conftest.py to get access to test data
-2. Use the helpers from helpers.py for common test patterns
-3. Create tests that mirror the directory structure of the source code
-4. Mock CircuitPython-specific modules as needed
-
-### Example:
-
-```python
-import pytest
-from src.models.theme_park import ThemePark
-
-class TestThemePark:
-    def test_initialization(self, magic_kingdom_data):
-        park = ThemePark(magic_kingdom_data, "Disney Magic Kingdom", 6)
-        assert park.name == "Disney Magic Kingdom"
-        assert len(park.rides) > 0
-```
-
-## Notes
-
-- Some tests require internet connectivity
-- Network-related tests may fail if network conditions are poor
-- Some tests are skipped on non-hardware platforms (e.g., system clock setting)
-- When testing code that accesses hardware, use the MockHardwareContext from helpers.py
+- Mirror the source layout under `test/unit/`.
+- Drive the real loop headlessly via `scrollkit.dev.run_headless(app, frames=N)`
+  and assert on the returned `RunResult` (see `test/unit/dev/`).
+- Use `MockHardwareContext` from `helpers.py` when exercising code that touches
+  CircuitPython-only hardware modules.

@@ -142,23 +142,3 @@ def mock_network_response(status_code=200, content=''):
     
     mock_response.json = mock_json
     return mock_response
-
-# Example of how to use these helpers in tests:
-"""
-from test.helpers import with_temp_file, MockHardwareContext, mock_network_response
-
-class TestExample:
-    @with_temp_file("Test content")
-    def test_file_operations(self, file_path):
-        # file_path is a real file with "Test content"
-        with open(file_path, 'r') as f:
-            content = f.read()
-        assert content == "Test content"
-    
-    def test_hardware_code(self):
-        with MockHardwareContext() as hw:
-            # Now hardware modules are all mocked
-            from src.ui.unified_display import UnifiedDisplay
-            display = UnifiedDisplay({'settings_manager': None})
-            # Test the display implementation without real hardware
-"""

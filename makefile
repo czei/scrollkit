@@ -74,13 +74,13 @@ install-lint-deps:
 # Lint all Python files - comprehensive check
 lint:
 	@echo "Running Python linter (ruff)..."
-	$(PYTHON) -m ruff check $(SRC_DIR) *.py test/ --fix
+	$(PYTHON) -m ruff check $(SRC_DIR) test/ --fix
 	@echo "Linting complete!"
 
 # Lint only for critical errors (undefined names, syntax errors, etc.)
 lint-errors:
 	@echo "Checking for critical errors..."
-	$(PYTHON) -m ruff check $(SRC_DIR) *.py --select=E9,F63,F7,F82,F821 --no-fix
+	$(PYTHON) -m ruff check $(SRC_DIR) --select=E9,F63,F7,F82,F821 --no-fix
 	@echo "Critical error check complete!"
 
 # Run lint before tests
