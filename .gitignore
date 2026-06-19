@@ -56,6 +56,7 @@ site/
 # runtime logs
 logs/
 demos/error_log
+error_log
 
 # mpy build output
 build/
