@@ -1,0 +1,5 @@
+{
+  "_comment": "Capture on MatrixPortal S3: run test/memory_baseline.py and paste after_import/after_app_init free-byte values. Until then the device gate is informational.",
+  "after_import": null,
+  "after_app_init": null
+}

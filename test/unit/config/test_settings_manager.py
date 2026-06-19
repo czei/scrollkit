@@ -5,8 +5,8 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 
-from src.config.settings_manager import SettingsManager
-from src.utils.color_utils import ColorUtils
+from scrollkit.config.settings_manager import SettingsManager
+from scrollkit.utils.color_utils import ColorUtils
 
 class TestSettingsManager:
     def test_initialization(self):
@@ -25,16 +25,11 @@ class TestSettingsManager:
             # Verify scroll_speed dictionary
             assert manager.scroll_speed == {"Slow": 0.06, "Medium": 0.04, "Fast": 0.02}
             
-            # Verify default settings were set
-            assert manager.settings["subscription_status"] == "Unknown"
-            assert manager.settings["email"] == ""
-            assert manager.settings["domain_name"] == "themeparkwaits"
+            # Verify generic (non application-specific) defaults were set.
+            # App-specific defaults (e.g. ThemeParkWaits' skip_meet, ride colors,
+            # subscription_status) are registered by the app via set_defaults(),
+            # not by the library, so they are intentionally absent here.
             assert manager.settings["brightness_scale"] == "0.5"
-            assert manager.settings["skip_closed"] is False
-            assert manager.settings["skip_meet"] is False
-            assert manager.settings["default_color"] == ColorUtils.colors["Yellow"]
-            assert manager.settings["ride_name_color"] == ColorUtils.colors["Blue"]
-            assert manager.settings["ride_wait_time_color"] == ColorUtils.colors["Old Lace"]
             assert manager.settings["scroll_speed"] == "Medium"
     
     def test_initialize_with_existing_settings(self):
@@ -99,7 +94,7 @@ class TestSettingsManager:
     def test_get_pretty_name(self):
         """Test getting a display-friendly name from a settings key"""
         # Patch the get_pretty_name method to handle empty strings
-        with patch('src.config.settings_manager.SettingsManager.get_pretty_name') as mock_get_pretty_name:
+        with patch('scrollkit.config.settings_manager.SettingsManager.get_pretty_name') as mock_get_pretty_name:
             # Configure the mock to handle different test cases
             mock_get_pretty_name.side_effect = lambda s: {
                 "test": "Test",
@@ -150,7 +145,7 @@ class TestSettingsManager:
         mock_file.side_effect = OSError("File not found")
         
         # Mock logger
-        with patch('src.config.settings_manager.logger') as mock_logger:
+        with patch('scrollkit.config.settings_manager.logger') as mock_logger:
             # Mock open function to raise the error
             with patch('builtins.open', mock_file):
                 # Initialize settings manager
@@ -193,7 +188,7 @@ class TestSettingsManager:
         mock_file.side_effect = OSError("Permission denied")
         
         # Mock logger
-        with patch('src.config.settings_manager.logger') as mock_logger:
+        with patch('scrollkit.config.settings_manager.logger') as mock_logger:
             # Mock open function to raise the error
             with patch('builtins.open', mock_file):
                 # Initialize settings manager

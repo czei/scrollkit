@@ -6,7 +6,7 @@ import tempfile
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 from test.helpers import with_temp_file
 
 class TestErrorHandler:
@@ -17,7 +17,7 @@ class TestErrorHandler:
 
         try:
             # Mock the storage module
-            with patch('src.utils.error_handler.storage') as mock_storage:
+            with patch('scrollkit.utils.error_handler.storage') as mock_storage:
                 # Set up the mock to report writable filesystem
                 mock_mount = MagicMock()
                 mock_mount.readonly = False
@@ -31,7 +31,7 @@ class TestErrorHandler:
             if os.path.exists(log_path):
                 os.remove(log_path)
     
-    @patch('src.utils.error_handler.storage')
+    @patch('scrollkit.utils.error_handler.storage')
     def test_readonly_filesystem_detection(self, mock_storage):
         """Test detection of read-only filesystem"""
         # Setup mock for read-only filesystem
@@ -61,7 +61,7 @@ class TestErrorHandler:
 
         try:
             # Mock the storage module
-            with patch('src.utils.error_handler.storage') as mock_storage:
+            with patch('scrollkit.utils.error_handler.storage') as mock_storage:
                 # Set up the mock to report writable filesystem
                 mock_mount = MagicMock()
                 mock_mount.readonly = False
@@ -88,7 +88,7 @@ class TestErrorHandler:
 
         try:
             # Mock the storage module
-            with patch('src.utils.error_handler.storage') as mock_storage:
+            with patch('scrollkit.utils.error_handler.storage') as mock_storage:
                 # Set up the mock to report writable filesystem
                 mock_mount = MagicMock()
                 mock_mount.readonly = False
@@ -145,7 +145,7 @@ class TestErrorHandler:
 
         try:
             # Mock the storage module
-            with patch('src.utils.error_handler.storage') as mock_storage:
+            with patch('scrollkit.utils.error_handler.storage') as mock_storage:
                 # Set up the mock to report writable filesystem
                 mock_mount = MagicMock()
                 mock_mount.readonly = False

@@ -117,6 +117,15 @@ class HttpClient:
         """
         Make a GET request with retries.
 
+        Blocking note (CircuitPython): the underlying ``adafruit_requests`` is
+        synchronous, so despite the ``await`` this call blocks the asyncio event
+        loop until the response arrives — the display scroll pauses for the
+        duration. This is not transparently async (spec FR-029). When fetching a
+        lot of data, split it into several small requests and ``await
+        asyncio.sleep(0)`` between them so the display renders between chunks
+        (see the hard demo, ``demos/hard/crypto_dashboard.py``). On desktop the
+        urllib path is used instead.
+
         Returns:
             A Response object (native adafruit_requests, UrllibResponse, or MockResponse)
         """

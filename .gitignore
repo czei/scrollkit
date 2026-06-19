@@ -49,3 +49,10 @@ Thumbs.db
 *.wmv
 
 **/.claude/settings.local.json
+
+# mkdocs build output
+site/
+
+# runtime logs
+logs/
+demos/error_log

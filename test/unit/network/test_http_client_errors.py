@@ -6,7 +6,7 @@ import pytest
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock, call
 
-from src.network.http_client import HttpClient
+from scrollkit.network.http_client import HttpClient
 
 
 class TestHttpClientErrors:
@@ -22,7 +22,7 @@ class TestHttpClientErrors:
         
         # Mock asyncio.sleep to avoid actual waiting
         with patch('asyncio.sleep', new=AsyncMock()) as mock_sleep:
-            with patch('src.network.http_client.logger') as mock_logger:
+            with patch('scrollkit.network.http_client.logger') as mock_logger:
                 # Create client and make request
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
@@ -46,7 +46,7 @@ class TestHttpClientErrors:
         
         # Mock asyncio.sleep to avoid actual waiting
         with patch('asyncio.sleep', new=AsyncMock()) as mock_sleep:
-            with patch('src.network.http_client.logger') as mock_logger:
+            with patch('scrollkit.network.http_client.logger') as mock_logger:
                 # Create client and make request
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
@@ -73,15 +73,15 @@ class TestHttpClientErrors:
         mock_session.get.side_effect = OutOfRetries("Socket failures")
 
         with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-            with patch('src.network.http_client.logger'):
+            with patch('scrollkit.network.http_client.logger'):
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
 
                 # Mock internal session recreation attempt
-                with patch('src.network.http_client.adafruit_requests', create=True):
-                    with patch('src.network.http_client.socketpool', create=True):
-                        with patch('src.network.http_client.wifi', create=True):
-                            with patch('src.network.http_client.ssl', create=True):
+                with patch('scrollkit.network.http_client.adafruit_requests', create=True):
+                    with patch('scrollkit.network.http_client.socketpool', create=True):
+                        with patch('scrollkit.network.http_client.wifi', create=True):
+                            with patch('scrollkit.network.http_client.ssl', create=True):
                                 response = await client.get("https://example.com/api/test", max_retries=2)
 
                                 # Verify sleep was called during retry cycle
@@ -94,7 +94,7 @@ class TestHttpClientErrors:
         mock_session = MagicMock()
         mock_session.post.side_effect = Exception("Connection error")
         
-        with patch('src.network.http_client.logger') as mock_logger:
+        with patch('scrollkit.network.http_client.logger') as mock_logger:
             # Create client and make request
             client = HttpClient(session=mock_session)
             client.using_adafruit = True

@@ -35,8 +35,8 @@ class TestSystemUtils(unittest.TestCase):
             if module in sys.modules:
                 del sys.modules[module]
                 
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_with_live_server(self, mock_error_handler):
         """Test NTP time synchronization with real NTP server"""
@@ -47,7 +47,7 @@ class TestSystemUtils(unittest.TestCase):
             self.skipTest("adafruit_ntp module not available")
             
         # Import after mocking hardware
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         # Mock logger
         mock_logger = MagicMock()
@@ -127,8 +127,8 @@ class TestSystemUtils(unittest.TestCase):
         info_calls = [call[0][0] for call in mock_logger.info.call_args_list]
         self.assertTrue(any("System clock set to" in str(call) for call in info_calls))
         
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_different_servers(self, mock_error_handler):
         """Test NTP with different NTP servers"""
@@ -137,7 +137,7 @@ class TestSystemUtils(unittest.TestCase):
         except ImportError:
             self.skipTest("adafruit_ntp module not available")
             
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger
@@ -172,12 +172,12 @@ class TestSystemUtils(unittest.TestCase):
             # Verify logging shows correct timezone
             mock_logger.info.assert_any_call(f"Creating NTP client with server pool.ntp.org and tz_offset {tz_offset}")
             
-    @patch('src.utils.system_utils.HAS_NTP', False)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', False)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_ntp_module(self, mock_error_handler):
         """Test when NTP module is not available"""
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger
@@ -189,12 +189,12 @@ class TestSystemUtils(unittest.TestCase):
         self.assertFalse(result)
         mock_logger.info.assert_called_once_with("NTP module not available or hardware not supported")
         
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', False)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', False)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_hardware(self, mock_error_handler):
         """Test when hardware is not available"""
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger
@@ -206,12 +206,12 @@ class TestSystemUtils(unittest.TestCase):
         self.assertFalse(result)
         mock_logger.info.assert_called_once_with("NTP module not available or hardware not supported")
         
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_invalid_socket_pool(self, mock_error_handler):
         """Test with invalid socket pool"""
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger
@@ -225,12 +225,12 @@ class TestSystemUtils(unittest.TestCase):
             "Invalid socket pool provided for NTP, socket pool must have getaddrinfo"
         )
         
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_no_getaddrinfo(self, mock_error_handler):
         """Test with socket pool missing getaddrinfo"""
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger
@@ -247,8 +247,8 @@ class TestSystemUtils(unittest.TestCase):
             "Invalid socket pool provided for NTP, socket pool must have getaddrinfo"
         )
         
-    @patch('src.utils.system_utils.HAS_NTP', True)
-    @patch('src.utils.system_utils.HAS_HARDWARE', True)
+    @patch('scrollkit.utils.system_utils.HAS_NTP', True)
+    @patch('scrollkit.utils.system_utils.HAS_HARDWARE', True)
     @patch('scrollkit.utils.error_handler.ErrorHandler')
     async def test_set_system_clock_ntp_network_timeout(self, mock_error_handler):
         """Test NTP with network issues (unreachable server)"""
@@ -257,7 +257,7 @@ class TestSystemUtils(unittest.TestCase):
         except ImportError:
             self.skipTest("adafruit_ntp module not available")
             
-        from src.utils.system_utils import set_system_clock_ntp
+        from scrollkit.utils.system_utils import set_system_clock_ntp
         
         mock_logger = MagicMock()
         mock_error_handler.return_value = mock_logger

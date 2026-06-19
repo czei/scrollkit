@@ -5,7 +5,7 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.network.http_client import MockResponse
+from scrollkit.network.http_client import MockResponse
 
 
 class TestMockResponse:
@@ -61,7 +61,7 @@ class TestMockResponse:
         response = MockResponse(200, '{"invalid": json}')
         
         # Mock the logger to avoid actual error logging
-        with patch('src.network.http_client.logger') as mock_logger:
+        with patch('scrollkit.network.http_client.logger') as mock_logger:
             with pytest.raises(ValueError) as excinfo:
                 response.json()
             

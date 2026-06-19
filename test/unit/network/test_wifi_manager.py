@@ -5,15 +5,15 @@ import pytest
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from src.network.wifi_manager import WiFiManager
-from src.config.settings_manager import SettingsManager
+from scrollkit.network.wifi_manager import WiFiManager
+from scrollkit.config.settings_manager import SettingsManager
 
 
 class TestWiFiManager:
     def test_initialization_with_wifi(self):
         """Test initialization with WiFi module available"""
         # Mock is_dev_mode to return False
-        with patch('src.network.wifi_manager.is_dev_mode', return_value=False):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             # Mock the wifi import
             mock_wifi = MagicMock()
             mock_wifi.radio.mac_address_ap = [0x00, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE]
@@ -26,7 +26,7 @@ class TestWiFiManager:
             mock_sm = MagicMock()
             
             # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                 
                 # Mock the import statement inside the __init__ method
@@ -45,7 +45,7 @@ class TestWiFiManager:
         """Test initialization without WiFi module available"""
         mock_sm = MagicMock()
 
-        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+        with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
             mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
             # Simulate no wifi module by not adding it to sys.modules
             wifi_manager = WiFiManager(mock_sm)
@@ -64,7 +64,7 @@ class TestWiFiManager:
 
         mock_sm = MagicMock()
 
-        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+        with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
             mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
 
             with patch.dict('sys.modules', {'wifi': mock_wifi}):
@@ -87,7 +87,7 @@ class TestWiFiManager:
 
         mock_sm = MagicMock()
 
-        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+        with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
             mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
 
             with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
@@ -107,7 +107,7 @@ class TestWiFiManager:
     async def test_connect_no_credentials(self):
         """Test connection with missing credentials"""
         # Mock is_dev_mode to return False
-        with patch('src.network.wifi_manager.is_dev_mode', return_value=False):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             # Mock the wifi import
             mock_wifi = MagicMock()
             
@@ -115,7 +115,7 @@ class TestWiFiManager:
             mock_sm = MagicMock()
             
             # Mock load_credentials to return empty credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 mock_load_credentials.return_value = ('', '')
                 
                 # Mock logger to prevent actual logging
@@ -135,7 +135,7 @@ class TestWiFiManager:
     async def test_reconnect(self):
         """Test reconnection when disconnected"""
         # Mock is_dev_mode to return False
-        with patch('src.network.wifi_manager.is_dev_mode', return_value=False):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             # Mock the wifi import
             mock_wifi = MagicMock()
             
@@ -143,7 +143,7 @@ class TestWiFiManager:
             mock_sm = MagicMock()
             
             # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                 
                 # Mock logger to prevent actual logging
@@ -171,7 +171,7 @@ class TestWiFiManager:
         mock_wifi = MagicMock()
         mock_sm = MagicMock()
 
-        with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+        with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
             mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
 
             with patch.dict('sys.modules', {'wifi': mock_wifi}):
@@ -199,7 +199,7 @@ class TestWiFiManager:
     def test_scan_networks(self):
         """Test scanning for WiFi networks"""
         # Mock is_dev_mode to return False
-        with patch('src.network.wifi_manager.is_dev_mode', return_value=False):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             # Mock the wifi import
             mock_wifi = MagicMock()
             # Setup mock networks
@@ -215,7 +215,7 @@ class TestWiFiManager:
             mock_sm = MagicMock()
             
             # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 # Mock logger to prevent actual logging
                 with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
                     mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
@@ -238,7 +238,7 @@ class TestWiFiManager:
     def test_save_credentials(self):
         """Test saving WiFi credentials"""
         # Mock is_dev_mode to return False
-        with patch('src.network.wifi_manager.is_dev_mode', return_value=False):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             # Mock the wifi import
             mock_wifi = MagicMock()
             
@@ -247,7 +247,7 @@ class TestWiFiManager:
             mock_sm.settings = {}
             
             # Mock load_credentials
-            with patch('src.network.wifi_manager.load_credentials') as mock_load_credentials:
+            with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 # Mock _save_to_secrets_file method
                 with patch.object(WiFiManager, '_save_to_secrets_file', MagicMock()) as mock_save_to_secrets:
                     # Mock logger to prevent actual logging

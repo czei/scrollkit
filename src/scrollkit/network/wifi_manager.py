@@ -16,7 +16,22 @@ if not is_circuitpython:
 from scrollkit.config.settings_manager import SettingsManager
 from scrollkit.utils.error_handler import ErrorHandler
 from scrollkit.utils.url_utils import load_credentials
-from scrollkit.display.display_factory import is_dev_mode
+
+
+def is_dev_mode():
+    """True when there is no real WiFi radio available (desktop dev environment).
+
+    Replaces the retired ``display_factory.is_dev_mode``. On CircuitPython this is
+    always False (real hardware). On desktop it's True unless a ``wifi`` module is
+    importable (which the test suite mocks to exercise the production path).
+    """
+    if is_circuitpython:
+        return False
+    try:
+        import wifi  # noqa: F401
+        return False
+    except ImportError:
+        return True
 
 # Initialize logger
 logger = ErrorHandler("error_log")
