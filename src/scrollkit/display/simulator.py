@@ -70,6 +70,9 @@ class SimulatorDisplay(DisplayInterface):
         
         # For pygame window
         self._window_created: bool = False
+
+        # Foreground pixels from set_pixel(), applied after each refresh.
+        self._overlay_pixels: dict = {}
         
     @property
     def width(self) -> int:
@@ -126,6 +129,9 @@ class SimulatorDisplay(DisplayInterface):
             while len(self.main_group):
                 self.main_group.pop()
 
+        # Drop any foreground set_pixel() overlay for the new frame.
+        self._overlay_pixels = {}
+
         # Fill with black
         if self.matrix and hasattr(self.matrix, 'fill'):
             self.matrix.fill(0x000000)
@@ -153,7 +159,12 @@ class SimulatorDisplay(DisplayInterface):
             
             # Update display
             self.display.refresh(minimum_frames_per_second=0)
-            
+
+            # Apply foreground set_pixel() overlay on top of the displayio render.
+            if self._overlay_pixels and hasattr(self.matrix, 'set_pixel'):
+                for (px, py), pcolor in self._overlay_pixels.items():
+                    self.matrix.set_pixel(px, py, pcolor)
+
             # Render to pygame
             if hasattr(self.matrix, 'render'):
                 self.matrix.render()
@@ -211,38 +222,37 @@ class SimulatorDisplay(DisplayInterface):
             return None
 
     async def set_pixel(self, x: int, y: int, color: int) -> None:
-        """Set a single pixel color.
-        
+        """Set a single pixel (drawn on top of other content).
+
         Args:
             x: X coordinate
             y: Y coordinate
             color: Color as 24-bit RGB integer
         """
-        if self.matrix and 0 <= x < self._width and 0 <= y < self._height:
-            # Try different methods to set pixel
-            if hasattr(self.matrix, 'set_pixel'):
-                self.matrix.set_pixel(x, y, color)
-            elif hasattr(self.matrix, '__setitem__'):
-                try:
-                    self.matrix[x, y] = color
-                except (TypeError, AttributeError):
-                    # Try alternative indexing
-                    try:
-                        self.matrix[y][x] = color
-                    except (TypeError, AttributeError, IndexError):
-                        # Fallback - print for debugging
-                        print(f"Cannot set pixel at ({x}, {y}) to {color:06X}")
-            else:
-                print(f"Matrix object has no set_pixel method: {type(self.matrix)}")
-    
+        if 0 <= x < self._width and 0 <= y < self._height:
+            # Recorded as a foreground overlay and applied in show() AFTER the
+            # displayio render. Writing straight to the matrix here would be
+            # wiped by show()'s per-frame refresh() before the frame is shown.
+            self._overlay_pixels[(x, y)] = color
+
     async def fill(self, color: int) -> None:
-        """Fill entire display with color.
-        
+        """Fill the entire display with a solid background color.
+
         Args:
             color: Color as 24-bit RGB integer
         """
-        if self.matrix and hasattr(self.matrix, 'fill'):
-            self.matrix.fill(color)
+        if self.main_group is None:
+            return
+        # Render fill through the displayio layer: a full-screen background
+        # TileGrid inserted behind other content, so it survives show()'s
+        # per-frame refresh (which clears the matrix and re-renders the group).
+        bitmap = displayio.Bitmap(self._width, self._height, 1)
+        palette = displayio.Palette(1)
+        palette[0] = color
+        tile = displayio.TileGrid(bitmap, pixel_shader=palette)
+        tile.x = 0
+        tile.y = 0
+        self.main_group.insert(0, tile)
     
     async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
