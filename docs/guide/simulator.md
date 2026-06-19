@@ -34,4 +34,18 @@ platform branches.
     If the simulator ever diverges from real hardware behaviour, fix the
     *simulator*, not the shared display code — the device is the source of truth.
 
+## Screenshots
+
+`SimulatorDisplay.screenshot(path)` saves the current frame to an image file —
+handy for documentation, bug reports, and visual tests:
+
+```python
+await display.show()
+display.screenshot("frame.png")   # returns the path, or None on hardware
+```
+
+It captures whatever is currently on the simulated matrix. On real hardware
+(no pygame) it returns `None`, so the same call is safe to leave in cross-platform
+code.
+
 Requires `pygame` on desktop: `pip install pygame`.

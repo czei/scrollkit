@@ -176,9 +176,40 @@ class SimulatorDisplay(DisplayInterface):
         except ImportError:
             # Pygame not available, just refresh
             self.display.refresh(minimum_frames_per_second=0)
-        
+
         return True
-    
+
+    def screenshot(self, path):
+        """Save the current display frame to an image file (PNG by extension).
+
+        Renders whatever is currently on the simulated matrix to ``path``. Useful
+        for docs, debugging, and visual tests. Returns the path on success or
+        None if the simulator/pygame isn't available (e.g. on hardware).
+
+        Example::
+
+            await display.show()
+            display.screenshot("frame.png")
+        """
+        try:
+            import pygame
+        except ImportError:
+            return None
+        # Prefer the rendered matrix surface; fall back to the window surface.
+        surface = None
+        if self.matrix is not None and hasattr(self.matrix, "get_surface"):
+            surface = self.matrix.get_surface()
+        if surface is None and pygame.get_init():
+            surface = pygame.display.get_surface()
+        if surface is None:
+            return None
+        try:
+            pygame.image.save(surface, path)
+            return path
+        except (pygame.error, OSError) as e:
+            print(f"screenshot failed: {e}")
+            return None
+
     async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel color.
         
