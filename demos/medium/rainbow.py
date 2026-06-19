@@ -22,8 +22,10 @@ from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import DisplayContent
 from scrollkit.effects.effects import EffectsEngine
 
-# A tall font (~20px caps) so the text fills the 32px display height.
-_FONT_NAME = "Junction_regular_24.bdf"
+# A tall, bold font that fills most of the 32px height while leaving clear
+# margins. (Junction_regular_24 was even taller but its ascent == cap height,
+# so it had zero padding above the caps and looked clipped at the top.)
+_FONT_NAME = "LibreBodoniv2002-Bold-27.bdf"
 
 
 def _load_big_font():
@@ -44,7 +46,7 @@ BIG_FONT = _load_big_font()
 class BigRainbowScroll(DisplayContent):
     """Scrolls big-font text with a flowing per-letter rainbow."""
 
-    BASELINE_Y = 24   # default; calibrate() replaces this with a centered value
+    BASELINE_Y = 22   # default; calibrate() replaces this with a centered value
     SCROLL_STEP = 2
 
     def __init__(self, text="SCROLLKIT  "):
