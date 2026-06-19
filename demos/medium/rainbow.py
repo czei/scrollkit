@@ -44,7 +44,7 @@ BIG_FONT = _load_big_font()
 class BigRainbowScroll(DisplayContent):
     """Scrolls big-font text with a flowing per-letter rainbow."""
 
-    BASELINE_Y = 24   # places the ~20px caps around rows 4..23 (with descender room)
+    BASELINE_Y = 24   # default; calibrate() replaces this with a centered value
     SCROLL_STEP = 2
 
     def __init__(self, text="SCROLLKIT  "):
@@ -60,6 +60,35 @@ class BigRainbowScroll(DisplayContent):
     def _advance(self, ch):
         glyph = BIG_FONT.get_glyph(ch) if BIG_FONT else None
         return glyph["dx"] if glyph else 12
+
+    async def calibrate(self, display):
+        """Center the text vertically by measuring its real rendered extent.
+
+        A bitmap font's glyph boxes include padding/ascenders that don't match
+        the inked pixels, so a hardcoded baseline is fragile. Instead we draw
+        each letter once, read back the lit rows, and pick the baseline that
+        centers the actual ink. On platforms without pixel read-back (real
+        hardware) this quietly keeps the default baseline.
+        """
+        try:
+            ref = 24
+            top, bottom = 99, -1
+            for ch in set(self.text.replace(" ", "")):
+                await display.clear()
+                await display.draw_text(ch, 2, ref, 0xFFFFFF, font=BIG_FONT)
+                display.display.refresh(minimum_frames_per_second=0)
+                buf = display.matrix.pixel_buffer.get_buffer()
+                lit = [y for y in range(display.height)
+                       for x in range(display.width) if tuple(buf[y, x]) != (0, 0, 0)]
+                if lit:
+                    top, bottom = min(top, min(lit)), max(bottom, max(lit))
+            await display.clear()
+            if bottom >= 0:
+                block = (bottom - top) + 1
+                top_margin = max(0, (display.height - block + 1) // 2)
+                self.BASELINE_Y = top_margin - (top - ref)
+        except Exception:
+            pass  # no pixel read-back (hardware) -> keep the default baseline
 
     async def render(self, display):
         self.frame += 1
@@ -94,6 +123,8 @@ class RainbowApp(ScrollKitApp):
     async def setup(self):
         if hasattr(self.display, "create_window"):
             await self.display.create_window("ScrollKit - Big Rainbow (medium)")
+        # Center the tall font vertically based on its real rendered extent.
+        await self.content.calibrate(self.display)
 
 
 if __name__ == "__main__":
