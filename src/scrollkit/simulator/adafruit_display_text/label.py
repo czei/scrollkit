@@ -211,7 +211,15 @@ class Label(Group):
         # Ensure minimum size
         bitmap_width = max(1, bitmap_width)
         bitmap_height = max(1, bitmap_height)
-        
+
+        # Hardware-realism hook: rebuilding the glyph bitmap is the dominant
+        # per-frame cost on CircuitPython. No-op unless a PerformanceManager is
+        # active (opt-in via SimulatorDisplay(hardware_timing=True)).
+        from ..core import performance_manager as _pm_mod
+        _pm = _pm_mod.get_active()
+        if _pm is not None and _pm.enabled:
+            _pm.account_bitmap_rebuild(bitmap_width, bitmap_height)
+
         # Create new bitmap and palette
         self._bitmap = Bitmap(bitmap_width, bitmap_height, 2)
         self._palette = Palette(2)

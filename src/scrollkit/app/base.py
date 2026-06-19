@@ -32,7 +32,8 @@ import gc
 from typing import Optional, List
 from ..display.content import ContentQueue
 from ..display.interface import DisplayInterface
-from ..exceptions import DisplayError, NetworkError
+from ..exceptions import DisplayError, NetworkError, WebServerError
+from .memory import free_memory
 
 
 class SLDKApp:
@@ -57,10 +58,15 @@ class SLDKApp:
         self.display: Optional[DisplayInterface] = None
         self.content_queue = ContentQueue()
         self._tasks: List[asyncio.Task] = []
-        
+
         # Memory tracking
         self._last_memory_report: float = 0
         self._memory_report_interval = 60  # Report every minute
+
+        # Runtime metrics (cheap counters — used by the dev/verification harness)
+        self._frame_count: int = 0
+        self._current_content = None
+        self._run_start = None  # time.monotonic() when run() began the loop
     
     # Abstract methods to be implemented by subclasses
     
@@ -122,19 +128,22 @@ class SLDKApp:
             try:
                 # Get content to display
                 content = await self.prepare_display_content()
-                
+                self._current_content = content
+
                 if content and self.display:
                     # Clear display first
                     await self.display.clear()
-                    
+
                     # Render content
                     await content.render(self.display)
-                    
+
                     # Update display. show() returns False when the user closes
                     # the simulator window (or presses ESC) -> shut the app down.
                     if await self.display.show() is False:
                         self._request_shutdown()
                         return
+
+                    self._frame_count += 1
 
                 # Control frame rate
                 await sleep(0.05)  # 20 FPS
@@ -177,14 +186,14 @@ class SLDKApp:
 
                 # Check if we have enough memory
                 gc.collect()
-                free_memory = gc.mem_free() if hasattr(gc, 'mem_free') else 100000
+                free_mem = free_memory()
 
-                if free_memory > 20000:  # Need 20KB free
+                if free_mem > 20000:  # Need 20KB free
                     # Show a loading frame before the (possibly blocking) fetch.
                     await self._render_loading()
                     await self.update_data()
                 else:
-                    print(f"Skipping data update - low memory: {free_memory}")
+                    print(f"Skipping data update - low memory: {free_mem}")
                     
             except Exception as e:
                 print(f"Data update error: {e}")
@@ -211,10 +220,10 @@ class SLDKApp:
             
         # Check if we have enough memory for web server
         gc.collect()
-        free_memory = gc.mem_free() if hasattr(gc, 'mem_free') else 100000
-        
-        if free_memory < 50000:  # Need 50KB free
-            print(f"Web server disabled - insufficient memory: {free_memory}")
+        free_mem = free_memory()
+
+        if free_mem < 50000:  # Need 50KB free
+            print(f"Web server disabled - insufficient memory: {free_mem}")
             return
         
         try:
@@ -250,7 +259,7 @@ class SLDKApp:
             
             if now - self._last_memory_report > self._memory_report_interval:
                 gc.collect()
-                free = gc.mem_free() if hasattr(gc, 'mem_free') else -1
+                free = free_memory()
                 if free > 0:
                     print(f"Free memory: {free} bytes")
                 self._last_memory_report = now
@@ -269,7 +278,10 @@ class SLDKApp:
         
         try:
             self.running = True
-            
+
+            import time
+            self._run_start = time.monotonic() if hasattr(time, "monotonic") else None
+
             # Run setup
             await self.setup()
             
@@ -281,15 +293,15 @@ class SLDKApp:
             
             # Data update process if memory allows
             gc.collect()
-            free_memory = gc.mem_free() if hasattr(gc, 'mem_free') else 100000
-            
-            if free_memory > 30000:  # 30KB free
+            free_mem = free_memory()
+
+            if free_mem > 30000:  # 30KB free
                 tasks.append(create_task(self._data_update_process()))
             else:
-                print(f"Data updates disabled - low memory: {free_memory}")
-            
+                print(f"Data updates disabled - low memory: {free_mem}")
+
             # Web server if enabled and memory allows
-            if self.enable_web and free_memory > 50000:
+            if self.enable_web and free_mem > 50000:
                 tasks.append(create_task(self._web_server_process()))
             
             self._tasks = tasks
@@ -336,6 +348,65 @@ class SLDKApp:
     def stop(self) -> None:
         """Stop the application."""
         self.running = False
+
+    # Runtime metrics -------------------------------------------------------
+    # Cheap, device-safe introspection used by the desktop verification
+    # harness (``scrollkit.dev.run_headless``) so an AI agent can confirm the
+    # app actually rendered/advanced. All a few integer reads — no allocation.
+
+    @property
+    def frame_count(self) -> int:
+        """Number of frames actually shown since ``run()`` started."""
+        return self._frame_count
+
+    def fps(self) -> float:
+        """Average displayed frames per second since ``run()`` started.
+
+        Returns 0.0 before the loop starts. On the simulator this is desktop
+        speed; the *hardware* estimate lives in the feasibility report.
+        """
+        if self._run_start is None:
+            return 0.0
+        import time
+        if not hasattr(time, "monotonic"):
+            return 0.0
+        elapsed = time.monotonic() - self._run_start
+        return (self._frame_count / elapsed) if elapsed > 0 else 0.0
+
+    def describe(self) -> dict:
+        """A small, JSON-able snapshot of the app's current state.
+
+        Reads a supported summary of the content being shown (via its
+        ``describe()``) instead of poking private attributes.
+        """
+        content = self._current_content
+        if content is not None and hasattr(content, "describe"):
+            try:
+                content_desc = content.describe()
+            except Exception:
+                content_desc = type(content).__name__
+        elif content is not None:
+            content_desc = type(content).__name__
+        else:
+            content_desc = None
+        return {
+            "running": self.running,
+            "frame_count": self._frame_count,
+            "fps": round(self.fps(), 1),
+            "enable_web": self.enable_web,
+            "update_interval": self.update_interval,
+            "current_content": content_desc,
+        }
+
+    def memory_estimate(self) -> dict:
+        """Estimated free RAM: real on hardware, modeled/large on desktop.
+
+        Delegates to ``scrollkit.app.memory.free_memory`` so the value matches
+        what the memory ladder in the run loop actually gates on.
+        """
+        from .memory import free_memory
+        free = free_memory()
+        return {"free_bytes": free}
 
 
 # Public name for the merged ScrollKit library. `SLDKApp` is retained as a

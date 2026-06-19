@@ -40,17 +40,27 @@ from .interface import DisplayInterface
 class SimulatorDisplay(DisplayInterface):
     """Simulator display implementation for desktop development."""
     
-    def __init__(self, width: int = 64, height: int = 32, scale: int = 10):
+    def __init__(self, width: int = 64, height: int = 32, scale: int = 10,
+                 *, hardware_timing: bool = False, throttle: bool = False):
         """Initialize simulator display.
-        
+
         Args:
             width: Display width in pixels
             height: Display height in pixels
             scale: Scale factor for window size
+            hardware_timing: Model how slow the real CircuitPython device would
+                run (read the estimate via feasibility_report()). Off by default;
+                also enabled by the env var SCROLLKIT_HW_SIM=1.
+            throttle: When hardware_timing is on, also sleep so the window crawls
+                at the modeled hardware speed (off by default; tests never use it).
         """
         self._width: int = width
         self._height: int = height
         self._scale: int = scale
+        # Hardware-realism simulation (opt-in).
+        self._hardware_timing: bool = hardware_timing
+        self._throttle: bool = throttle
+        self._perf: Any = None
         # Full brightness by default so content is clearly visible in the
         # simulator. (At 1.0 the LED renderer also applies its high-visibility
         # enhancement.) Real hardware dims via its own brightness setting.
@@ -73,7 +83,15 @@ class SimulatorDisplay(DisplayInterface):
 
         # Foreground pixels from set_pixel(), applied after each refresh.
         self._overlay_pixels: dict = {}
-        
+
+        # Reusable Label pool (indexed by draw order within a frame), mirroring
+        # UnifiedDisplay/hardware: draw_text() reuses the pooled Label object so
+        # unchanged text skips the (expensive) glyph-bitmap rebuild and nothing
+        # is allocated per frame. This keeps the hardware feasibility estimate
+        # honest — it only charges a text rebuild when .text actually changes.
+        self._label_pool: list = []
+        self._label_idx: int = 0
+
     @property
     def width(self) -> int:
         """Display width in pixels."""
@@ -95,6 +113,9 @@ class SimulatorDisplay(DisplayInterface):
                 width=self._width,
                 height=self._height
             )
+            # Wire hardware-timing simulation onto the device BEFORE initialize()
+            # (LEDMatrix reads device.performance_manager in initialize()).
+            self._maybe_enable_hardware_timing()
             self.device.initialize()
             
             # Get display components
@@ -120,14 +141,15 @@ class SimulatorDisplay(DisplayInterface):
             raise
     
     async def clear(self) -> None:
-        """Clear the display."""
-        # Remove all content from the display group. draw_text() appends a new
-        # Label every call, so without actually emptying the group here it would
-        # grow unbounded every frame (leaking memory and slowing rendering to a
-        # crawl over time). Emptying it keeps each frame's redraw clean.
+        """Clear the display (start a new frame)."""
+        # Empty the display group so backgrounds/labels from the previous frame
+        # don't accumulate. The Label *objects* survive in self._label_pool and
+        # are re-appended (reused) by draw_text(), so this isn't a per-frame
+        # allocation — just list membership churn (cheap on desktop).
         if self.main_group is not None:
             while len(self.main_group):
                 self.main_group.pop()
+        self._label_idx = 0
 
         # Drop any foreground set_pixel() overlay for the new frame.
         self._overlay_pixels = {}
@@ -157,28 +179,31 @@ class SimulatorDisplay(DisplayInterface):
                         if event.key == pygame.K_ESCAPE:
                             return False
             
-            # Update display
+            # displayio render: group -> matrix pixel buffer -> surface. This
+            # already calls matrix.render() internally exactly once (== one
+            # modeled hardware frame).
             self.display.refresh(minimum_frames_per_second=0)
 
-            # Apply foreground set_pixel() overlay on top of the displayio render.
+            # Foreground set_pixel() overlay writes straight to the pixel buffer,
+            # so it needs a re-render to reach the surface. Only render again when
+            # an overlay is actually present: an UNCONDITIONAL second render would
+            # count a second modeled frame on every show(), roughly halving the
+            # estimated hardware FPS and doubling the throttle crawl (so the
+            # feasibility report and the visceral throttle would disagree).
             if self._overlay_pixels and hasattr(self.matrix, 'set_pixel'):
                 for (px, py), pcolor in self._overlay_pixels.items():
                     self.matrix.set_pixel(px, py, pcolor)
+                if hasattr(self.matrix, 'render'):
+                    self.matrix.render()
 
-            # Render to pygame
-            if hasattr(self.matrix, 'render'):
-                self.matrix.render()
-                
-                # Copy matrix surface to main window
-                if pygame.get_init() and pygame.display.get_surface():
-                    screen = pygame.display.get_surface()
-                    matrix_surface = self.matrix.get_surface()
-                    if matrix_surface:
-                        # Clear screen, then blit the rendered LED matrix
-                        screen.fill((0, 0, 0))
-                        screen.blit(matrix_surface, (0, 0))
-            
+            # Copy the rendered LED matrix surface to the window.
             if pygame.get_init() and pygame.display.get_surface():
+                screen = pygame.display.get_surface()
+                matrix_surface = (self.matrix.get_surface()
+                                  if hasattr(self.matrix, 'get_surface') else None)
+                if matrix_surface:
+                    screen.fill((0, 0, 0))
+                    screen.blit(matrix_surface, (0, 0))
                 pygame.display.flip()
             
             # Small yield for responsiveness
@@ -220,6 +245,46 @@ class SimulatorDisplay(DisplayInterface):
         except (pygame.error, OSError) as e:
             print(f"screenshot failed: {e}")
             return None
+
+    def _maybe_enable_hardware_timing(self) -> None:
+        """Build a PerformanceManager if hardware timing is requested (opt-in).
+
+        Enabled by the constructor flag or ``SCROLLKIT_HW_SIM=1``. The visceral
+        "throttle" crawl is enabled by the ``throttle`` constructor flag or
+        ``SCROLLKIT_HW_THROTTLE=1`` — and turning throttle on implies hardware
+        timing (you can't crawl at a speed you aren't modeling).
+        """
+        import os
+        env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
+        env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
+        want_throttle = self._throttle or env_throttle
+        want_timing = self._hardware_timing or env_sim or want_throttle
+        if not want_timing:
+            return
+        from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
+        from scrollkit.simulator.core.performance_manager import (
+            PerformanceManager, set_active)
+        self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
+                                        throttle=want_throttle)
+        self.device.performance_manager = self._perf   # read by LEDMatrix
+        set_active(self._perf)                          # read by the Label rebuild hook
+
+    def feasibility_report(self):
+        """Estimate how this app would perform on the real hardware.
+
+        Returns a FeasibilityReport (estimated FPS, per-frame cost breakdown,
+        peak RAM vs budget, warnings). Requires hardware_timing=True (or
+        SCROLLKIT_HW_SIM=1); otherwise returns a clearly-labeled disabled stub.
+        """
+        if self._perf is None:
+            from scrollkit.simulator.core.feasibility import FeasibilityReport
+            return FeasibilityReport(
+                "hardware timing disabled", "DISABLED",
+                "enable with SimulatorDisplay(hardware_timing=True) or SCROLLKIT_HW_SIM=1",
+                False, None, 0.0, 0.0, {}, 0, 0,
+                ["Hardware timing is off — no feasibility data. Enable with "
+                 "hardware_timing=True or SCROLLKIT_HW_SIM=1."])
+        return self._perf.report()
 
     async def set_pixel(self, x: int, y: int, color: int) -> None:
         """Set a single pixel (drawn on top of other content).
@@ -281,16 +346,27 @@ class SimulatorDisplay(DisplayInterface):
         # Use provided font or default
         if font is None:
             font = self.font
-            
-        # Create label
-        label = Label(font, text=text, color=color)
-        label.x = x
-        label.y = y
-        
-        # Create a group for this label
-        label_group = displayio.Group()
-        label_group.append(label)
-        self.main_group.append(label_group)
+
+        # Reuse the pooled Label for this draw slot; only touch .text when it
+        # actually changed (a change rebuilds the glyph bitmap — the dominant
+        # hardware cost the feasibility model charges for). Re-append it to the
+        # group, which clear() emptied for this frame.
+        idx = self._label_idx
+        if idx < len(self._label_pool):
+            label = self._label_pool[idx]
+            if label.text != text:
+                label.text = text
+            if label.color != color:
+                label.color = color
+            label.x = x
+            label.y = y
+        else:
+            label = Label(font, text=text, color=color)
+            label.x = x
+            label.y = y
+            self._label_pool.append(label)
+        self.main_group.append(label)
+        self._label_idx += 1
     
     async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.

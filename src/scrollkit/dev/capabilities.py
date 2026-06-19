@@ -1,0 +1,203 @@
+"""Machine-readable catalog of what a ScrollKit app can use — for AI authoring.
+
+``capabilities()`` returns a JSON-able dict describing the building blocks an
+agent should reach for when writing an app: the panel geometry, the content
+types and their constructor parameters, priority levels, available effects,
+named colors, and the display drawing API — plus a pointer at the headless
+verification loop.
+
+Everything is **introspected from live code** (the real ``Priority`` class, the
+``effects`` package's ``__all__``, ``MinimalLEDApp.COLORS``, the
+``DisplayInterface`` methods, and the ``DisplayContent`` subclasses), so the
+catalog can't silently drift out of sync with the library. Each lookup is
+defensive: if a piece can't be imported, that section is simply omitted rather
+than crashing the whole catalog.
+
+Desktop-only (imported via ``scrollkit.dev``).
+"""
+
+import inspect
+
+# The Adafruit MatrixPortal S3's standard HUB75 panel — the canonical target the
+# simulator emulates. (Color is 24-bit RGB; the panel itself is far coarser.)
+PANEL_WIDTH = 64
+PANEL_HEIGHT = 32
+
+
+def _first_line(obj):
+    doc = inspect.getdoc(obj) or ""
+    return doc.strip().split("\n", 1)[0] if doc else ""
+
+
+def _init_params(cls):
+    """``[{name, default}]`` for a class __init__, skipping self/var-args."""
+    out = []
+    try:
+        sig = inspect.signature(cls.__init__)
+    except (ValueError, TypeError):
+        return out
+    for name, p in sig.parameters.items():
+        if name == "self" or p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
+            continue
+        default = None if p.default is inspect.Parameter.empty else p.default
+        out.append({"name": name, "default": default})
+    return out
+
+
+def _content_types():
+    from ..display import content as _content
+    base = _content.DisplayContent
+    types = []
+    for name in dir(_content):
+        obj = getattr(_content, name)
+        if (inspect.isclass(obj) and issubclass(obj, base)
+                and obj is not base
+                and obj.__module__ == _content.__name__):
+            types.append({"name": name, "doc": _first_line(obj),
+                          "params": _init_params(obj)})
+    types.sort(key=lambda t: t["name"])
+    return types
+
+
+def _priorities():
+    from ..display.strategy import Priority
+    levels = {}
+    for name in dir(Priority):
+        if name.isupper() and isinstance(getattr(Priority, name), int):
+            levels[name] = getattr(Priority, name)
+    return dict(sorted(levels.items(), key=lambda kv: kv[1]))
+
+
+def _effects():
+    from .. import effects as _fx
+    names = getattr(_fx, "__all__", None) or [n for n in dir(_fx)
+                                              if not n.startswith("_")]
+    out = []
+    for name in names:
+        obj = getattr(_fx, name, None)
+        if inspect.isclass(obj) and not inspect.isabstract(obj):
+            out.append({"name": name, "doc": _first_line(obj)})
+    return out
+
+
+def _named_colors():
+    """name -> 0xRRGGBB int, from the simple API's color table (deduped)."""
+    from ..app.minimal import MinimalLEDApp
+    colors = {}
+    for name, rgb in MinimalLEDApp.COLORS.items():
+        try:
+            r, g, b = rgb
+            colors[name] = (int(r) << 16) | (int(g) << 8) | int(b)
+        except (TypeError, ValueError):
+            continue
+    return colors
+
+
+def _display_api():
+    from ..display.interface import DisplayInterface
+    methods = []
+    for name in dir(DisplayInterface):
+        if name.startswith("_"):
+            continue
+        attr = inspect.getattr_static(DisplayInterface, name, None)
+        is_prop = isinstance(attr, property)
+        member = getattr(DisplayInterface, name, None)
+        if not (is_prop or inspect.isfunction(member) or inspect.iscoroutinefunction(member)):
+            continue
+        entry = {"name": name, "property": is_prop, "doc": _first_line(member)}
+        target = attr.fget if is_prop else member
+        try:
+            entry["signature"] = "%s%s" % (name, inspect.signature(target))
+        except (ValueError, TypeError):
+            entry["signature"] = name
+        methods.append(entry)
+    methods.sort(key=lambda m: m["name"])
+    return methods
+
+
+def _hardware():
+    from ..simulator.core.hardware_profile import matrixportal_s3_profile
+    p = matrixportal_s3_profile()
+    ceiling = int(1_000_000 / p.full_refresh_us) if p.full_refresh_us else 0
+    return {
+        "target": p.name,
+        "usable_ram_bytes": p.usable_ram_bytes,
+        "confidence": p.confidence,
+        "calibrated": p.is_calibrated,
+        "refresh_fps_ceiling": ceiling,
+        "guidance": ("Every frame pays one display.refresh() (~%d us, a hard "
+                     "ceiling near %d FPS) plus a glyph-bitmap rebuild for any "
+                     "text that changed. Redrawing many text fields every frame "
+                     "is the main way to fall to single-digit FPS — cache Labels "
+                     "and only change .text when the value changes. RAM budget is "
+                     "~%d KB." % (round(p.full_refresh_us), ceiling,
+                                  p.usable_ram_bytes // 1024)),
+    }
+
+
+def _performance():
+    from .performance import performance_guide
+    return performance_guide()
+
+
+def capabilities():
+    """Return the JSON-able capability catalog (see module docstring).
+
+    Sections are best-effort: any that can't be introspected is omitted, so the
+    call never fails just because one optional submodule is missing.
+    """
+    cat = {
+        "panel": {
+            "width": PANEL_WIDTH,
+            "height": PANEL_HEIGHT,
+            "color": "24-bit RGB int 0xRRGGBB, or an (r, g, b) tuple (0-255 each)",
+            "note": "Adafruit MatrixPortal S3 standard 64x32 panel",
+        },
+        "verification": (
+            "Build a scrollkit.app.base.ScrollKitApp subclass, then run it "
+            "headless with scrollkit.dev.run_headless(app, frames=N, "
+            "screenshot=path) to get rendered-pixel metrics and an estimated "
+            "hardware feasibility report. Use scrollkit.dev.validate(app) for "
+            "structured pre-flight checks."
+        ),
+    }
+    for key, fn in (("content_types", _content_types), ("priorities", _priorities),
+                    ("effects", _effects), ("named_colors", _named_colors),
+                    ("display_api", _display_api), ("hardware", _hardware),
+                    ("performance", _performance)):
+        try:
+            cat[key] = fn()
+        except Exception as e:  # one bad section shouldn't sink the catalog
+            cat[key] = {"error": "introspection failed: %r" % (e,)}
+    return cat
+
+
+def as_text(cat=None):
+    """Render the catalog as a compact human/AI-readable summary."""
+    cat = cat or capabilities()
+    lines = ["=== ScrollKit capabilities ==="]
+    p = cat.get("panel", {})
+    lines.append("Panel: %sx%s, color=%s" % (p.get("width"), p.get("height"),
+                                             p.get("color")))
+    ct = cat.get("content_types")
+    if isinstance(ct, list):
+        lines.append("Content types:")
+        for t in ct:
+            params = ", ".join(
+                "%s=%r" % (q["name"], q["default"]) if q["default"] is not None
+                else q["name"] for q in t["params"])
+            lines.append("  - %s(%s) — %s" % (t["name"], params, t["doc"]))
+    pr = cat.get("priorities")
+    if isinstance(pr, dict):
+        lines.append("Priorities: " + ", ".join("%s=%d" % (k, v)
+                                                 for k, v in pr.items()))
+    fx = cat.get("effects")
+    if isinstance(fx, list) and fx:
+        lines.append("Effects: " + ", ".join(e["name"] for e in fx))
+    nc = cat.get("named_colors")
+    if isinstance(nc, dict) and nc:
+        lines.append("Named colors: " + ", ".join(sorted(nc)))
+    hw = cat.get("hardware")
+    if isinstance(hw, dict) and "guidance" in hw:
+        lines.append("Hardware: %s" % hw["guidance"])
+    return "\n".join(lines)

@@ -76,6 +76,21 @@ class DisplayContent:
             return False
         return self.elapsed >= self.duration
 
+    def describe(self) -> dict:
+        """A small, JSON-able summary of this content for verification.
+
+        Subclasses extend this with their own fields (text, position, ...).
+        Lets the dev harness read a supported summary rather than poking
+        private attributes like ``_position``.
+        """
+        return {
+            "type": type(self).__name__,
+            "priority": self.priority,
+            "duration": self.duration,
+            "elapsed": round(self.elapsed, 2),
+            "is_complete": self.is_complete,
+        }
+
 
 class StaticText(DisplayContent):
     """Static text display content."""
@@ -100,6 +115,11 @@ class StaticText(DisplayContent):
     async def render(self, display) -> None:
         """Render static text to display."""
         await display.draw_text(self.text, self.x, self.y, self.color)
+
+    def describe(self) -> dict:
+        info = super().describe()
+        info.update({"text": self.text, "x": self.x, "y": self.y})
+        return info
 
 
 class ScrollingText(DisplayContent):
@@ -156,6 +176,18 @@ class ScrollingText(DisplayContent):
     def is_complete(self) -> bool:
         """Check if text has scrolled off screen."""
         return self._is_complete
+
+    def describe(self) -> dict:
+        info = super().describe()
+        info.update({
+            "text": self.text,
+            "y": self.y,
+            "speed": self.speed,
+            "position": self._position,    # None until first render
+            "text_width": self._text_width,
+            "started": self._position is not None,
+        })
+        return info
 
 
 class ContentQueue:

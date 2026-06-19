@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 import gc
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..exceptions import DisplayError, SimulatorError
 
@@ -57,30 +57,42 @@ from .interface import DisplayInterface
 class UnifiedDisplay(DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
     
-    def __init__(self, width: int = 64, height: int = 32):
+    def __init__(self, width: int = 64, height: int = 32, bit_depth: int = 4):
         """Initialize unified display.
-        
+
         Args:
             width: Display width in pixels
             height: Display height in pixels
+            bit_depth: Color bits per channel on hardware (1-6). Measured on a
+                MatrixPortal S3, a full refresh costs ~4.5 ms at bit_depth<=4 but
+                ~13.7 ms at bit_depth 6 (~3x) — so 4 is the speed/quality sweet
+                spot for scrolling/data displays. Raise to 6 only if you need
+                smooth color gradients and can afford the lower frame rate.
         """
         self._width: int = width
         self._height: int = height
+        self._bit_depth: int = bit_depth
         self._brightness: float = 0.3
-        
+
         # Platform specific components
         self.hardware: Any = None
         self.matrix: Any = None
         self.display: Any = None
         self.device: Any = None  # For simulator
-        
+        self._perf: Any = None    # hardware-realism PerformanceManager (opt-in, desktop)
+
         # Display components
         self.main_group: Any = None
         self._initialized: bool = False
-        
+
         # For text rendering
         self.font: Any = None
-        self._text_labels: Dict[str, Any] = {}  # Cache for text labels
+        # Reusable Label pool, indexed by draw-order within a frame. draw_text()
+        # pulls the next slot and mutates it in place; scrolling/static text then
+        # reuses one Label forever instead of allocating (and leaking) a new
+        # Label+Group every frame. Reset each frame in clear().
+        self._label_pool: List[Any] = []
+        self._label_idx: int = 0
         
     @property
     def width(self) -> int:
@@ -121,26 +133,13 @@ class UnifiedDisplay(DisplayInterface):
     def _initialize_hardware(self) -> None:
         """Initialize the display hardware/simulator."""
         if IS_CIRCUITPYTHON:
-            # Try hardware auto-detection first
-            try:
-                from .devices import detect_hardware
-                hardware_display = detect_hardware(
-                    width=self._width, 
-                    height=self._height
-                )
-                
-                if hardware_display:
-                    self.hardware = hardware_display
-                    self.matrix = hardware_display
-                    self.display = hardware_display.display if hasattr(hardware_display, 'display') else hardware_display
-                    return
-            except ImportError:
-                pass
-            
-            # Fallback to MatrixPortal Matrix
+            # Create the RGB matrix. Pass bit_depth explicitly (4 by default)
+            # rather than relying on the library default — it's the single biggest
+            # refresh-cost lever on this board (~3x between bit_depth 4 and 6).
             try:
                 from adafruit_matrixportal.matrix import Matrix
-                self.hardware = Matrix(width=self._width, height=self._height)
+                self.hardware = Matrix(width=self._width, height=self._height,
+                                       bit_depth=self._bit_depth)
                 self.display = self.hardware.display
                 self.matrix = self.hardware
             except ImportError:
@@ -154,6 +153,9 @@ class UnifiedDisplay(DisplayInterface):
             
             # Create MatrixPortal S3 device
             self.device = MatrixPortalS3(width=self._width, height=self._height)
+            # Wire hardware-timing simulation BEFORE initialize() (LEDMatrix reads
+            # device.performance_manager there). Opt-in via env var.
+            self._maybe_enable_hardware_timing()
             self.device.initialize()
             
             # Get references to the display components
@@ -164,20 +166,69 @@ class UnifiedDisplay(DisplayInterface):
             # Initialize surface for simulator
             if hasattr(self.matrix, 'initialize_surface'):
                 self.matrix.initialize_surface()
-    
+
+    def _maybe_enable_hardware_timing(self) -> None:
+        """Model real-hardware timing/RAM on desktop, like SimulatorDisplay.
+
+        Opt-in via SCROLLKIT_HW_SIM=1 (estimate/feasibility) or
+        SCROLLKIT_HW_THROTTLE=1 (also crawl at the modeled speed). No-op on
+        CircuitPython, where the device runs at real speed already.
+        """
+        import os
+        env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
+        env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
+        if not (env_sim or env_throttle):
+            return
+        try:
+            from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
+            from scrollkit.simulator.core.performance_manager import (
+                PerformanceManager, set_active)
+        except ImportError:
+            return
+        self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
+                                        throttle=env_throttle)
+        self.device.performance_manager = self._perf   # read by LEDMatrix
+        set_active(self._perf)                          # read by the Label rebuild hook
+
+    def feasibility_report(self):
+        """Estimate how this app would perform on the real hardware.
+
+        Mirrors SimulatorDisplay.feasibility_report(); returns a disabled stub
+        unless hardware timing was enabled (via the env vars above).
+        """
+        if self._perf is None:
+            from scrollkit.simulator.core.feasibility import FeasibilityReport
+            return FeasibilityReport(
+                "hardware timing disabled", "DISABLED",
+                "enable with SCROLLKIT_HW_SIM=1 or SCROLLKIT_HW_THROTTLE=1",
+                False, None, 0.0, 0.0, {}, 0, 0,
+                ["Hardware timing is off — no feasibility data. Enable with "
+                 "SCROLLKIT_HW_SIM=1."])
+        return self._perf.report()
+
     async def clear(self) -> None:
-        """Clear the display."""
-        # Hide all groups
-        for child in self.main_group:
-            if hasattr(child, 'hidden'):
-                child.hidden = True
-        
-        # Clear any pixel data
+        """Clear the display (start a new frame).
+
+        Resets the per-frame Label slot index so draw_text() reuses pooled
+        Labels instead of allocating new ones. Labels not redrawn this frame are
+        hidden in show().
+        """
+        self._label_idx = 0
+
+        # Clear any pixel data drawn outside the displayio group (e.g. set_pixel).
         if self.matrix and hasattr(self.matrix, 'fill'):
             self.matrix.fill(0x000000)
-    
+
+    def _hide_unused_labels(self) -> None:
+        """Hide pooled Labels that weren't drawn this frame (frame drew fewer)."""
+        for i in range(self._label_idx, len(self._label_pool)):
+            lbl = self._label_pool[i]
+            if hasattr(lbl, "hidden"):
+                lbl.hidden = True
+
     async def show(self) -> bool:
         """Update the physical display."""
+        self._hide_unused_labels()
         if IS_CIRCUITPYTHON:
             if self.hardware:
                 self.hardware.display.refresh(minimum_frames_per_second=0)
@@ -212,21 +263,20 @@ class UnifiedDisplay(DisplayInterface):
                     if event.key == pygame.K_ESCAPE:
                         return False
             
-            # Update the display
+            # display.refresh() already renders the matrix to its surface exactly
+            # once (== one modeled hardware frame). Do NOT call matrix.render()
+            # again below — a second render would double-count modeled frames and
+            # make the feasibility estimate disagree with the throttle crawl.
             self.display.refresh(minimum_frames_per_second=0)
-            
-            # Update pygame display - use same pattern as DisplayManager
+
+            # Blit the rendered LED matrix surface to the pygame window.
             screen = pygame.display.get_surface()
-            if screen and hasattr(self.matrix, 'render') and hasattr(self.matrix, 'get_surface'):
-                # Clear screen
+            if screen and hasattr(self.matrix, 'get_surface'):
                 screen.fill((0, 0, 0))
-                
-                # Render matrix and blit to screen
-                self.matrix.render()
                 matrix_surface = self.matrix.get_surface()
                 if matrix_surface:
                     screen.blit(matrix_surface, (0, 0))
-                        
+
             pygame.display.flip()
             
             # Small yield for responsiveness
@@ -306,31 +356,34 @@ class UnifiedDisplay(DisplayInterface):
         if not Label:
             # Label class not available
             return
-            
+
         # Use provided font or default
         if font is None:
             font = self.font
         if font is None:
             return
-            
-        # Create unique key for this text label
-        label_key = f"{text}_{x}_{y}"
-        
-        # Create or update label
-        if label_key in self._text_labels:
-            label = self._text_labels[label_key]
-            label.text = text
-            label.color = color
+
+        # Pull the next Label slot for this frame and mutate it in place. Only
+        # touch .text when it actually changed (a text change rebuilds the glyph
+        # bitmap — the dominant per-frame cost on hardware; moving .x/.y is cheap).
+        idx = self._label_idx
+        if idx < len(self._label_pool):
+            label = self._label_pool[idx]
+            if label.text != text:
+                label.text = text
+            if label.color != color:
+                label.color = color
+            label.x = x
+            label.y = y
+            if hasattr(label, "hidden"):
+                label.hidden = False
         else:
             label = Label(font, text=text, color=color)
             label.x = x
             label.y = y
-            self._text_labels[label_key] = label
-            
-            # Create a group for this label
-            label_group = displayio.Group()
-            label_group.append(label)
-            self.main_group.append(label_group)
+            self._label_pool.append(label)
+            self.main_group.append(label)   # added directly; no per-label wrapper Group
+        self._label_idx += 1
     
     def _convert_color(self, color: Any) -> int:
         """Convert color to platform-appropriate format.

@@ -1,0 +1,254 @@
+{
+  "board": "adafruit_matrixportal_s3",
+  "cp": "9.1.0",
+  "benchmarks": [
+    {
+      "name": "noop_loop_iter",
+      "category": "compute",
+      "value": 2018.74,
+      "note": "for-loop overhead (subtracted below)",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "int_add",
+      "category": "compute",
+      "value": 1538.09,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "int_mul",
+      "category": "compute",
+      "value": 1684.57,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "float_add",
+      "category": "compute",
+      "value": 2069.09,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "float_mul",
+      "category": "compute",
+      "value": 2066.04,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "list_index",
+      "category": "compute",
+      "value": 2917.48,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "dict_get",
+      "category": "compute",
+      "value": 2337.65,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "func_call",
+      "category": "compute",
+      "value": 4661.56,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "attr_access",
+      "category": "compute",
+      "value": 2259.83,
+      "note": "",
+      "iters": 20000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "bitmap_setpixel",
+      "category": "pixel_interpreted",
+      "value": 6996.15,
+      "note": "bmp[x,y]=1",
+      "iters": 10000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "bitmap_getpixel",
+      "category": "pixel_interpreted",
+      "value": 6690.98,
+      "note": "",
+      "iters": 10000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "bitmap_fill_64x32",
+      "category": "bulk_c",
+      "value": 8926.39,
+      "note": "C fill 2048 px",
+      "iters": 4000,
+      "unit": "ns/call"
+    },
+    {
+      "name": "bitmaptools_blit_16x16",
+      "category": "bulk_c",
+      "value": 159462.0,
+      "note": "C blit 256 px",
+      "iters": 4000,
+      "unit": "ns/call"
+    },
+    {
+      "name": "bitmaptools_fill_region",
+      "category": "bulk_c",
+      "value": 147049.0,
+      "note": "512 px",
+      "iters": 4000,
+      "unit": "ns/call"
+    },
+    {
+      "name": "bitmaptools_draw_line",
+      "category": "bulk_c",
+      "value": 29617.3,
+      "note": "",
+      "iters": 4000,
+      "unit": "ns/call"
+    },
+    {
+      "name": "palette_set",
+      "category": "display_obj",
+      "value": 2629.09,
+      "note": "",
+      "iters": 10000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "tilegrid_create",
+      "category": "display_obj",
+      "value": 47607.4,
+      "note": "alloc+init",
+      "iters": 500,
+      "unit": "ns/call"
+    },
+    {
+      "name": "tilegrid_move_x",
+      "category": "display_obj",
+      "value": 2491.76,
+      "note": "",
+      "iters": 10000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "group_append_pop_pair",
+      "category": "display_obj",
+      "value": 10721.8,
+      "note": "",
+      "iters": 3000,
+      "unit": "ns/pair"
+    },
+    {
+      "name": "bitmap_alloc_32x16",
+      "category": "memory",
+      "value": 123291.0,
+      "note": "",
+      "iters": 1000,
+      "unit": "ns/alloc"
+    },
+    {
+      "name": "bytearray_alloc_256",
+      "category": "memory",
+      "value": 73989.8,
+      "note": "",
+      "iters": 2000,
+      "unit": "ns/alloc"
+    },
+    {
+      "name": "gc_collect",
+      "category": "memory",
+      "value": 899251.0,
+      "note": "clean heap",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "monotonic_ns_call",
+      "category": "io",
+      "value": 8848.57,
+      "note": "",
+      "iters": 10000,
+      "unit": "ns/op"
+    },
+    {
+      "name": "refresh_empty_bd1",
+      "category": "refresh",
+      "value": 14241.3,
+      "note": "bit_depth=1, empty group",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_full_bd1",
+      "category": "refresh",
+      "value": 4312130.0,
+      "note": "bit_depth=1, 64x32 recomposite",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_empty_bd2",
+      "category": "refresh",
+      "value": 15259.0,
+      "note": "bit_depth=2, empty group",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_full_bd2",
+      "category": "refresh",
+      "value": 4372150.0,
+      "note": "bit_depth=2, 64x32 recomposite",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_empty_bd4",
+      "category": "refresh",
+      "value": 17293.1,
+      "note": "bit_depth=4, empty group",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_full_bd4",
+      "category": "refresh",
+      "value": 4492190.0,
+      "note": "bit_depth=4, 64x32 recomposite",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_empty_bd6",
+      "category": "refresh",
+      "value": 14241.3,
+      "note": "bit_depth=6, empty group",
+      "iters": 30,
+      "unit": "ns/call"
+    },
+    {
+      "name": "refresh_full_bd6",
+      "category": "refresh",
+      "value": 13691200.0,
+      "note": "bit_depth=6, 64x32 recomposite",
+      "iters": 30,
+      "unit": "ns/call"
+    }
+  ]
+}

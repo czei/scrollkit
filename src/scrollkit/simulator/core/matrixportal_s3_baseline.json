@@ -1,0 +1,12 @@
+{
+  "_mem_after_display": 2073536,
+  "_mem_boot": 2074512,
+  "base_app_ram_bytes": 976,
+  "bitmap_rebuild_us_per_px": 16.53,
+  "bytes_per_label_px": 0.1875,
+  "full_refresh_us": 4488.12,
+  "gc_pause_us": 383.0,
+  "name": "Adafruit MatrixPortal S3 (64x32)",
+  "source": "measured on adafruit_matrixportal_s3, CircuitPython 9.1.0",
+  "usable_ram_bytes": 2073536
+}
