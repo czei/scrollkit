@@ -9,7 +9,7 @@ SRC_DIR := src
 PYTHON := python
 PIP := python -m pip
 
-.PHONY: test test-all test-unit test-coverage install-test-deps dev lint lint-errors clean format test-sldk test-sldk-unit install-sldk-dev
+.PHONY: test test-all test-unit test-coverage install-test-deps dev lint lint-errors clean format mpy
 all: test release
 
 # Development mode with simulator
@@ -153,3 +153,17 @@ test-system:
 
 test-integration:
 	$(PYTHON) -m pytest test/experiments/integration/ -v
+
+# Cross-compile the scrollkit library to .mpy (smaller RAM + faster boot on device).
+# Requires mpy-cross matching your CircuitPython version:  pip install mpy-cross
+MPY_CROSS := mpy-cross
+mpy:
+	@command -v $(MPY_CROSS) >/dev/null 2>&1 || { echo "mpy-cross not found. Install one matching your CircuitPython version: pip install mpy-cross"; exit 1; }
+	@echo "Compiling src/scrollkit -> build/scrollkit (.mpy)..."
+	@rm -rf build/scrollkit
+	@find src/scrollkit -name '*.py' | while read f; do \
+		out="build/$${f#src/}"; out="$${out%.py}.mpy"; \
+		mkdir -p "$$(dirname "$$out")"; \
+		$(MPY_CROSS) "$$f" -o "$$out" || exit 1; \
+	done
+	@echo "Done -> build/scrollkit/. Copy it to the device (e.g. CIRCUITPY/lib/scrollkit)."

@@ -82,4 +82,29 @@ MatrixPortal S3 the identical code drives the physical panel.
 The same app code runs unchanged — `UnifiedDisplay` auto-selects the hardware
 backend on CircuitPython.
 
+### CircuitPython dependencies (circup)
+
+The device also needs the Adafruit libraries ScrollKit uses (e.g.
+`adafruit_requests`, `adafruit_httpserver`, `adafruit_display_text`,
+`adafruit_bitmap_font`). Manage them with [circup](https://github.com/adafruit/circup):
+
+```bash
+pip install circup
+circup install adafruit_requests adafruit_httpserver adafruit_display_text adafruit_bitmap_font
+```
+
+### Saving RAM with .mpy (optional)
+
+The MatrixPortal S3 is memory-constrained. Cross-compiling the library to `.mpy`
+loads faster and uses less RAM than shipping raw `.py`. With `mpy-cross` installed
+(matching your CircuitPython version):
+
+```bash
+pip install mpy-cross        # match your CircuitPython version
+make mpy                     # -> build/scrollkit/*.mpy
+```
+
+Then copy `build/scrollkit/` to the device (e.g. `CIRCUITPY/lib/scrollkit/`)
+instead of the raw `src/scrollkit/`.
+
 Next: the [Easy tutorial](tutorials/easy.md).

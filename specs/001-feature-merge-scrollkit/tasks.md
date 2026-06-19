@@ -115,9 +115,9 @@ This is a **migration/consolidation**, not greenfield. SLDK (`sldk/src/sldk/`) i
 
 ## Phase 3.6: Deferred Polish (P2 — handle last)
 
-- [ ] **T042** [P] Add an `.mpy` build pipeline: `make mpy` target using `mpy-cross` to pre-compile `src/scrollkit/`, and document `circup` for managing Adafruit bundle deps.
-- [ ] **T043** [P] Evaluate optional PCF font track while preserving BDF parity (FR-015); document the memory trade-off. Do not remove BDF support.
-- [ ] **T044** [P] Document the OTA pre/post-update script trust model (enabled vs sandboxed vs disabled-by-default on hardware) in `docs/`.
+- [X] **T042** [P] Add an `.mpy` build pipeline: `make mpy` target using `mpy-cross` to pre-compile `src/scrollkit/`, and document `circup` for managing Adafruit bundle deps.
+- [X] **T043** [P] Evaluate optional PCF font track while preserving BDF parity (FR-015); document the memory trade-off. Do not remove BDF support.
+- [X] **T044** [P] Document the OTA pre/post-update script trust model (enabled vs sandboxed vs disabled-by-default on hardware) in `docs/`.
 
 ---
 

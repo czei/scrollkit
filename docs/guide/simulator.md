@@ -49,3 +49,36 @@ It captures whatever is currently on the simulated matrix. On real hardware
 code.
 
 Requires `pygame` on desktop: `pip install pygame`.
+
+## Fonts: BDF vs PCF
+
+ScrollKit ships and uses **BDF** fonts (under `scrollkit/simulator/fonts/`), and
+the simulator + hardware both load them with the same
+`bitmap_font.load_font(path)` API. BDF is plain-text and easy to work with, which
+is why it's the default.
+
+On a memory-constrained device, **PCF** is the more efficient choice for larger
+fonts:
+
+| | BDF | PCF |
+|--|-----|-----|
+| Format | text | binary |
+| Load cost | parses the whole font into RAM | glyphs read from flash on demand |
+| Best for | small fonts, the simulator, development | large fonts on the MatrixPortal S3 |
+
+Both load through the identical API, so switching is a one-line change:
+
+```python
+font = bitmap_font.load_font("/fonts/MyFont.pcf")   # instead of .bdf
+```
+
+Convert a BDF to PCF on a desktop with `bdftopcf` (part of the X11 font utils):
+
+```bash
+bdftopcf MyFont.bdf -o MyFont.pcf
+```
+
+Recommendation: keep BDF as the default (it works everywhere and the simulator
+is not RAM-constrained); convert to PCF only the specific large fonts you load on
+hardware, where the RAM saving matters. BDF parity is preserved either way — the
+same fonts remain available as `.bdf`.

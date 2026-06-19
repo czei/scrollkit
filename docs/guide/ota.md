@@ -50,3 +50,24 @@ version is also kept as a backup so a validated-but-bad update can be restored.
 | `ota.manifest` | `UpdateManifest` — version, file list, checksums, requirements |
 | `ota.server` | `OTAServer` — host manifests/packages (desktop / CI) |
 | `ota.updater` | thin orchestration over the client |
+
+## Pre/post-update scripts (trust model)
+
+A manifest may carry `pre_update_scripts` and `post_update_scripts` — Python
+snippets run before/after an update is applied. They are powerful (they run with
+full device privileges) and therefore a trust decision, not a convenience:
+
+- **Treat them as remote code execution.** Whoever can publish a manifest to your
+  update URL can run arbitrary code on the device. Only point a device at a
+  manifest source you control.
+- **Recommended default: disabled.** Unless you specifically need migration
+  hooks (e.g. moving a settings file between schema versions), ship manifests
+  with empty script lists. The library applies file updates without them.
+- **If you enable them**, serve the manifest only over a channel you control
+  (a private `releases` branch / signed release), and keep the snippets minimal
+  and auditable. There is no sandbox on CircuitPython — a script can touch the
+  filesystem, network, and hardware.
+- **They do not gate recovery.** A failed or malicious script cannot disable the
+  updater itself, because `boot.py` and the update system are frozen outside
+  `/src` (see the recovery guarantee above) — but a malicious script *can* still
+  damage `/src` and your data, which is why the source must be trusted.
