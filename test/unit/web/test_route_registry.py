@@ -1,21 +1,35 @@
 #!/usr/bin/env python3
 """Regression tests for the CircuitPython-safe ``@route`` registry.
 
-CircuitPython functions have no ``__dict__`` and cannot carry arbitrary attributes,
-so route metadata must NOT be stored as a function attribute (``func._route_info``).
-Instead it lives in a class-level ``_routes`` registry populated by
-``RouteRegistryMixin.__init_subclass__``.
+Two distinct CircuitPython limitations broke ``@route`` on-device, and NEITHER is
+catchable by this CPython simulator suite at runtime — CPython tolerates both — so
+the grep-guard (``TestSourceHasNoCircuitPythonTraps``) is the real safety net:
 
-These tests pin that contract so the bug can't regress on CPython (where assigning
-a function attribute silently works, which is why the original bug shipped):
+  1. CircuitPython plain functions have no ``__dict__`` — ``func._route_info = ...``
+     raised ``can't set attribute``. Fixed by moving metadata to a class-level
+     ``_routes`` registry populated by ``RouteRegistryMixin.__init_subclass__``.
+  2. CircuitPython plain functions do not even expose ``func.__name__`` — reading it
+     raised ``'function' object has no attribute '__name__'``. Fixed by wrapping the
+     function in a ``_RouteMarker`` instance and deriving the method name from the
+     class-namespace key instead of from the function.
+
+These tests pin that contract:
+  - the decorator returns a ``_RouteMarker`` and never mutates / inspects the function;
   - no route metadata is stored on the function object;
   - decorated routes resolve via the class-level registry;
-  - inherited / overridden / multiply-inherited routes all end up in the registry.
+  - inherited / overridden / multiply-inherited routes all end up in the registry;
+  - the source contains no ``func.__name__`` read nor function-attribute assignment.
 """
+
+import os
+import re
 
 import pytest
 
-from scrollkit.web.adapters import route, _iter_routes, MockResponse, MockRequest
+from scrollkit.web import adapters as adapters_mod
+from scrollkit.web.adapters import (
+    route, _iter_routes, _RouteMarker, MockResponse, MockRequest,
+)
 from scrollkit.web.handlers import WebHandler, StaticFileHandler, APIHandler
 
 
@@ -163,3 +177,102 @@ class TestDispatchResolves:
         assert callable(resolve('GET', '/style.css'))
         # Unknown path does not resolve.
         assert resolve('GET', '/nope') is None
+
+
+class TestMarkerNeverTouchesFunction:
+    """The decorator must wrap, not inspect or mutate, the function.
+
+    CircuitPython functions expose neither ``__dict__`` (can't set attributes) nor
+    ``__name__`` (can't read it), so the decorator must do neither.
+    """
+
+    def test_decorator_returns_marker_not_function(self):
+        def handler(self, request):
+            return MockResponse("x")
+
+        marker = route("/x", methods=["GET"])(handler)
+        assert isinstance(marker, _RouteMarker)
+        assert marker.func is handler
+        assert marker.path == "/x"
+        assert marker.methods == ["GET"]
+
+    def test_class_attribute_is_real_function_after_construction(self):
+        # The marker is consumed by __init_subclass__ and replaced by the function.
+        assert not isinstance(getattr(WebHandler, "route_index"), _RouteMarker)
+        assert callable(WebHandler.route_index)
+
+    def test_method_name_comes_from_namespace_not_func_name(self):
+        # Simulate a CircuitPython function: no ``__name__`` AND attribute-assignment
+        # raises. If the machinery read ``func.__name__`` or set a func attribute,
+        # registering this would raise. It must not.
+        class _CpyFunc:
+            __slots__ = ("_f",)  # no __dict__, so no arbitrary attributes
+
+            def __init__(self, f):
+                object.__setattr__(self, "_f", f)
+
+            def __call__(self, *a, **k):
+                return self._f(*a, **k)
+
+            def __getattr__(self, name):  # __name__ etc. are absent
+                raise AttributeError(name)
+
+            def __setattr__(self, name, value):
+                raise AttributeError("can't set attribute %r" % name)
+
+        cpy = _CpyFunc(lambda self, request: MockResponse("CPY"))
+        with pytest.raises(AttributeError):
+            cpy.__name__  # confirm the stub really lacks __name__
+
+        class Handler(WebHandler):
+            route_cpy = route("/cpy")(cpy)
+
+        assert "route_cpy" in Handler._routes
+        assert Handler._routes["route_cpy"]["path"] == "/cpy"
+        # name is the namespace key, not derived from the (absent) func __name__
+        assert callable(getattr(Handler, "route_cpy"))
+
+
+class TestSourceHasNoCircuitPythonTraps:
+    """Grep-guard: the CPython suite can't catch these at runtime, so lint the source.
+
+    Both failures (no ``__dict__``, no ``__name__``) shipped because CPython silently
+    tolerates the offending pattern. This static check fails the build on the simulator
+    if either trap is reintroduced into the route machinery.
+    """
+
+    def test_no_func_attribute_assignment_in_route_machinery(self):
+        source = self._route_source()
+        # e.g. ``func._route_info = ...`` / ``func.anything = ...`` — illegal on CP.
+        offenders = re.findall(r"^\s*func\.[A-Za-z_]\w*\s*=", source, re.MULTILINE)
+        assert not offenders, ("function-attribute assignment in route machinery: %r"
+                               % offenders)
+
+    def test_no_dunder_name_read_in_route_machinery(self):
+        source = self._route_source_code_only()
+        # ``func.__name__`` (or any ``.__name__`` read) is unavailable on CircuitPython.
+        assert "__name__" not in source, (
+            "route machinery reads __name__, which CircuitPython functions lack")
+
+    # --- helpers ---------------------------------------------------------------
+    def _route_source(self) -> str:
+        path = adapters_mod.__file__
+        with open(path, "r") as fh:
+            return fh.read()
+
+    def _route_source_code_only(self) -> str:
+        """adapters.py source with comments and docstrings stripped.
+
+        The fix's own comments legitimately *mention* ``__name__`` to explain why it
+        is avoided; only executable code must be free of it.
+        """
+        raw = self._route_source()
+        lines = []
+        for line in raw.splitlines():
+            code = line.split("#", 1)[0]  # drop line comments
+            lines.append(code)
+        code = "\n".join(lines)
+        # Strip triple-quoted docstrings/strings.
+        code = re.sub(r'"""[\s\S]*?"""', "", code)
+        code = re.sub(r"'''[\s\S]*?'''", "", code)
+        return code

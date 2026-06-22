@@ -448,20 +448,35 @@ class MockResponse:
         self.content_type = content_type
 
 
-# Scratch list drained per handler-class by ``RouteRegistryMixin.__init_subclass__``.
-# CircuitPython functions have no ``__dict__`` and cannot carry attributes, so the
-# decorator records route intent here (keyed later by method name) instead of tagging
-# the function object. See RouteRegistryMixin below.
-_PENDING_ROUTES: List[Any] = []
+class _RouteMarker:
+    """Holder the ``@route`` decorator leaves in the class namespace.
+
+    Two CircuitPython constraints drive this design (neither is catchable by the
+    CPython simulator suite — see the grep-guard regression test):
+
+      1. CircuitPython plain functions have no ``__dict__`` — you cannot set an
+         attribute on them (the original ``func._route_info = ...`` bug). Marker
+         *instances* allow attributes, so we wrap the function in one.
+      2. CircuitPython plain functions do not even expose ``func.__name__`` (it is
+         omitted to save RAM). So the method name is NEVER read off the function;
+         ``RouteRegistryMixin`` derives it from the class-namespace key instead and
+         then restores the real function with ``setattr``.
+    """
+
+    def __init__(self, func: Any, path: str, methods: List[str]) -> None:
+        self.func = func
+        self.path = path
+        self.methods = methods
 
 
 def route(path: str, methods: Optional[List[str]] = None) -> Any:
     """Decorator to mark methods as route handlers.
 
-    Records the route in a module-level scratch list which the enclosing handler
-    class drains into its ``_routes`` registry. The function object is returned
-    UNCHANGED — never assign attributes to a function, as CircuitPython functions
-    have no ``__dict__``.
+    Returns a ``_RouteMarker`` instance (NOT the function) wrapping the route
+    metadata. The enclosing handler class (via ``RouteRegistryMixin``) reads the
+    marker, records the route under the namespace name, and restores the real
+    function. The function object is never mutated and ``func.__name__`` is never
+    read — both are unavailable on CircuitPython.
 
     Args:
         path: URL path to handle
@@ -471,8 +486,7 @@ def route(path: str, methods: Optional[List[str]] = None) -> Any:
         methods = ['GET']
 
     def decorator(func: Any) -> Any:
-        _PENDING_ROUTES.append((func.__name__, path, list(methods)))
-        return func
+        return _RouteMarker(func, path, list(methods))
     return decorator
 
 
@@ -498,16 +512,27 @@ class RouteRegistryMixin:
         # inheritance keeps routes from every base, not just the first).
         merged: Dict[str, Dict[str, Any]] = {}
         for base in reversed(cls.__mro__[1:]):
-            base_routes = base.__dict__.get('_routes')
+            base_routes = getattr(base, '_routes_own', None)
             if base_routes:
                 merged.update(base_routes)
 
-        # Drain routes declared on this class (the decorator appended them while
-        # the class body executed, just before __init_subclass__ runs).
-        while _PENDING_ROUTES:
-            fname, path, route_methods = _PENDING_ROUTES.pop()
-            merged[fname] = {'path': path, 'methods': route_methods}
+        # Scan this class's namespace for routes the decorator just left behind.
+        # The method NAME comes from the namespace key (``dir(cls)`` + getattr —
+        # matching dispatch, since CircuitPython's ``cls.__dict__`` is unreliable),
+        # NOT from ``func.__name__`` (unavailable on CircuitPython). Each marker is
+        # replaced by its real function so dispatch can ``getattr(handler, name)()``.
+        own: Dict[str, Dict[str, Any]] = {}
+        for name in dir(cls):
+            value = getattr(cls, name, None)
+            if isinstance(value, _RouteMarker):
+                own[name] = {'path': value.path, 'methods': value.methods}
+                setattr(cls, name, value.func)
 
+        merged.update(own)
+
+        # ``_routes_own`` records only the routes declared directly on this class so
+        # subclasses can re-merge precisely; ``_routes`` is the full effective set.
+        cls._routes_own = own
         cls._routes = merged
 
 
