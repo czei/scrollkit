@@ -99,6 +99,13 @@ go stale. The two you'll use most:
 - `StaticText(text, x=0, y=0, color=0xFFFFFF, duration=None, priority=2)` —
   fixed; keep it short enough to fit 64px (≈10 chars) or it'll be clipped.
 
+**Coordinates:** the origin `(0, 0)` is the **top-left** corner. X grows to the
+**right**, Y grows **downward** (standard CircuitPython `displayio`). `y` sets the
+text **baseline**, not the top of the glyphs — so `y=0` pushes a line's ascenders
+off the top of the panel and renders nothing readable. For the standard 8px font
+on the 64×32 panel, `y≈12` vertically centers a single line; valid `y` runs
+`0..31`. (Available as `capabilities()["panel"]["coordinates"]`.)
+
 Add content in `setup()` via `self.content_queue.add(...)`. Queue items can carry
 a `priority` (see `capabilities()["priorities"]`: IDLE=0 … SYSTEM=5).
 

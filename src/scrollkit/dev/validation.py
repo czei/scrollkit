@@ -155,7 +155,9 @@ def _static_checks(items, panel_width, panel_height):
             issues.append(Issue(
                 "warning", "offscreen_y",
                 "%s: y=%d is outside the 0..%d panel." % (label, y, panel_height - 1),
-                "Pick a y within the panel (y=12 vertically centers an 8px font)."))
+                "y is the top-down baseline (origin top-left, y grows down); "
+                "pick a y within the panel. y=12 vertically centers an 8px font; "
+                "low y like 0 clips glyphs off the top."))
 
     return issues
 

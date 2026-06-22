@@ -152,6 +152,16 @@ def capabilities():
             "height": PANEL_HEIGHT,
             "color": "24-bit RGB int 0xRRGGBB, or an (r, g, b) tuple (0-255 each)",
             "note": "Adafruit MatrixPortal S3 standard 64x32 panel",
+            "coordinates": {
+                "origin": "top-left",
+                "x": "rightward, 0..%d" % (PANEL_WIDTH - 1),
+                "y": "downward, 0..%d" % (PANEL_HEIGHT - 1),
+                "y_anchor": "baseline",
+                "note": ("(0, 0) is the top-left corner; x grows right, y grows "
+                         "down (standard displayio). y sets the text baseline, "
+                         "not the glyph top, so y=0 clips a line off the top. "
+                         "For the 8px font, y=12 vertically centers one line."),
+            },
         },
         "verification": (
             "Build a scrollkit.app.base.ScrollKitApp subclass, then run it "
@@ -179,6 +189,9 @@ def as_text(cat=None):
     p = cat.get("panel", {})
     lines.append("Panel: %sx%s, color=%s" % (p.get("width"), p.get("height"),
                                              p.get("color")))
+    coords = p.get("coordinates")
+    if isinstance(coords, dict) and coords.get("note"):
+        lines.append("Coordinates: %s" % coords["note"])
     ct = cat.get("content_types")
     if isinstance(ct, list):
         lines.append("Content types:")
