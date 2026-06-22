@@ -1,0 +1,58 @@
+{
+  "_doc": "Golden expected outputs for the bitmaptools battery, on a fresh 8x4 value_count=16 bitmap (rows of x-values, _buffer[y][x]). Values authored from the documented CircuitPython bitmaptools semantics; recapture on a real board with test/claude/bitmaptools_golden.py. The shim is fixed to match this file, never the reverse.",
+  "_bitmap": {"width": 8, "height": 4, "value_count": 16},
+  "fill_region_basic": [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 5, 5, 5, 0, 0, 0, 0],
+    [0, 5, 5, 5, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "fill_region_clip_right": [
+    [0, 0, 0, 0, 0, 0, 7, 7],
+    [0, 0, 0, 0, 0, 0, 7, 7],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "fill_region_negative": [
+    [9, 9, 0, 0, 0, 0, 0, 0],
+    [9, 9, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "fill_region_empty": [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "fill_region_inverted": [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "fill_region_full": [
+    [2, 2, 2, 2, 2, 2, 2, 2],
+    [2, 2, 2, 2, 2, 2, 2, 2],
+    [2, 2, 2, 2, 2, 2, 2, 2],
+    [2, 2, 2, 2, 2, 2, 2, 2]
+  ],
+  "blit_basic": [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 2, 0, 0, 0],
+    [0, 0, 0, 3, 4, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "blit_skip_index": [
+    [0, 0, 2, 0, 0, 0, 0, 0],
+    [0, 3, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "blit_clip_negative": [
+    [4, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+  ]
+}

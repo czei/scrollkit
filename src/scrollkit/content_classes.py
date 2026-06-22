@@ -291,31 +291,16 @@ def create_alert(message: str, **kwargs: Any) -> AlertContent:
 
 # Example usage functions that demonstrate the desired API
 def example_usage() -> list:
-    """Example of how to use the content system with effects."""
-    from .effects import RevealEffect, FadeInEffect, PulseEffect
-    
+    """Example of how to use the content system."""
     # Basic text content
     text = create_text("Hello World", duration=3.0)
-    
-    # Text with reveal effect (Option A pattern)
-    splash = create_splash("THEME PARK WAITS").with_effect(RevealEffect(duration=2.0))
-    
-    # Scrolling text with fade in
-    scrolling = create_scrolling_text("Welcome to the system").with_effect(
-        FadeInEffect(duration=1.0)
-    )
-    
-    # Alert with pulse effect
-    alert = create_alert("System Update").with_effect(
-        PulseEffect(duration=2.0, pulses=3)
-    )
-    
-    # Multiple effects
-    fancy_splash = create_splash("LOADING...").with_effects([
-        FadeInEffect(duration=1.0),
-        PulseEffect(duration=2.0, pulses=2)
-    ])
-    
+
+    # Splash / scrolling / alert content
+    splash = create_splash("THEME PARK WAITS")
+    scrolling = create_scrolling_text("Welcome to the system")
+    alert = create_alert("System Update")
+    fancy_splash = create_splash("LOADING...")
+
     # Convert to DisplayItems for queue
     display_items = [
         text.to_display_item(),
@@ -324,5 +309,5 @@ def example_usage() -> list:
         alert.to_display_item(),
         fancy_splash.to_display_item()
     ]
-    
+
     return display_items

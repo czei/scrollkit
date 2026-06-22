@@ -17,10 +17,15 @@ on desktop it uses urllib.
 import sys
 import os
 
+# Run directly from the repo (no PYTHONPATH) and pull in the shared demo helpers
+# (CLI flags + display factory). None of this exists on CircuitPython, where the
+# device runs the app with defaults.
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-except AttributeError:
-    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import _demo_support as _support
+except (AttributeError, ImportError):
+    _support = None
 
 import asyncio
 
@@ -42,6 +47,8 @@ class TemperatureApp(ScrollKitApp):
         self.text = "Fetching temperature..."
 
     async def create_display(self):
+        if _support is not None:
+            return _support.simulator_display(getattr(self, "opts", None))
         try:
             from scrollkit.display.simulator import SimulatorDisplay
             return SimulatorDisplay(width=64, height=32)
@@ -77,4 +84,7 @@ class TemperatureApp(ScrollKitApp):
 
 
 if __name__ == "__main__":
-    asyncio.run(TemperatureApp().run())
+    if _support is not None:
+        _support.main(TemperatureApp(), "ScrollKit live-temperature demo (medium)")
+    else:
+        asyncio.run(TemperatureApp().run())

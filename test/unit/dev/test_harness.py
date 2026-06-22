@@ -169,3 +169,76 @@ def test_harness_never_throttles_even_if_app_requests_it():
     elapsed = time.monotonic() - start
     assert result.frames == 20 and not result.is_blank
     assert elapsed < 1.5, "headless run honored throttle (slept) — it must not"
+
+
+# --- strict feasibility gate through run_headless ------------------------------
+
+class _StrictHeavyContent(DisplayContent):
+    """A full glyph-bitmap rebuild of an ~84-char string every frame (~60+ ms
+    modeled on the device) — sustained over the 50 ms / 20 fps budget."""
+
+    def __init__(self):
+        super().__init__(duration=None, priority=2)
+        self.n = 0
+
+    async def render(self, display):
+        self.n += 1
+        await display.draw_text(("HW %02d " % (self.n % 100)) * 14, 0, 12, 0xFFAA00)
+
+    @property
+    def is_complete(self):
+        return False
+
+
+class _StrictHeavyApp(_ScrollApp):
+    async def setup(self):
+        self.content_queue.add(_StrictHeavyContent())
+
+
+class _OneSpikeContent(DisplayContent):
+    """Cheap (static, unchanged text) except for a single mid-run rebuild spike:
+    one ~55 ms glyph rebuild when the visible string changes once. The strict
+    gate's median window must absorb it (no false trip)."""
+
+    def __init__(self):
+        super().__init__(duration=None, priority=2)
+        self.n = 0
+
+    async def render(self, display):
+        self.n += 1
+        text = ("SPIKE " * 12) if self.n >= 6 else "OK"   # changes exactly once
+        await display.draw_text(text, 0, 12, 0xFFFFFF)
+
+    @property
+    def is_complete(self):
+        return False
+
+
+class _OneSpikeApp(_ScrollApp):
+    async def setup(self):
+        self.content_queue.add(_OneSpikeContent())
+
+
+def test_strict_run_fails_on_sustained_over_budget():
+    result = run_headless(_StrictHeavyApp(), frames=30, strict=True)
+    assert result.ok is False
+    assert any("feasibility" in e.lower() for e in result.errors)
+
+
+def test_strict_run_passes_a_cheap_effect():
+    result = run_headless(_ScrollApp(), frames=120, strict=True)
+    assert result.ok is True
+    assert result.errors == []
+    assert result.advanced is True
+
+
+def test_strict_run_tolerates_one_isolated_rebuild():
+    result = run_headless(_OneSpikeApp(), frames=30, strict=True)
+    assert result.ok is True, result.errors
+
+
+def test_non_strict_run_only_warns_on_heavy_effect():
+    # The same heavy effect under strict=False renders fine (warnings only).
+    result = run_headless(_StrictHeavyApp(), frames=30, strict=False)
+    assert result.ok is True
+    assert not any("feasibility" in e.lower() for e in result.errors)

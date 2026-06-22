@@ -58,7 +58,10 @@ def test_display_api_lists_draw_text():
 def test_effects_exclude_the_abstract_base():
     names = {e["name"] for e in capabilities()["effects"]}
     assert "Effect" not in names          # abstract base is filtered out
-    assert "FadeInEffect" in names
+    assert "Sparkle" in names             # a retained, exported effect
+    # the removed transition effects are gone from the catalog
+    assert "FadeInEffect" not in names
+    assert "RevealEffect" not in names
 
 
 def test_as_text_is_a_readable_summary():

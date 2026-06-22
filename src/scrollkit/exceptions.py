@@ -41,6 +41,19 @@ class SimulatorError(SLDKError):
     """Simulator-related errors."""
 
 
+class FeasibilityError(SLDKError):
+    """A modeled frame busts the device time or RAM budget under strict mode.
+
+    Raised only by the desktop simulator's ``PerformanceManager`` when strict
+    hardware simulation is enabled and a frame's modeled cost exceeds the
+    per-frame budget (steady-state median or the single-frame transient ceiling)
+    or modeled peak RAM exceeds the device's usable RAM. Never raised on
+    CircuitPython, where the timing model is a no-op. Defined here (not in the
+    simulator) so the harness, tests, and callers can import it without pulling
+    in the simulator.
+    """
+
+
 class ResourceNotFoundError(SLDKError):
     """Resource not found (files, configuration, devices)."""
 

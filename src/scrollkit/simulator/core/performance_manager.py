@@ -35,18 +35,20 @@ def get_active():
 class FrameCost:
     """Modeled microseconds for one frame, split by category."""
 
-    __slots__ = ("pixel_writes_us", "refresh_us", "bitmap_rebuild_us", "gc_us")
+    __slots__ = ("pixel_writes_us", "refresh_us", "bitmap_rebuild_us", "gc_us",
+                 "bulk_ops_us")
 
     def __init__(self):
         self.pixel_writes_us = 0.0
         self.refresh_us = 0.0
         self.bitmap_rebuild_us = 0.0
         self.gc_us = 0.0
+        self.bulk_ops_us = 0.0     # C bulk ops (fill_region/blit) from the painters
 
     @property
     def total_us(self):
         return (self.pixel_writes_us + self.refresh_us
-                + self.bitmap_rebuild_us + self.gc_us)
+                + self.bitmap_rebuild_us + self.gc_us + self.bulk_ops_us)
 
     def as_dict(self):
         return {
@@ -54,6 +56,7 @@ class FrameCost:
             "refresh_us": self.refresh_us,
             "bitmap_rebuild_us": self.bitmap_rebuild_us,
             "gc_us": self.gc_us,
+            "bulk_ops_us": self.bulk_ops_us,
             "total_us": self.total_us,
         }
 
@@ -62,7 +65,9 @@ class PerformanceManager:
     """Cost accumulator behind the simulator's performance hooks."""
 
     def __init__(self, profile, enabled=True, throttle=False, history=120,
-                 ambient_warnings=None, warn_interval=30, stutter_fps=10.0):
+                 ambient_warnings=None, warn_interval=30, stutter_fps=10.0,
+                 strict=False, target_fps=20.0, warmup_frames=2,
+                 gate_window=8, transient_factor=2.0):
         self.profile = profile
         self.enabled = enabled            # read by led_matrix hooks
         self.throttle = throttle          # if True, also real-sleep to crawl the window
@@ -73,6 +78,14 @@ class PerformanceManager:
         self.warn_interval = warn_interval   # min frames between ambient nags
         self.stutter_fps = stutter_fps       # warn when modeled FPS drops below this
         self.last_warning = None             # most recent ambient nag (for UIs/tests)
+        # --- strict feasibility gate (opt-in; default off keeps the warning path)
+        self.strict = strict
+        self.target_fps = target_fps
+        self.warmup_frames = warmup_frames   # leading frames exempt (one-time setup)
+        self.gate_window = max(1, gate_window)
+        self.transient_factor = transient_factor
+        self.frame_budget_us = 1_000_000.0 / target_fps          # 50_000 at 20 fps
+        self.transient_budget_us = self.frame_budget_us * transient_factor
         self._frame = FrameCost()
         self._frames = deque(maxlen=history)
         self._frame_index = 0
@@ -102,11 +115,39 @@ class PerformanceManager:
         if px > self._max_bitmap_px:
             self._max_bitmap_px = px
 
+    # --- hook called by the display span/rect painters + overlay --------------
+    def account_bulk_op(self, kind, px):
+        """A C bulk op (``fill_region`` / ``blit``) touched ``px`` clipped pixels.
+
+        Cost = ``bulk_base_us`` (fixed per-call C dispatch) + ``px * slope`` for
+        the op. The base over-counts slightly on purpose so the strict gate fails
+        safe. ``px`` is the clipped/scanned pixel count (a fully-clipped no-op
+        still pays the base).
+        """
+        px = max(0, px)
+        if kind == "blit":
+            slope = self.profile.blit_us_per_px
+        else:  # "fill_region" (and any other bounded fill)
+            slope = self.profile.fill_region_us_per_px
+        self._frame.bulk_ops_us += self.profile.bulk_base_us + px * slope
+
     # --- frame bookkeeping ----------------------------------------------------
     def _end_frame(self):
         total_us = self._frame.total_us
         self._frames.append(self._frame)
         self._frame_index += 1
+        # Reset the live frame BEFORE the strict gate can raise, so a caller that
+        # catches FeasibilityError and keeps rendering doesn't accumulate the next
+        # frame's cost onto the (already-appended) aborted frame and corrupt the
+        # rolling history. The appended frame stays valid in self._frames.
+        self._frame = FrameCost()
+        # Strict feasibility gate (opt-in). Past the warmup grace, a sustained
+        # over-budget run (steady-state median) or a single catastrophic frame
+        # (transient ceiling) or a RAM breach raises FeasibilityError, stopping
+        # the run at the offending frame. Default (strict=False) skips all of this
+        # so the warning path below is unchanged.
+        if self.strict and self._frame_index > self.warmup_frames:
+            self._enforce_strict(total_us)
         # Visceral mode: actually sleep the modeled frame time so the live window
         # crawls at hardware speed.
         if self.throttle and total_us > 0:
@@ -117,7 +158,60 @@ class PerformanceManager:
                 pass
         if self.ambient_warnings:
             self._maybe_emit_ambient_warning(total_us)
-        self._frame = FrameCost()
+
+    def _enforce_strict(self, total_us):
+        """Raise FeasibilityError if this frame busts the device budget."""
+        from ...exceptions import FeasibilityError
+        # 1) Transient ceiling: a single catastrophic frame (e.g. 2 full rebuilds).
+        if total_us > self.transient_budget_us:
+            raise FeasibilityError(self._budget_message(
+                "single frame", total_us, self.transient_budget_us))
+        # 2) Steady-state: the median over the rolling window must hold the budget.
+        #    Only meaningful once the window is full, so an isolated rebuild spike
+        #    is absorbed rather than triggering a false trip.
+        totals = [f.total_us for f in self._frames]
+        if len(totals) >= self.gate_window:
+            window = totals[-self.gate_window:]
+            med = self._median(window)
+            if med > self.frame_budget_us:
+                raise FeasibilityError(self._budget_message(
+                    "median over %d frames" % self.gate_window, med,
+                    self.frame_budget_us))
+        # 3) RAM: must fit the usable device RAM.
+        peak = self.estimated_peak_ram_bytes()
+        if peak > self.profile.usable_ram_bytes:
+            raise FeasibilityError(
+                "[hw-strict] frame %d: modeled peak RAM ~%d KB exceeds the device's "
+                "usable ~%d KB. Reduce content/effects."
+                % (self._frame_index, peak // 1024,
+                   self.profile.usable_ram_bytes // 1024))
+
+    def _budget_message(self, scope, us, budget_us):
+        fps = 1_000_000.0 / us if us > 0 else 0.0
+        budget_fps = 1_000_000.0 / budget_us if budget_us > 0 else 0.0
+        return ("[hw-strict] frame %d: %s ~%d ms/frame (~%d fps) exceeds the "
+                "%d ms budget (%d fps); dominant: %s. Reuse Labels, avoid per-frame "
+                "glyph rebuild, and express bounded work through the C bulk painters."
+                % (self._frame_index, scope, round(us / 1000.0), round(fps),
+                   round(budget_us / 1000.0), round(budget_fps),
+                   self._dominant_component()))
+
+    def _dominant_component(self):
+        last = self._frames[-1] if self._frames else self._frame
+        cats = last.as_dict()
+        cats.pop("total_us", None)
+        if not cats:
+            return "unknown"
+        return max(cats, key=lambda k: cats[k]).replace("_us", "")
+
+    @staticmethod
+    def _median(values):
+        s = sorted(values)
+        n = len(s)
+        if n == 0:
+            return 0.0
+        mid = n // 2
+        return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2.0
 
     def _maybe_emit_ambient_warning(self, frame_total_us):
         """Periodically nag when the modeled frame time implies a stuttery FPS.

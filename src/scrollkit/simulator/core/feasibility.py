@@ -65,7 +65,8 @@ class FeasibilityReport:
         est_fps = (1_000_000.0 / median_us) if median_us > 0 else None
 
         # Average per-category breakdown (ms), and which category dominates.
-        cats = ("bitmap_rebuild_us", "refresh_us", "pixel_writes_us", "gc_us")
+        cats = ("bitmap_rebuild_us", "refresh_us", "pixel_writes_us", "gc_us",
+                "bulk_ops_us")
         breakdown_ms = {}
         for cat in cats:
             avg_us = sum(getattr(f, cat) for f in frames) / n

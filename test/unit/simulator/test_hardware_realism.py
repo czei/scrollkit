@@ -249,6 +249,112 @@ def test_from_measurements_keeps_descriptive_source(tmp_path):
     assert p.full_refresh_us == 9999.0
 
 
+# --- strict feasibility gate --------------------------------------------------
+
+from scrollkit.exceptions import FeasibilityError  # noqa: E402
+
+
+def _strict_pm(**kw):
+    """A strict PerformanceManager on the calibrated profile (20fps budget)."""
+    kw.setdefault("warmup_frames", 2)
+    kw.setdefault("gate_window", 8)
+    return PerformanceManager(matrixportal_s3_profile(), strict=True, **kw)
+
+
+def _inject_frame(pm, us):
+    """End a frame whose modeled cost is exactly ``us`` microseconds."""
+    pm._frame.bitmap_rebuild_us += us
+    pm._end_frame()
+
+
+def test_strict_sustained_over_budget_raises():
+    # Every frame ~60 ms (over the 50 ms / 20 fps budget, under the 100 ms
+    # transient ceiling) -> the steady-state median bites once the window fills.
+    pm = _strict_pm()
+    with pytest.raises(FeasibilityError):
+        for _ in range(12):
+            _inject_frame(pm, 60_000)
+
+
+def test_strict_tolerates_an_isolated_rebuild_spike():
+    # 19 cheap frames + ONE 60 ms spike (over budget, under ceiling). The median
+    # window absorbs the lone spike, so strict mode does NOT false-trip — this is
+    # the whole point of a steady-state gate over a single-frame budget.
+    pm = _strict_pm()
+    for i in range(20):
+        _inject_frame(pm, 60_000 if i == 10 else 1_000)   # no exception expected
+
+
+def test_strict_transient_ceiling_raises_on_a_catastrophic_frame():
+    pm = _strict_pm()
+    _inject_frame(pm, 1_000)            # warmup
+    _inject_frame(pm, 1_000)            # warmup
+    _inject_frame(pm, 1_000)            # past warmup, cheap
+    with pytest.raises(FeasibilityError):
+        _inject_frame(pm, 120_000)     # > 100 ms ceiling -> immediate bust
+
+
+def test_strict_warmup_grace_exempts_the_first_frames():
+    pm = _strict_pm(warmup_frames=2)
+    # The first two frames are catastrophic but exempt (one-time scene build).
+    _inject_frame(pm, 200_000)
+    _inject_frame(pm, 200_000)
+    # The third catastrophic frame is past the grace -> it bites.
+    with pytest.raises(FeasibilityError):
+        _inject_frame(pm, 200_000)
+
+
+def test_strict_ram_breach_raises_even_when_time_fits():
+    # A profile where bitmaps are time-free but RAM-expensive isolates the RAM
+    # gate from the time gate.
+    ram_bound = HardwareProfile(
+        name="RamBound [ESTIMATE]",
+        usable_ram_bytes=10_000, base_app_ram_bytes=8_000, bytes_per_label_px=1.0,
+        pixel_write_us=0.0, full_refresh_us=0.0, bitmap_rebuild_us_per_px=0.0,
+        gc_pause_us=0.0, gc_every_n_frames=30)
+    pm = PerformanceManager(ram_bound, strict=True, warmup_frames=2)
+    _inject_frame(pm, 0)
+    _inject_frame(pm, 0)
+    _inject_frame(pm, 0)               # past warmup, RAM still fits
+    pm.account_bitmap_rebuild(200, 200)  # 40 KB live bitmap -> blows a 10 KB budget
+    with pytest.raises(FeasibilityError):
+        pm._end_frame()
+
+
+def test_strict_resets_frame_state_when_it_raises():
+    # If a caller catches FeasibilityError and keeps going, the live frame must
+    # already be reset (not still carrying the busted cost) so the next frame's
+    # accounting and the rolling history stay correct.
+    pm = _strict_pm(warmup_frames=0)
+    try:
+        _inject_frame(pm, 200_000)         # > transient ceiling -> raises
+    except FeasibilityError:
+        pass
+    assert pm._frame.total_us == 0         # live frame was reset before the raise
+    assert pm.frames[-1].total_us == 200_000  # history kept the real busted frame
+    # ...and a subsequent cheap frame is accounted on its own, not on top.
+    _inject_frame(pm, 1_000)
+    assert pm.frames[-1].total_us == 1_000
+
+
+def test_strict_off_by_default_never_raises():
+    # Default (strict=False) must behave exactly as before: never raise, even on
+    # sustained catastrophic frames.
+    pm = PerformanceManager(matrixportal_s3_profile())  # strict defaults to False
+    for _ in range(12):
+        _inject_frame(pm, 500_000)     # absurdly over budget; still no exception
+    assert pm.report().est_hw_fps is not None
+
+
+def test_account_bulk_op_feeds_the_breakdown():
+    pm = PerformanceManager(matrixportal_s3_profile())
+    pm.account_bulk_op("fill_region", 512)
+    pm.account_bulk_op("blit", 256)
+    pm.simulate_io_operation("display_refresh")
+    bd = pm.report().breakdown_ms
+    assert "bulk_ops" in bd and bd["bulk_ops"] > 0
+
+
 @pytest.mark.asyncio
 async def test_one_show_is_exactly_one_modeled_frame():
     # Regression guard: show() must not double-count modeled frames (it used to

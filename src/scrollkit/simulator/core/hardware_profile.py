@@ -42,6 +42,15 @@ class HardwareProfile:
     bitmap_rebuild_us_per_px: float  # per pixel of a rebuilt text bitmap (the CP killer)
     gc_pause_us: float             # modeled garbage-collection stall
     gc_every_n_frames: int         # how often a GC pause is modeled
+    # --- C bulk-op costs (fill_region / blit via bitmaptools) ---
+    # Defaulted so existing callers/baselines are unaffected. Seeded from
+    # device_benchmarks.json: fill_region ~147 us / 512 px (~0.287 us/px),
+    # blit ~160 us / 256 px (~0.623 us/px). bulk_base_us is a conservative fixed
+    # per-call C-dispatch overhead (over-counts slightly so the strict gate fails
+    # safe). TODO: capture these at 2-3 sizes to fit base+slope rather than estimate.
+    bulk_base_us: float = 12.0
+    fill_region_us_per_px: float = 0.287
+    blit_us_per_px: float = 0.623
     # --- Honesty ---
     confidence: str = CONFIDENCE_ESTIMATE
     source: str = "engineering estimate"

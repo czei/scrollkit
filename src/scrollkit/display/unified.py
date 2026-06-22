@@ -55,9 +55,10 @@ else:
         Label = None
 
 from .interface import DisplayInterface
+from ._graphics import GraphicsMixin
 
 
-class UnifiedDisplay(DisplayInterface):
+class UnifiedDisplay(GraphicsMixin, DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
     
     def __init__(self, width: int = 64, height: int = 32, bit_depth: int = 4):
@@ -85,7 +86,13 @@ class UnifiedDisplay(DisplayInterface):
         self._perf: Any = None    # hardware-realism PerformanceManager (opt-in, desktop)
 
         # Display components
+        # main_group = [_content_group (below), _layer_group (above)]; labels +
+        # fill live in _content_group, persistent effect layers in _layer_group
+        # (never disturbed by the per-frame label reset). See GraphicsMixin / D11.
         self.main_group: Any = None
+        self._content_group: Any = None
+        self._layer_group: Any = None
+        self._gfx: Any = None
         self._initialized: bool = False
 
         # For text rendering
@@ -116,10 +123,15 @@ class UnifiedDisplay(DisplayInterface):
             # Platform-specific hardware initialization
             self._initialize_hardware()
             
-            # Set up display groups
+            # Set up display groups (content below, layers above) + cache gfx.
             self.main_group = displayio.Group()
             self.display.root_group = self.main_group
-            
+            if IS_CIRCUITPYTHON:
+                import bitmaptools as _bitmaptools
+            else:
+                from scrollkit.simulator import bitmaptools as _bitmaptools
+            self._init_graphics(displayio, _bitmaptools)
+
             # Load default font
             self.font = terminalio.FONT if terminalio else None
             
@@ -173,14 +185,18 @@ class UnifiedDisplay(DisplayInterface):
     def _maybe_enable_hardware_timing(self) -> None:
         """Model real-hardware timing/RAM on desktop, like SimulatorDisplay.
 
-        Opt-in via SCROLLKIT_HW_SIM=1 (estimate/feasibility) or
-        SCROLLKIT_HW_THROTTLE=1 (also crawl at the modeled speed). No-op on
-        CircuitPython, where the device runs at real speed already.
+        Opt-in via SCROLLKIT_HW_SIM=1 (estimate/feasibility),
+        SCROLLKIT_HW_THROTTLE=1 (also crawl at the modeled speed), or
+        SCROLLKIT_HW_STRICT=1 (enforce the feasibility gate — raise
+        FeasibilityError on a sustained over-budget run). This whole method only
+        runs on the desktop simulator path; it is a no-op on CircuitPython, where
+        the device runs at real speed and there is no model to gate.
         """
         import os
         env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
         env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
-        if not (env_sim or env_throttle):
+        env_strict = os.environ.get("SCROLLKIT_HW_STRICT") == "1"
+        if not (env_sim or env_throttle or env_strict):
             return
         try:
             from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
@@ -189,7 +205,7 @@ class UnifiedDisplay(DisplayInterface):
         except ImportError:
             return
         self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
-                                        throttle=env_throttle)
+                                        throttle=env_throttle, strict=env_strict)
         self.device.performance_manager = self._perf   # read by LEDMatrix
         set_active(self._perf)                          # read by the Label rebuild hook
 
@@ -217,6 +233,11 @@ class UnifiedDisplay(DisplayInterface):
         hidden in show().
         """
         self._label_idx = 0
+
+        # Wipe the bounded-painter canvas so fill_rect drawings don't ghost across
+        # frames (immediate-mode, like draw_text). One C bulk fill; layer stays.
+        if getattr(self, "_paint_bitmap", None) is not None:
+            self._paint_bitmap.fill(0)
 
         # Clear any pixel data drawn outside the displayio group (e.g. set_pixel).
         if self.matrix and hasattr(self.matrix, 'fill'):
@@ -385,7 +406,7 @@ class UnifiedDisplay(DisplayInterface):
             label.x = x
             label.y = y
             self._label_pool.append(label)
-            self.main_group.append(label)   # added directly; no per-label wrapper Group
+            self._content_group.append(label)   # added directly; no per-label wrapper Group
         self._label_idx += 1
     
     def _convert_color(self, color: Any) -> int:
