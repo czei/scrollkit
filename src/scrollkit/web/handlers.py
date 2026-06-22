@@ -11,14 +11,18 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from .adapters import route, MockResponse
+from .adapters import route, MockResponse, RouteRegistryMixin
 
 
-class WebHandler:
+class WebHandler(RouteRegistryMixin):
     """Base class for web request handlers.
 
     Provides common functionality for handling HTTP requests
     and generating responses.
+
+    Inherits ``RouteRegistryMixin`` so ``@route``-decorated ``route_*`` methods are
+    collected into a class-level ``_routes`` registry (CircuitPython-safe) rather
+    than tagged as function attributes.
     """
 
     adapter: Any

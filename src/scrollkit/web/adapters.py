@@ -185,18 +185,17 @@ if IS_CIRCUITPYTHON:
 
             handler = self.handler_class(self)
 
-            for attr_name in dir(handler):
-                if attr_name.startswith('route_'):
-                    method = getattr(handler, attr_name)
-                    if callable(method) and hasattr(method, '_route_info'):
-                        route_info = method._route_info
-                        path = route_info['path']
-                        methods = route_info.get('methods', ['GET'])
+            for attr_name, route_info in _iter_routes(handler):
+                method = getattr(handler, attr_name)
+                if not callable(method):
+                    continue
+                path = route_info['path']
+                methods = route_info.get('methods', ['GET'])
 
-                        for http_method in methods:
-                            @self.server.route(path, methods=[http_method])
-                            def route_handler(request: Any, method: Any = method) -> Any:
-                                return method(request)
+                for http_method in methods:
+                    @self.server.route(path, methods=[http_method])
+                    def route_handler(request: Any, method: Any = method) -> Any:
+                        return method(request)
 
         def parse_query_params(self, query_string: Optional[str]) -> Dict[str, str]:
             """Parse query parameters from URL."""
@@ -309,17 +308,16 @@ else:
                         self, method: str, path: str, query: str, body: Optional[str]
                     ) -> Any:
                         """Handle route matching and execution."""
-                        for attr_name in dir(handler_instance):
-                            if attr_name.startswith('route_'):
-                                route_method = getattr(handler_instance, attr_name)
-                                if callable(route_method) and hasattr(route_method, '_route_info'):
-                                    route_info = route_method._route_info
-                                    route_path = route_info['path']
-                                    route_methods = route_info.get('methods', ['GET'])
+                        for attr_name, route_info in _iter_routes(handler_instance):
+                            route_method = getattr(handler_instance, attr_name)
+                            if not callable(route_method):
+                                continue
+                            route_path = route_info['path']
+                            route_methods = route_info.get('methods', ['GET'])
 
-                                    if path == route_path and method in route_methods:
-                                        request = MockRequest(method, path, query, body, adapter)
-                                        return route_method(request)
+                            if path == route_path and method in route_methods:
+                                request = MockRequest(method, path, query, body, adapter)
+                                return route_method(request)
 
                         return None
 
@@ -450,8 +448,20 @@ class MockResponse:
         self.content_type = content_type
 
 
+# Scratch list drained per handler-class by ``RouteRegistryMixin.__init_subclass__``.
+# CircuitPython functions have no ``__dict__`` and cannot carry attributes, so the
+# decorator records route intent here (keyed later by method name) instead of tagging
+# the function object. See RouteRegistryMixin below.
+_PENDING_ROUTES: List[Any] = []
+
+
 def route(path: str, methods: Optional[List[str]] = None) -> Any:
     """Decorator to mark methods as route handlers.
+
+    Records the route in a module-level scratch list which the enclosing handler
+    class drains into its ``_routes`` registry. The function object is returned
+    UNCHANGED — never assign attributes to a function, as CircuitPython functions
+    have no ``__dict__``.
 
     Args:
         path: URL path to handle
@@ -461,12 +471,67 @@ def route(path: str, methods: Optional[List[str]] = None) -> Any:
         methods = ['GET']
 
     def decorator(func: Any) -> Any:
-        func._route_info = {
-            'path': path,
-            'methods': methods,
-        }
+        _PENDING_ROUTES.append((func.__name__, path, list(methods)))
         return func
     return decorator
+
+
+class RouteRegistryMixin:
+    """Collects ``@route``-decorated methods into a class-level ``_routes`` registry.
+
+    Handler base classes inherit this mixin so route metadata lives on the class
+    (keyed by method name) rather than on the function object — the CircuitPython-safe
+    equivalent of the old ``func._route_info`` attribute.
+
+    ``_routes`` maps ``method_name -> {'path': str, 'methods': List[str]}``. Each
+    subclass inherits its bases' routes (merged across the full MRO so multiple
+    inheritance keeps every base's routes) and adds/overrides its own.
+    """
+
+    _routes: Dict[str, Dict[str, Any]] = {}
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        # Merge inherited routes across the whole MRO (reverse order so that
+        # more-derived bases override less-derived ones, and so multiple
+        # inheritance keeps routes from every base, not just the first).
+        merged: Dict[str, Dict[str, Any]] = {}
+        for base in reversed(cls.__mro__[1:]):
+            base_routes = base.__dict__.get('_routes')
+            if base_routes:
+                merged.update(base_routes)
+
+        # Drain routes declared on this class (the decorator appended them while
+        # the class body executed, just before __init_subclass__ runs).
+        while _PENDING_ROUTES:
+            fname, path, route_methods = _PENDING_ROUTES.pop()
+            merged[fname] = {'path': path, 'methods': route_methods}
+
+        cls._routes = merged
+
+
+def _iter_routes(handler: Any) -> Any:
+    """Yield ``(method_name, route_info)`` for every route on ``handler``'s class.
+
+    Reads the class-level ``_routes`` registry populated by ``RouteRegistryMixin``
+    (CircuitPython-safe — no function attributes). Falls back to scanning ``route_*``
+    methods for a legacy ``_route_info`` function attribute so handlers that don't
+    derive from the mixin still dispatch on CPython.
+    """
+    routes = getattr(type(handler), '_routes', None)
+    if routes:
+        for fname, info in routes.items():
+            yield fname, info
+        return
+
+    # Legacy fallback (function-attribute metadata). Not reachable on CircuitPython.
+    for attr_name in dir(handler):
+        if attr_name.startswith('route_'):
+            method = getattr(handler, attr_name)
+            info = getattr(method, '_route_info', None)
+            if callable(method) and info is not None:
+                yield attr_name, info
 
 
 def create_server_adapter(
