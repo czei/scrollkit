@@ -67,8 +67,15 @@ class SLDKWebServer:
         self._port = None
 
     def _create_composite_handler(self) -> type:
-        """Create a composite handler that combines multiple handler types."""
-        class CompositeHandler(WebHandler, StaticFileHandler, APIHandler):
+        """Create a composite handler that combines multiple handler types.
+
+        ``StaticFileHandler`` and ``APIHandler`` both already derive from
+        ``WebHandler``, so listing ``WebHandler`` *first* is an illegal MRO (a
+        base may not precede its own subclasses). It stays reachable through the
+        other two — MRO: CompositeHandler -> StaticFileHandler -> APIHandler ->
+        WebHandler -> object.
+        """
+        class CompositeHandler(StaticFileHandler, APIHandler):
             def __init__(self, adapter: ServerAdapter) -> None:
                 WebHandler.__init__(self, adapter)
                 StaticFileHandler.__init__(self, adapter)

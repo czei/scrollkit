@@ -27,9 +27,11 @@ class BaseResponse:
     def json(self):
         """Parse the response as JSON"""
         if self._json_cache is None:
+            # An HTTP error body isn't JSON we failed to parse \u2014 surface the
+            # status straight, rather than mislabeling it a JSON syntax error.
+            if getattr(self, 'status_code', 200) >= 400:
+                raise ValueError(f"HTTP error {self.status_code}: {self.text}")
             try:
-                if hasattr(self, 'status_code') and self.status_code >= 400:
-                    raise ValueError(f"HTTP error {self.status_code}: {self.text}")
                 text_to_parse = self.text.strip()
                 if text_to_parse.startswith('\ufeff'):
                     text_to_parse = text_to_parse[1:]

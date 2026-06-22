@@ -197,8 +197,10 @@ class CryptoDashboardApp(ScrollKitApp):
         try:
             ota = OTAClient.for_github("myorg", "myapp", current_version="1.0.0")
             has_update, info = ota.check_for_updates()
+            # `info` is the new manifest when has_update, else a reason string
+            # (this points at a placeholder repo, so expect "no update").
             print("OTA:", ("update available -> " + info.version) if has_update
-                  else "up to date (%s)" % (info,))
+                  else "no update (%s)" % (info,))
         except Exception as e:
             print("OTA check skipped:", e)
 
