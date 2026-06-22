@@ -50,6 +50,11 @@ Thumbs.db
 
 **/.claude/settings.local.json
 
+# Local agent config and Spec Kit framework scaffolding (specs/ themselves are
+# tracked; the .specify/ engine and .claude/ tooling are local-only).
+.claude/
+.specify/
+
 # mkdocs build output
 site/
 
