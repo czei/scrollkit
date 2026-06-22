@@ -137,15 +137,22 @@ if IS_CIRCUITPYTHON:
             self._running = False
 
         def start_server(self, host: str = "0.0.0.0", port: int = 80) -> bool:
-            """Start the CircuitPython HTTP server."""
+            """Start the CircuitPython HTTP server (adafruit_httpserver 4.x)."""
             try:
-                from adafruit_httpserver import HTTPServer, HTTPRoute, HTTPResponse
+                # adafruit_httpserver 4.x API: Server / Response / Request, plus a
+                # start()+poll() loop. Imported lazily so the desktop simulator never
+                # tries to import adafruit_httpserver (it ships only on CircuitPython).
+                from adafruit_httpserver import Server
 
                 if not self.socket_pool:
                     print("Error: Socket pool required for CircuitPython adapter")
                     return False
 
-                self.server = HTTPServer(self.socket_pool, self.static_dir)
+                self.server = Server(
+                    self.socket_pool,
+                    root_path=self.static_dir or "/",
+                    debug=False,
+                )
                 self._setup_routes()
                 self.server.start(host, port)
                 self._running = True
@@ -175,15 +182,40 @@ if IS_CIRCUITPYTHON:
             return self._running
 
         async def handle_requests(self) -> None:
-            """Handle incoming requests (CircuitPython)."""
-            if self.server:
-                await asyncio.sleep(0.1)
+            """Poll the server for one request, cooperatively (CircuitPython).
+
+            adafruit_httpserver 4.x is poll-driven: ``server.poll()`` handles at most
+            one pending request and returns immediately, so it cooperates with the
+            asyncio display loop. ``await asyncio.sleep(0)`` yields control each tick.
+            """
+            if self.server and self._running:
+                try:
+                    self.server.poll()
+                except Exception as e:
+                    print(f"Error polling CircuitPython web server: {e}")
+            await asyncio.sleep(0)
 
         def _setup_routes(self) -> None:
-            """Set up HTTP routes from handler class."""
-            from adafruit_httpserver import HTTPRoute, HTTPResponse
+            """Register the handler class's routes with the 4.x Server.
+
+            Each ``route_*`` method from the ``_routes`` registry is wrapped so the
+            adafruit ``Request`` is adapted into the app's ``MockRequest`` (plain-dict
+            ``query_params``/``form_data`` — the same shape the development adapter and
+            the unit tests use) and the returned ``MockResponse`` is adapted back into
+            an adafruit ``Response``. This keeps the app handler contract identical on
+            both platforms, so consumer code needs no changes.
+            """
+            from adafruit_httpserver import Response
 
             handler = self.handler_class(self)
+            adapter = self
+
+            def make_route_handler(method: Any) -> Any:
+                def route_handler(request: Any, *args: Any, **kwargs: Any) -> Any:
+                    mock_request = adapter._to_mock_request(request)
+                    result = method(mock_request)
+                    return adapter._to_http_response(Response, request, result)
+                return route_handler
 
             for attr_name, route_info in _iter_routes(handler):
                 method = getattr(handler, attr_name)
@@ -192,10 +224,60 @@ if IS_CIRCUITPYTHON:
                 path = route_info['path']
                 methods = route_info.get('methods', ['GET'])
 
-                for http_method in methods:
-                    @self.server.route(path, methods=[http_method])
-                    def route_handler(request: Any, method: Any = method) -> Any:
-                        return method(request)
+                # 4.x accepts the whole method list at once; one Route per path.
+                self.server.route(path, list(methods))(make_route_handler(method))
+
+        def _to_mock_request(self, request: Any) -> "MockRequest":
+            """Adapt an adafruit_httpserver 4.x ``Request`` to the app's MockRequest.
+
+            ``query_params``/``form_data`` are converted to plain dicts so the app
+            handler sees the same shape regardless of platform.
+            """
+            method = getattr(request, 'method', 'GET')
+            path = getattr(request, 'path', '')
+
+            # Build the raw query string from the parsed query params, then reuse the
+            # adapter's own parser so behaviour matches the development path exactly.
+            query_string = self._field_storage_query_string(
+                getattr(request, 'query_params', None))
+
+            body = None
+            if method == 'POST':
+                try:
+                    raw = request.body
+                    body = raw.decode('utf-8') if isinstance(raw, bytes) else raw
+                except Exception:
+                    body = None
+
+            return MockRequest(method, path, query_string, body, self)
+
+        @staticmethod
+        def _field_storage_query_string(query_params: Any) -> str:
+            """Render an adafruit ``QueryParams`` back to a raw ``a=1&b=2`` string."""
+            if not query_params:
+                return ""
+            try:
+                pairs = []
+                for key in query_params.fields:
+                    for value in query_params.get_list(key):
+                        pairs.append("%s=%s" % (key, value))
+                return "&".join(pairs)
+            except Exception:
+                return str(query_params)
+
+        @staticmethod
+        def _to_http_response(response_cls: Any, request: Any, result: Any) -> Any:
+            """Adapt the app handler's MockResponse into an adafruit 4.x Response."""
+            body = getattr(result, 'body', result if isinstance(result, (str, bytes)) else "")
+            content_type = getattr(result, 'content_type', 'text/html')
+            status = getattr(result, 'status', 200)
+
+            # 4.x Response wants a Status or (code, text) tuple; the app supplies a
+            # bare int. Only override the default for non-200 codes (text is optional).
+            if isinstance(status, int) and status != 200:
+                return response_cls(
+                    request, body, content_type=content_type, status=(status, ""))
+            return response_cls(request, body, content_type=content_type)
 
         def parse_query_params(self, query_string: Optional[str]) -> Dict[str, str]:
             """Parse query parameters from URL."""
