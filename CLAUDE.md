@@ -142,3 +142,11 @@ loop checks. The message queue is owned solely by the main display-loop thread.
 - Documentation, plans, and design docs go in `plans/`.
 - Temporary/scratch programs go in `test/claude/`.
 - Include hardware-abstraction fallbacks so code degrades gracefully off-device.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan:
+`specs/002-build-scrollkit-showcase/plan.md` (ScrollKit Showcase Effects —
+zero-allocation micro-show engine: removal of broken effects, a strict
+hardware-feasibility gate, shared primitives, and three signature effect classes).
+<!-- SPECKIT END -->
