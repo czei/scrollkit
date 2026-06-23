@@ -32,16 +32,68 @@ class SettingsManager:
         self.settings = self.load_settings()
         self.scroll_speed = {"Slow": 0.06, "Medium": 0.04, "Fast": 0.02}
         self._bool_keys = bool_keys or []
+        self._schema = []
 
-        # Generic defaults (non application-specific)
-        if self.settings.get("brightness_scale") is None:
-            self.settings["brightness_scale"] = "0.5"
-        if self.settings.get("scroll_speed") is None:
-            self.settings["scroll_speed"] = "Medium"
+        # Built-in library settings — always defined so the default web UI shows them.
+        self.define("brightness_scale", 0.5, label="Brightness", min=0.0, max=1.0, step=0.05)
+        self.define("scroll_speed", "Medium", label="Scroll Speed",
+                    options=["Slow", "Medium", "Fast"])
+        self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
 
         # Apply application-provided defaults
         if defaults:
             self.set_defaults(defaults)
+
+    def define(self, key, default, label=None, type=None, options=None,
+               min=None, max=None, step=None):
+        """Declare a setting with display metadata for the auto-generating web UI.
+
+        The UI renders a form field for every defined setting in the order they
+        were declared. Type is inferred from the default value when not given:
+        bool -> checkbox, options list -> select, min/max -> range,
+        int/float -> number, else text.  Use type="color" explicitly for
+        colour pickers (stored as int 0xRRGGBB).
+
+        Args:
+            key: Settings key (used as the form field name)
+            default: Default value (only applied when no saved value exists)
+            label: Human-readable label; defaults to title-cased key name
+            type: Field type override ("text","number","range","color","select","checkbox")
+            options: List of string choices (implies type="select")
+            min: Numeric lower bound for range/number inputs
+            max: Numeric upper bound for range/number inputs
+            step: Numeric step for range/number inputs
+        """
+        if type is not None:
+            resolved_type = type
+        elif options:
+            resolved_type = "select"
+        elif min is not None or max is not None:
+            resolved_type = "range"
+        elif isinstance(default, bool):  # must check before int (bool subclasses int)
+            resolved_type = "checkbox"
+        elif isinstance(default, (int, float)):
+            resolved_type = "number"
+        else:
+            resolved_type = "text"
+
+        resolved_label = label if label is not None else SettingsManager.get_pretty_name(key)
+
+        self._schema.append({
+            "key": key,
+            "label": resolved_label,
+            "type": resolved_type,
+            "default": default,
+            "options": options,
+            "min": min,
+            "max": max,
+            "step": step,
+        })
+
+        if resolved_type == "checkbox":
+            self.add_bool_keys(key)
+
+        self.set_defaults({key: default})
 
     def set_defaults(self, defaults):
         """

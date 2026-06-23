@@ -1,32 +1,10 @@
-"""Regression guards for the three library bugs the demo audit surfaced.
+"""Regression guards for library bugs the demo audit surfaced.
 
 See plans/DEMO_BUG_AUDIT.md. Each test pins a specific defect found by running
 demos/hard/crypto_dashboard.py so it can't silently come back.
 """
 
 import sys
-
-
-# --- Bug 1: web composite handler used an illegal MRO ----------------------
-
-def test_composite_web_handler_has_valid_mro():
-    """CompositeHandler must build (WebHandler can't precede its subclasses)."""
-    from scrollkit.web import SLDKWebServer
-    from scrollkit.web.handlers import WebHandler, StaticFileHandler, APIHandler
-
-    class _FakeApp:
-        enable_web = True
-        settings_manager = None
-        display = None
-
-    server = SLDKWebServer(app=_FakeApp())
-    handler_cls = server._create_composite_handler()  # used to raise TypeError
-
-    mro = handler_cls.__mro__
-    assert handler_cls.__name__ == "CompositeHandler"
-    # Subclasses precede their shared base; all three are in the linearization.
-    assert mro.index(StaticFileHandler) < mro.index(WebHandler)
-    assert mro.index(APIHandler) < mro.index(WebHandler)
 
 
 # --- Bug 2: OTA mis-detected desktop as CircuitPython ----------------------

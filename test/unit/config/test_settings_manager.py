@@ -29,7 +29,7 @@ class TestSettingsManager:
             # App-specific defaults (e.g. ThemeParkWaits' skip_meet, ride colors,
             # subscription_status) are registered by the app via set_defaults(),
             # not by the library, so they are intentionally absent here.
-            assert manager.settings["brightness_scale"] == "0.5"
+            assert manager.settings["brightness_scale"] == 0.5
             assert manager.settings["scroll_speed"] == "Medium"
     
     def test_initialize_with_existing_settings(self):

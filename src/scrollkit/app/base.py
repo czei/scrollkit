@@ -70,6 +70,11 @@ class SLDKApp:
         self._frame_count: int = 0
         self._current_content = None
         self._run_start = None  # time.monotonic() when run() began the loop
+
+        # Default settings — built-in fields (brightness_scale, scroll_speed,
+        # default_color) are registered by SettingsManager.__init__ via define().
+        from ..config.settings_manager import SettingsManager
+        self.settings = SettingsManager("settings.json")
     
     # Abstract methods to be implemented by subclasses
     
@@ -202,17 +207,36 @@ class SLDKApp:
                 print(f"Data update error: {e}")
                 await sleep(30)  # Back off on error
     
+    def on_settings_changed(self):
+        """Called synchronously after the web UI saves settings.
+
+        Override to immediately rebuild display content. Must be synchronous —
+        it is called from an adafruit_httpserver route handler.
+        """
+        pass
+
     async def create_web_server(self):
         """Create web server instance.
-        
-        Override this method to use custom web server configuration.
-        
+
+        The default implementation returns a ``SettingsWebServer`` driven by
+        ``self.settings._schema`` (populated by ``SettingsManager.define()``).
+        Override to replace the auto-generated UI with a custom web server.
+        Return ``None`` to disable the web server entirely.
+
         Returns:
-            SLDKWebServer instance or None
+            Web server instance (must implement start/run_forever/stop/get_server_url),
+            or None to skip the web server process.
         """
+        settings = getattr(self, "settings", None)
+        if settings is None or not getattr(settings, "_schema", None):
+            return None
         try:
-            from ..web import SLDKWebServer
-            return SLDKWebServer(app=self)
+            import sys
+            from ..web.settings_server import SettingsWebServer
+            is_cp = (hasattr(sys, "implementation")
+                     and sys.implementation.name == "circuitpython")
+            port = 80 if is_cp else 8080
+            return SettingsWebServer(settings, app=self, port=port)
         except ImportError:
             return None
     
@@ -233,7 +257,6 @@ class SLDKApp:
             # Create web server
             web_server = await self.create_web_server()
             if not web_server:
-                print("Web server not available - install with 'pip install sldk[web]'")
                 return
             
             print("Web server process started")
@@ -248,7 +271,7 @@ class SLDKApp:
                 print("Failed to start web server")
             
         except ImportError:
-            print("Web server not available - install with 'pip install sldk[web]'")
+            print("Web server not available - adafruit_httpserver is required")
         except WebServerError as e:
             print(f"Web server error: {e}")
         except Exception as e:

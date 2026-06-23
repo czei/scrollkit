@@ -1,27 +1,5 @@
-"""SLDK Web Framework."""
+"""ScrollKit web — default settings UI on native adafruit_httpserver."""
 
-from __future__ import annotations
+from .settings_server import SettingsWebServer
 
-try:
-    from typing import List
-except ImportError:  # CircuitPython has no 'typing' module
-    pass
-
-from .server import SLDKWebServer
-from .handlers import WebHandler, StaticFileHandler, APIHandler
-from .adapters import route, ServerAdapter, create_server_adapter
-from .templates import HTMLBuilder, TemplateEngine
-from .forms import FormBuilder
-
-__all__: List[str] = [
-    'SLDKWebServer',
-    'WebHandler',
-    'StaticFileHandler',
-    'APIHandler',
-    'route',
-    'ServerAdapter',
-    'create_server_adapter',
-    'HTMLBuilder',
-    'TemplateEngine',
-    'FormBuilder'
-]
+__all__ = ["SettingsWebServer"]
