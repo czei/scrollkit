@@ -210,7 +210,7 @@ class DisplayItem:
         """Add an effect to this display item (alias for add_effect).
         
         This method provides the fluent interface pattern requested:
-        DisplayItem(...).with_effect(RevealEffect())
+        DisplayItem(...).with_effect(SparkleEffect())
         
         Args:
             effect: Effect instance to apply during rendering

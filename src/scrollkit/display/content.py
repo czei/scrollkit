@@ -18,6 +18,11 @@ import time
 # loop on modern Python (and isn't available the same way on CircuitPython).
 get_time = lambda: time.monotonic()
 
+# The display loop runs at ~20 FPS (app loop sleeps 0.05 s; the feasibility budget
+# is built on the same target). Scroll speed (px/sec) is converted to per-frame
+# motion against this. Kept here so the scroll math and the budget stay in sync.
+LOOP_FPS = 20
+
 
 class DisplayContent:
     """Base class for displayable content."""
@@ -144,37 +149,43 @@ class ScrollingText(DisplayContent):
         self.x: Optional[int] = x
         self.y: int = y
         self.color: int = color
-        self.speed: int = speed
-        self._position: Optional[int] = None
-        self._text_width: Optional[int] = None
-    
+        self.speed: int = speed                 # pixels per second (now honored)
+        # Position is a fixed-point accumulator in 1/16-px units, so a sub-pixel
+        # per-frame speed still produces smooth integer motion. Render x = pos>>4.
+        self._pos_q: Optional[int] = None
+        self._measured_width: Optional[int] = None
+
     async def start(self) -> None:
-        """Start scrolling from right edge."""
+        """Start scrolling from the right edge."""
         await super().start()
-        # Position will be set on first render when we have display
-        self._position = None
-    
+        # Position + measured width are established on the first render (we need a
+        # display to measure against). Reset so a restarted item re-initializes.
+        self._pos_q = None
+        self._measured_width = None
+
+    def _delta_q(self) -> int:
+        """Per-frame motion in 1/16-px units, derived from speed (px/sec)."""
+        return int(round(self.speed * 16 / LOOP_FPS))
+
     async def render(self, display) -> None:
-        """Render scrolling text to display."""
-        # Initialize position on first render
-        if self._position is None:
-            if self.x is None:
-                self._position = display.width
-            else:
-                self._position = self.x
-            # Estimate text width (6 pixels per char as default)
-            self._text_width = len(self.text) * 6
-        
-        # Draw text at current position
-        await display.draw_text(self.text, self._position, self.y, self.color)
-        
-        # Move text left
-        self._position -= 1
-        
-        # Check if scrolling is complete
-        if self._position < -self._text_width:
+        """Render scrolling text to display (fixed-point sub-pixel motion)."""
+        # First render: set the start position and measure the real text width
+        # ONCE (never per frame — measuring is off the hot path).
+        if self._pos_q is None:
+            start_x = display.width if self.x is None else self.x
+            self._pos_q = int(start_x) << 4
+            self._measured_width = display.measure_text(self.text)
+
+        # Draw the (reused) Label at the current integer position.
+        await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
+
+        # Advance left by the speed-derived sub-pixel delta.
+        self._pos_q -= self._delta_q()
+
+        # Complete once the whole measured width has scrolled off the left edge.
+        if (self._pos_q >> 4) < -self._measured_width:
             self._is_complete = True
-            
+
     @property
     def is_complete(self) -> bool:
         """Check if text has scrolled off screen."""
@@ -186,9 +197,9 @@ class ScrollingText(DisplayContent):
             "text": self.text,
             "y": self.y,
             "speed": self.speed,
-            "position": self._position,    # None until first render
-            "text_width": self._text_width,
-            "started": self._position is not None,
+            "position": None if self._pos_q is None else (self._pos_q >> 4),
+            "text_width": self._measured_width,
+            "started": self._pos_q is not None,
         })
         return info
 

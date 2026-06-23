@@ -137,15 +137,22 @@ if IS_CIRCUITPYTHON:
             self._running = False
 
         def start_server(self, host: str = "0.0.0.0", port: int = 80) -> bool:
-            """Start the CircuitPython HTTP server."""
+            """Start the CircuitPython HTTP server (adafruit_httpserver 4.x)."""
             try:
-                from adafruit_httpserver import HTTPServer, HTTPRoute, HTTPResponse
+                # adafruit_httpserver 4.x API: Server / Response / Request, plus a
+                # start()+poll() loop. Imported lazily so the desktop simulator never
+                # tries to import adafruit_httpserver (it ships only on CircuitPython).
+                from adafruit_httpserver import Server
 
                 if not self.socket_pool:
                     print("Error: Socket pool required for CircuitPython adapter")
                     return False
 
-                self.server = HTTPServer(self.socket_pool, self.static_dir)
+                self.server = Server(
+                    self.socket_pool,
+                    root_path=self.static_dir or "/",
+                    debug=False,
+                )
                 self._setup_routes()
                 self.server.start(host, port)
                 self._running = True
@@ -175,28 +182,126 @@ if IS_CIRCUITPYTHON:
             return self._running
 
         async def handle_requests(self) -> None:
-            """Handle incoming requests (CircuitPython)."""
-            if self.server:
-                await asyncio.sleep(0.1)
+            """Poll the server for one request, cooperatively (CircuitPython).
+
+            adafruit_httpserver 4.x is poll-driven: ``server.poll()`` handles at most
+            one pending request and returns immediately, so it cooperates with the
+            asyncio display loop. ``await asyncio.sleep(0)`` yields control each tick.
+            """
+            if self.server and self._running:
+                try:
+                    self.server.poll()
+                except Exception as e:
+                    print(f"Error polling CircuitPython web server: {e}")
+            await asyncio.sleep(0)
 
         def _setup_routes(self) -> None:
-            """Set up HTTP routes from handler class."""
-            from adafruit_httpserver import HTTPRoute, HTTPResponse
+            """Register the handler class's routes with the 4.x Server.
+
+            Each ``route_*`` method from the ``_routes`` registry is wrapped so the
+            adafruit ``Request`` is adapted into the app's ``MockRequest`` (plain-dict
+            ``query_params``/``form_data`` — the same shape the development adapter and
+            the unit tests use) and the returned ``MockResponse`` is adapted back into
+            an adafruit ``Response``. This keeps the app handler contract identical on
+            both platforms, so consumer code needs no changes.
+            """
+            from adafruit_httpserver import Response
 
             handler = self.handler_class(self)
+            adapter = self
 
-            for attr_name in dir(handler):
-                if attr_name.startswith('route_'):
-                    method = getattr(handler, attr_name)
-                    if callable(method) and hasattr(method, '_route_info'):
-                        route_info = method._route_info
-                        path = route_info['path']
-                        methods = route_info.get('methods', ['GET'])
+            def make_route_handler(method: Any) -> Any:
+                def route_handler(request: Any, *args: Any, **kwargs: Any) -> Any:
+                    # Never let a handler exception become a silent empty reply
+                    # (adafruit_httpserver swallows them when debug=False). Log the
+                    # traceback and return a 500 so failures are diagnosable.
+                    try:
+                        mock_request = adapter._to_mock_request(request)
+                        result = method(mock_request)
+                        return adapter._to_http_response(Response, request, result)
+                    except Exception as exc:  # noqa: BLE001
+                        print("Web handler error on %s: %r" % (
+                            getattr(request, 'path', '?'), exc))
+                        try:
+                            import sys
+                            sys.print_exception(exc)  # CircuitPython traceback
+                        except Exception:
+                            try:
+                                import traceback
+                                traceback.print_exc()
+                            except Exception:
+                                pass
+                        return Response(request, "Internal server error: %s" % exc,
+                                        content_type="text/plain",
+                                        status=(500, "Internal Server Error"))
+                return route_handler
 
-                        for http_method in methods:
-                            @self.server.route(path, methods=[http_method])
-                            def route_handler(request: Any, method: Any = method) -> Any:
-                                return method(request)
+            for attr_name, route_info in _iter_routes(handler):
+                method = getattr(handler, attr_name)
+                if isinstance(method, _RouteMarker):
+                    # Defensive: if the setattr-restore in _iter_routes didn't take,
+                    # getattr returns the marker — bind the raw function to the handler.
+                    _func = method.func
+                    method = lambda req, *a, _f=_func, **k: _f(handler, req)
+                if not callable(method):
+                    continue
+                path = route_info['path']
+                methods = route_info.get('methods', ['GET'])
+
+                # 4.x accepts the whole method list at once; one Route per path.
+                self.server.route(path, list(methods))(make_route_handler(method))
+
+        def _to_mock_request(self, request: Any) -> "MockRequest":
+            """Adapt an adafruit_httpserver 4.x ``Request`` to the app's MockRequest.
+
+            ``query_params``/``form_data`` are converted to plain dicts so the app
+            handler sees the same shape regardless of platform.
+            """
+            method = getattr(request, 'method', 'GET')
+            path = getattr(request, 'path', '')
+
+            # Build the raw query string from the parsed query params, then reuse the
+            # adapter's own parser so behaviour matches the development path exactly.
+            query_string = self._field_storage_query_string(
+                getattr(request, 'query_params', None))
+
+            body = None
+            if method == 'POST':
+                try:
+                    raw = request.body
+                    body = raw.decode('utf-8') if isinstance(raw, bytes) else raw
+                except Exception:
+                    body = None
+
+            return MockRequest(method, path, query_string, body, self)
+
+        @staticmethod
+        def _field_storage_query_string(query_params: Any) -> str:
+            """Render an adafruit ``QueryParams`` back to a raw ``a=1&b=2`` string."""
+            if not query_params:
+                return ""
+            try:
+                pairs = []
+                for key in query_params.fields:
+                    for value in query_params.get_list(key):
+                        pairs.append("%s=%s" % (key, value))
+                return "&".join(pairs)
+            except Exception:
+                return str(query_params)
+
+        @staticmethod
+        def _to_http_response(response_cls: Any, request: Any, result: Any) -> Any:
+            """Adapt the app handler's MockResponse into an adafruit 4.x Response."""
+            body = getattr(result, 'body', result if isinstance(result, (str, bytes)) else "")
+            content_type = getattr(result, 'content_type', 'text/html')
+            status = getattr(result, 'status', 200)
+
+            # 4.x Response wants a Status or (code, text) tuple; the app supplies a
+            # bare int. Only override the default for non-200 codes (text is optional).
+            if isinstance(status, int) and status != 200:
+                return response_cls(
+                    request, body, content_type=content_type, status=(status, ""))
+            return response_cls(request, body, content_type=content_type)
 
         def parse_query_params(self, query_string: Optional[str]) -> Dict[str, str]:
             """Parse query parameters from URL."""
@@ -309,17 +414,16 @@ else:
                         self, method: str, path: str, query: str, body: Optional[str]
                     ) -> Any:
                         """Handle route matching and execution."""
-                        for attr_name in dir(handler_instance):
-                            if attr_name.startswith('route_'):
-                                route_method = getattr(handler_instance, attr_name)
-                                if callable(route_method) and hasattr(route_method, '_route_info'):
-                                    route_info = route_method._route_info
-                                    route_path = route_info['path']
-                                    route_methods = route_info.get('methods', ['GET'])
+                        for attr_name, route_info in _iter_routes(handler_instance):
+                            route_method = getattr(handler_instance, attr_name)
+                            if not callable(route_method):
+                                continue
+                            route_path = route_info['path']
+                            route_methods = route_info.get('methods', ['GET'])
 
-                                    if path == route_path and method in route_methods:
-                                        request = MockRequest(method, path, query, body, adapter)
-                                        return route_method(request)
+                            if path == route_path and method in route_methods:
+                                request = MockRequest(method, path, query, body, adapter)
+                                return route_method(request)
 
                         return None
 
@@ -450,8 +554,35 @@ class MockResponse:
         self.content_type = content_type
 
 
+class _RouteMarker:
+    """Holder the ``@route`` decorator leaves in the class namespace.
+
+    Two CircuitPython constraints drive this design (neither is catchable by the
+    CPython simulator suite — see the grep-guard regression test):
+
+      1. CircuitPython plain functions have no ``__dict__`` — you cannot set an
+         attribute on them (the original ``func._route_info = ...`` bug). Marker
+         *instances* allow attributes, so we wrap the function in one.
+      2. CircuitPython plain functions do not even expose ``func.__name__`` (it is
+         omitted to save RAM). So the method name is NEVER read off the function;
+         ``RouteRegistryMixin`` derives it from the class-namespace key instead and
+         then restores the real function with ``setattr``.
+    """
+
+    def __init__(self, func: Any, path: str, methods: List[str]) -> None:
+        self.func = func
+        self.path = path
+        self.methods = methods
+
+
 def route(path: str, methods: Optional[List[str]] = None) -> Any:
     """Decorator to mark methods as route handlers.
+
+    Returns a ``_RouteMarker`` instance (NOT the function) wrapping the route
+    metadata. The enclosing handler class (via ``RouteRegistryMixin``) reads the
+    marker, records the route under the namespace name, and restores the real
+    function. The function object is never mutated and ``func.__name__`` is never
+    read — both are unavailable on CircuitPython.
 
     Args:
         path: URL path to handle
@@ -461,12 +592,101 @@ def route(path: str, methods: Optional[List[str]] = None) -> Any:
         methods = ['GET']
 
     def decorator(func: Any) -> Any:
-        func._route_info = {
-            'path': path,
-            'methods': methods,
-        }
-        return func
+        return _RouteMarker(func, path, list(methods))
     return decorator
+
+
+class RouteRegistryMixin:
+    """Collects ``@route``-decorated methods into a class-level ``_routes`` registry.
+
+    Handler base classes inherit this mixin so route metadata lives on the class
+    (keyed by method name) rather than on the function object — the CircuitPython-safe
+    equivalent of the old ``func._route_info`` attribute.
+
+    ``_routes`` maps ``method_name -> {'path': str, 'methods': List[str]}``. Each
+    subclass inherits its bases' routes (merged across the full MRO so multiple
+    inheritance keeps every base's routes) and adds/overrides its own.
+    """
+
+    _routes: Dict[str, Dict[str, Any]] = {}
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        # Merge inherited routes across the whole MRO (reverse order so that
+        # more-derived bases override less-derived ones, and so multiple
+        # inheritance keeps routes from every base, not just the first).
+        merged: Dict[str, Dict[str, Any]] = {}
+        for base in reversed(cls.__mro__[1:]):
+            base_routes = getattr(base, '_routes_own', None)
+            if base_routes:
+                merged.update(base_routes)
+
+        # Scan this class's namespace for routes the decorator just left behind.
+        # The method NAME comes from the namespace key (``dir(cls)`` + getattr —
+        # matching dispatch, since CircuitPython's ``cls.__dict__`` is unreliable),
+        # NOT from ``func.__name__`` (unavailable on CircuitPython). Each marker is
+        # replaced by its real function so dispatch can ``getattr(handler, name)()``.
+        own: Dict[str, Dict[str, Any]] = {}
+        for name in dir(cls):
+            value = getattr(cls, name, None)
+            if isinstance(value, _RouteMarker):
+                own[name] = {'path': value.path, 'methods': value.methods}
+                setattr(cls, name, value.func)
+
+        merged.update(own)
+
+        # ``_routes_own`` records only the routes declared directly on this class so
+        # subclasses can re-merge precisely; ``_routes`` is the full effective set.
+        cls._routes_own = own
+        cls._routes = merged
+
+
+def _iter_routes(handler: Any) -> Any:
+    """Yield ``(method_name, route_info)`` for every route on ``handler``'s class.
+
+    Reads the class-level ``_routes`` registry populated by ``RouteRegistryMixin``
+    (CircuitPython-safe — no function attributes). Falls back to scanning ``route_*``
+    methods for a legacy ``_route_info`` function attribute so handlers that don't
+    derive from the mixin still dispatch on CPython.
+    """
+    cls = type(handler)
+    routes = getattr(cls, '_routes', None)
+    if routes:
+        for fname, info in routes.items():
+            yield fname, info
+        return
+
+    # CircuitPython does NOT invoke __init_subclass__, so RouteRegistryMixin never
+    # populated _routes and the @route markers are still live on the class. Build the
+    # registry now from those markers (verified on a Matrix Portal S3: __init_subclass__
+    # defined but never called, markers un-replaced, _routes == {}). Restore each real
+    # function so dispatch can getattr(handler, name) and call it; cache so we scan once.
+    found = {}
+    for name in dir(cls):
+        value = getattr(cls, name, None)
+        if isinstance(value, _RouteMarker):
+            found[name] = {'path': value.path, 'methods': value.methods}
+            try:
+                setattr(cls, name, value.func)
+            except Exception:
+                pass
+    if found:
+        try:
+            cls._routes = found
+        except Exception:
+            pass
+        for fname, info in found.items():
+            yield fname, info
+        return
+
+    # Legacy fallback (function-attribute metadata; CPython non-mixin handlers).
+    for attr_name in dir(handler):
+        if attr_name.startswith('route_'):
+            method = getattr(handler, attr_name)
+            info = getattr(method, '_route_info', None)
+            if callable(method) and info is not None:
+                yield attr_name, info
 
 
 def create_server_adapter(

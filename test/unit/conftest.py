@@ -74,6 +74,9 @@ def mock_display():
     display.draw_text = AsyncMock()
     display.scroll_text = AsyncMock()
     display.fill = AsyncMock()
+    display.fill_rect = AsyncMock()
+    display.clear_rect = AsyncMock()
+    display.measure_text = MagicMock(return_value=66)  # sync query; returns an int
     return display
 
 

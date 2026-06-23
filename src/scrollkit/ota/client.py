@@ -16,13 +16,19 @@ except ImportError:  # CircuitPython has no 'typing' module
 from ..exceptions import NetworkError, OTAError, UpdateError
 from .manifest import UpdateManifest
 
-try:
+import sys
+
+# Decide the platform by the interpreter, not by which HTTP module happens to be
+# importable: ``adafruit_requests`` is pip-installable on desktop but exposes no
+# module-level ``get`` (it is Session-based), so keying off its mere presence
+# mis-detected desktop as CircuitPython and crashed the update check.
+if getattr(sys.implementation, "name", "") == "circuitpython":
     import adafruit_requests as requests
     import storage
     import microcontroller
     import supervisor
     PLATFORM = 'circuitpython'
-except ImportError:
+else:
     try:
         import requests
         PLATFORM = 'desktop'

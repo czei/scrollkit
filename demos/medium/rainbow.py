@@ -14,16 +14,21 @@ and scrolls them with a flowing per-letter rainbow. It shows two things:
 import sys
 import os
 
+# Run directly from the repo (no PYTHONPATH) and pull in the shared demo helpers
+# (CLI flags + display factory). None of this exists on CircuitPython, where the
+# device runs the app with defaults.
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-except AttributeError:
-    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import _demo_support as _support
+except (AttributeError, ImportError):
+    _support = None
 
 import asyncio
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import DisplayContent
-from scrollkit.effects.effects import EffectsEngine
+from scrollkit.display.bitmap_text import rainbow_color
 
 # A tall, bold font that fills most of the 32px height while leaving clear
 # margins. (Junction_regular_24 was even taller but its ascent == cap height,
@@ -55,7 +60,6 @@ class BigRainbowScroll(DisplayContent):
     def __init__(self, text="SCROLLKIT  "):
         super().__init__(duration=None)
         self.text = text
-        self.effects = EffectsEngine()
         self.frame = 0
         self.x = 64
         # Pre-measure each glyph's advance width (this font is variable-width).
@@ -105,7 +109,7 @@ class BigRainbowScroll(DisplayContent):
         for i, ch in enumerate(self.text):
             w = self.widths[i]
             if ch != " " and -w <= x <= display.width:   # skip spaces / off-screen
-                color = self.effects.get_rainbow_color(((i * 2 + self.frame) % 30) / 30.0)
+                color = rainbow_color((i * 2 + self.frame) // 5)   # palette-system ramp
                 await display.draw_text(ch, x, self.BASELINE_Y, color, font=BIG_FONT)
             x += w
 
@@ -116,6 +120,8 @@ class RainbowApp(ScrollKitApp):
         self.content = BigRainbowScroll()
 
     async def create_display(self):
+        if _support is not None:
+            return _support.simulator_display(getattr(self, "opts", None))
         try:
             from scrollkit.display.simulator import SimulatorDisplay
             return SimulatorDisplay(width=64, height=32)
@@ -133,4 +139,7 @@ class RainbowApp(ScrollKitApp):
 
 
 if __name__ == "__main__":
-    asyncio.run(RainbowApp().run())
+    if _support is not None:
+        _support.main(RainbowApp(), "ScrollKit big-rainbow demo (medium)")
+    else:
+        asyncio.run(RainbowApp().run())

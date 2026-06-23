@@ -14,11 +14,15 @@ The same code runs unchanged on an Adafruit MatrixPortal S3.
 import sys
 import os
 
-# Make `scrollkit` importable when run straight from the repo.
+# Run directly from the repo (no PYTHONPATH) and pull in the shared demo helpers
+# (CLI flags + display factory). None of this exists on CircuitPython, where the
+# device runs the app with defaults.
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-except AttributeError:
-    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import _demo_support as _support
+except (AttributeError, ImportError):
+    _support = None
 
 import asyncio
 
@@ -35,6 +39,8 @@ class HelloWorldApp(ScrollKitApp):
 
     async def create_display(self):
         """Use the desktop simulator (falls back to hardware on device)."""
+        if _support is not None:
+            return _support.simulator_display(getattr(self, "opts", None))
         try:
             from scrollkit.display.simulator import SimulatorDisplay
             return SimulatorDisplay(width=64, height=32)
@@ -52,4 +58,7 @@ class HelloWorldApp(ScrollKitApp):
 
 
 if __name__ == "__main__":
-    asyncio.run(HelloWorldApp().run())
+    if _support is not None:
+        _support.main(HelloWorldApp(), "ScrollKit hello-world demo (easy)")
+    else:
+        asyncio.run(HelloWorldApp().run())

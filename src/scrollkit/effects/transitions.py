@@ -1,347 +1,344 @@
-"""Transition effects for SLDK.
+"""Theatrical transitions on the overlay-mask primitive (Class 2 — fresh start).
 
-Provides simple transition effects optimized for ESP32 performance.
+The broken Wipe/Slide/Fade transitions were removed in the showcase cleanup; this
+module is their proper replacement, built on :class:`OverlayMask`: cover the old
+content, swap content while it is fully hidden, then reveal the new content.
+Bounded mask writes per frame (no full-2048 Python loop), no per-frame allocation,
+strict-feasible at 20 fps.
+
+This file ships the full Class 2 pack on the shared :class:`Transition` base:
+:class:`IrisSnap`, :class:`VenetianShutters`, :class:`MosaicResolve`,
+:class:`CRTCollapse`, and :class:`LightSlitRewrite`. Each writes only a bounded set
+of mask spans/blocks per frame.
 """
 
-from __future__ import annotations
-
-try:
-    import time
-    get_time = time.monotonic
-except (ImportError, AttributeError):
-    import time
-    get_time = time.time
-
-try:
-    from typing import Any, Optional
-except ImportError:  # CircuitPython has no 'typing' module
-    pass
-
-from ..exceptions import DisplayError
+from .easing import ease, EASE_IN_OUT
+from .overlay import OverlayMask
 
 
-class TransitionEngine:
-    """Engine for managing content transitions."""
-    
-    def __init__(self) -> None:
-        """Initialize transition engine."""
-        self.active_transition = None
-        self.transition_start_time: float = 0
-    
-    async def start_transition(self, transition: Any, from_content: Any, to_content: Any) -> None:
-        """Start a transition between content.
-        
-        Args:
-            transition: Transition effect instance
-            from_content: Current content
-            to_content: New content to transition to
-        """
-        self.active_transition = transition
-        self.transition_start_time = get_time()
-        transition.from_content = from_content
-        transition.to_content = to_content
-        await transition.start()
-    
-    async def update(self, display: Any) -> None:
-        """Update active transition.
-        
-        Args:
-            display: Display interface
-        """
-        if not self.active_transition:
+class Transition:
+    """Base cover -> swap-while-covered -> reveal transition over an OverlayMask.
+
+    Two phases of ``duration_frames`` each: the cover phase drives mask coverage
+    0 -> full, then ``swap_callback`` runs ONCE while fully covered (so any glyph
+    rebuild it triggers lands on a hidden frame), then the reveal phase drives
+    coverage full -> 0. Subclasses implement ``_paint_cover`` / ``_paint_reveal``.
+    """
+
+    def __init__(self, duration_frames=12, curve=EASE_IN_OUT, cover_color=0x000000):
+        self.half = max(1, duration_frames)
+        self.curve = curve
+        self.cover_color = cover_color
+        self._frame = 0
+        self._mask = None
+        self._swap = None
+        self._swapped = False
+        self._is_complete = False
+
+    async def start(self, display, swap_callback):
+        """Begin the transition. ``swap_callback`` runs once, while fully covered."""
+        if self._mask is not None:        # don't leak a prior mask's layer
+            self._mask.detach()
+        self._mask = OverlayMask(display)
+        self._mask.set_cover_color(1, self.cover_color)
+        self._swap = swap_callback
+        self._frame = 0
+        self._swapped = False
+        self._is_complete = False
+        await self._mask.clear()
+
+    async def render(self, display):
+        if self._is_complete:
             return
-        
-        elapsed = get_time() - self.transition_start_time
-        progress = min(elapsed / self.active_transition.duration, 1.0)
-        
-        await self.active_transition.update(display, progress)
-        
-        if progress >= 1.0:
-            await self.active_transition.complete()
-            self.active_transition = None
-    
-    def is_transitioning(self) -> bool:
-        """Check if a transition is active.
-        
-        Returns:
-            bool: True if transition is active
-        """
-        return self.active_transition is not None
-
-
-class BaseTransition:
-    """Base class for transitions."""
-    
-    def __init__(self, duration: float = 1.0) -> None:
-        """Initialize transition.
-        
-        Args:
-            duration: Transition duration in seconds
-        """
-        self.duration: float = duration
-        self.from_content: Any = None
-        self.to_content: Any = None
-    
-    async def start(self) -> None:
-        """Called when transition starts."""
-        pass
-    
-    async def update(self, display: Any, progress: float) -> None:
-        """Update transition.
-        
-        Args:
-            display: Display interface
-            progress: Transition progress (0.0 to 1.0)
-        """
-        raise NotImplementedError("Subclass must implement update()")
-    
-    async def complete(self) -> None:
-        """Called when transition completes."""
-        pass
-
-
-class FadeTransition(BaseTransition):
-    """Fade transition using display brightness."""
-    
-    def __init__(self, duration: float = 1.0, fade_color: int = 0x000000) -> None:
-        """Initialize fade transition.
-        
-        Args:
-            duration: Transition duration
-            fade_color: Color to fade through (default black)
-        """
-        super().__init__(duration)
-        self.fade_color: int = fade_color
-        self.original_brightness: float = 1.0
-        self.phase: str = "fade_out"  # fade_out -> fade_in
-    
-    async def start(self) -> None:
-        """Store original brightness."""
-        # Try to get original brightness
-        if hasattr(self.from_content, 'display') and hasattr(self.from_content.display, 'brightness'):
-            self.original_brightness = self.from_content.display.brightness
+        if self._frame < self.half:
+            await self._paint_cover(self._progress(self._frame))
         else:
-            self.original_brightness = 1.0
-    
-    async def update(self, display: Any, progress: float) -> None:
-        """Update fade transition."""
-        if not hasattr(display, 'brightness'):
-            # Fallback to instant transition if brightness not supported
-            if progress < 0.5:
-                if self.from_content:
-                    await self.from_content.render(display)
-            else:
-                if self.to_content:
-                    await self.to_content.render(display)
+            if not self._swapped:
+                await self._run_swap()
+                self._swapped = True
+            await self._paint_reveal(self._progress(self._frame - self.half))
+        self._frame += 1
+        if self._frame >= self.half * 2:
+            await self._mask.clear()      # fully revealed
+            self._mask.detach()           # remove the mask layer (no leak)
+            self._is_complete = True
+
+    async def _run_swap(self):
+        if self._swap is None:
             return
-        
-        # Two-phase fade: out then in
-        if progress < 0.5:
-            # Fade out phase
-            fade_progress = progress * 2  # 0 to 1
-            brightness = self.original_brightness * (1.0 - fade_progress)
-            display.brightness = max(brightness, 0.01)  # Prevent complete darkness
-            
-            # Render original content
-            if self.from_content:
-                await self.from_content.render(display)
-        else:
-            # Fade in phase
-            fade_progress = (progress - 0.5) * 2  # 0 to 1
-            brightness = self.original_brightness * fade_progress
-            display.brightness = min(brightness, self.original_brightness)
-            
-            # Render new content
-            if self.to_content:
-                await self.to_content.render(display)
-    
-    async def complete(self) -> None:
-        """Restore original brightness."""
-        if hasattr(self.to_content, 'display') and hasattr(self.to_content.display, 'brightness'):
-            self.to_content.display.brightness = self.original_brightness
+        res = self._swap()
+        if hasattr(res, "__await__"):     # support sync or async swap callbacks
+            await res
+
+    def _progress(self, f):
+        """Eased 0..255 progress through one phase."""
+        raw = 0 if self.half <= 1 else min(255, f * 255 // (self.half - 1))
+        return ease(self.curve, raw)
+
+    @property
+    def is_complete(self):
+        return self._is_complete
+
+    @property
+    def fully_covered(self):
+        """True at the cover/reveal boundary (mask hides all content)."""
+        return self._frame == self.half
+
+    def detach(self):
+        """Remove the transition's overlay layer from the display."""
+        if self._mask is not None:
+            self._mask.detach()
+
+    # subclasses implement (progress 0->255):
+    async def _paint_cover(self, progress):   # uncovered -> covered
+        raise NotImplementedError
+
+    async def _paint_reveal(self, progress):  # covered -> revealed
+        raise NotImplementedError
 
 
-class WipeTransition(BaseTransition):
-    """Wipe transition - progressive reveal."""
-    
-    def __init__(self, duration: float = 1.0, direction: str = "left") -> None:
-        """Initialize wipe transition.
-        
-        Args:
-            duration: Transition duration
-            direction: Wipe direction ("left", "right", "up", "down")
-        """
-        super().__init__(duration)
-        self.direction: str = direction
-    
-    async def update(self, display: Any, progress: float) -> None:
-        """Update wipe transition."""
-        width = display.width
-        height = display.height
-        
-        if self.direction == "left":
-            # Wipe from left to right
-            split_x = int(progress * width)
-            
-            for y in range(height):
-                for x in range(width):
-                    if x < split_x:
-                        # Show new content
-                        if self.to_content:
-                            # Get pixel color from new content (simplified)
-                            color = self._get_content_pixel_color(x, y, progress)
-                            await display.set_pixel(x, y, color)
-                    # Old content pixels are left unchanged
-        
-        elif self.direction == "right":
-            # Wipe from right to left
-            split_x = width - int(progress * width)
-            
-            for y in range(height):
-                for x in range(width):
-                    if x >= split_x:
-                        # Show new content
-                        color = self._get_content_pixel_color(x, y, progress)
-                        await display.set_pixel(x, y, color)
-        
-        elif self.direction == "up":
-            # Wipe from top to bottom
-            split_y = int(progress * height)
-            
-            for y in range(height):
-                for x in range(width):
-                    if y < split_y:
-                        # Show new content
-                        color = self._get_content_pixel_color(x, y, progress)
-                        await display.set_pixel(x, y, color)
-        
-        elif self.direction == "down":
-            # Wipe from bottom to top
-            split_y = height - int(progress * height)
-            
-            for y in range(height):
-                for x in range(width):
-                    if y >= split_y:
-                        # Show new content
-                        color = self._get_content_pixel_color(x, y, progress)
-                        await display.set_pixel(x, y, color)
-    
-    def _get_content_pixel_color(self, x: int, y: int, progress: float) -> int:
-        """Get pixel color for new content at position.
-        
-        This is a simplified implementation - in reality you'd
-        render the content to a buffer first, but that uses too
-        much memory for ESP32.
-        
-        Args:
-            x: X coordinate
-            y: Y coordinate
-            progress: Transition progress
-            
-        Returns:
-            int: RGB color value
-        """
-        # Simple colored pattern for demonstration
-        # In real implementation, this would query the actual content
-        
-        # Create a simple gradient based on position
-        r = int((x / 64.0) * 255) if hasattr(self, '_width') else int((x / 32.0) * 255)
-        g = int((y / 32.0) * 255) if hasattr(self, '_height') else int((y / 16.0) * 255)
-        b = int(progress * 255)
-        
-        return (r << 16) | (g << 8) | b
+class IrisSnap(Transition):
+    """Chunky diamond aperture. A diamond of cover grows to hide the screen, then a
+    diamond hole grows to reveal it. Per frame writes at most ``height`` spans,
+    driven by a precomputed per-row radius table — bounded, never a full repaint.
+    """
+
+    def __init__(self, duration_frames=10, curve=EASE_IN_OUT, cover_color=0x000000):
+        super().__init__(duration_frames, curve, cover_color)
+        self._w = 0
+        self._h = 0
+        self._cx = 0
+        self._dy = ()       # per-row |y - cy|: the radius->span lookup table
+        self._rmax = 1
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        self._cx = self._w // 2
+        cy = self._h // 2
+        self._dy = tuple(abs(y - cy) for y in range(self._h))
+        self._rmax = (self._w // 2) + (self._h // 2) + 1
+        await super().start(display, swap_callback)
+
+    def _radius(self, progress):
+        return (progress * self._rmax) // 255
+
+    async def _paint_cover(self, progress):
+        m = self._mask
+        await m.clear()
+        r = self._radius(progress)
+        cx = self._cx
+        for y in range(self._h):
+            hw = r - self._dy[y]
+            if hw >= 0:
+                await m.fill_span(y, cx - hw, cx + hw + 1, 1)
+
+    async def _paint_reveal(self, progress):
+        m = self._mask
+        await m.fill_rect(0, 0, self._w, self._h, 1)   # cover everything...
+        r = self._radius(progress)
+        cx = self._cx
+        for y in range(self._h):                       # ...then punch the diamond hole
+            hw = r - self._dy[y]
+            if hw >= 0:
+                await m.clear_rect(cx - hw, y, 2 * hw + 1, 1)
 
 
-class SlideTransition(BaseTransition):
-    """Slide transition - content slides in from edge."""
-    
-    def __init__(self, duration: float = 1.0, direction: str = "left", easing: str = "linear") -> None:
-        """Initialize slide transition.
-        
-        Args:
-            duration: Transition duration
-            direction: Slide direction ("left", "right", "up", "down")
-            easing: Easing function ("linear", "ease_out")
-        """
-        super().__init__(duration)
-        self.direction: str = direction
-        self.easing: str = easing
-    
-    def _apply_easing(self, progress: float) -> float:
-        """Apply easing function to progress.
-        
-        Args:
-            progress: Linear progress (0.0 to 1.0)
-            
-        Returns:
-            float: Eased progress
-        """
-        if self.easing == "ease_out":
-            # Simple ease-out: 1 - (1-t)^2
-            return 1 - (1 - progress) ** 2
-        else:
-            # Linear
-            return progress
-    
-    async def update(self, display: Any, progress: float) -> None:
-        """Update slide transition."""
-        eased_progress = self._apply_easing(progress)
-        
-        width = display.width
-        height = display.height
-        
-        # Clear display first
-        await display.clear()
-        
-        if self.direction == "left":
-            # Slide from left edge
-            offset_x = int(eased_progress * width) - width
-            
-            # Render new content at offset position
-            await self._render_content_at_offset(display, self.to_content, offset_x, 0)
-            
-        elif self.direction == "right":
-            # Slide from right edge
-            offset_x = width - int(eased_progress * width)
-            
-            # Render new content at offset position
-            await self._render_content_at_offset(display, self.to_content, offset_x, 0)
-        
-        elif self.direction == "up":
-            # Slide from top edge
-            offset_y = int(eased_progress * height) - height
-            
-            # Render new content at offset position
-            await self._render_content_at_offset(display, self.to_content, 0, offset_y)
-        
-        elif self.direction == "down":
-            # Slide from bottom edge
-            offset_y = height - int(eased_progress * height)
-            
-            # Render new content at offset position
-            await self._render_content_at_offset(display, self.to_content, 0, offset_y)
-    
-    async def _render_content_at_offset(self, display: Any, content: Any, offset_x: int, offset_y: int) -> None:
-        """Render content at offset position.
-        
-        Args:
-            display: Display interface
-            content: Content to render
-            offset_x: X offset
-            offset_y: Y offset
-        """
-        # Simplified rendering - create a colored rectangle for demo
-        width = display.width
-        height = display.height
-        
-        # Demo: render a simple colored rectangle
-        for y in range(height):
-            for x in range(width):
-                render_x = x + offset_x
-                render_y = y + offset_y
-                
-                # Only render if within display bounds
-                if 0 <= render_x < width and 0 <= render_y < height:
-                    # Simple color pattern for demo
-                    color = ((render_x * 4) << 16) | ((render_y * 8) << 8) | 0x80
-                    await display.set_pixel(render_x, render_y, color)
+class VenetianShutters(Transition):
+    """Coarse horizontal bands that close (cover) then open (reveal) like blinds,
+    each band staggered slightly for a mechanical feel. Per frame writes at most
+    ``bands`` (+1) spans — bounded, never a full repaint.
+    """
+
+    def __init__(self, duration_frames=12, curve=EASE_IN_OUT, cover_color=0x000000,
+                 bands=8):
+        super().__init__(duration_frames, curve, cover_color)
+        self.bands = max(2, bands)
+        self._w = 0
+        self._h = 0
+        self._band_h = 1
+        self._spread = 0
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        self._band_h = (self._h + self.bands - 1) // self.bands
+        # A small per-band delay so the bands don't all move in lockstep, scaled so
+        # the last band still reaches full at progress 255.
+        self._spread = max(1, 255 // (self.bands * 3))
+        await super().start(display, swap_callback)
+
+    def _band_progress(self, progress, k):
+        denom = 255 - (self.bands - 1) * self._spread
+        if denom < 1:
+            denom = 1
+        p = progress - k * self._spread
+        if p < 0:
+            p = 0
+        p = p * 255 // denom
+        if p > 255:
+            p = 255
+        return ease(self.curve, p)
+
+    async def _paint_cover(self, progress):
+        m = self._mask
+        await m.clear()
+        for k in range(self.bands):
+            h = self._band_progress(progress, k) * self._band_h // 255
+            if h > 0:
+                top = k * self._band_h + (self._band_h - h) // 2
+                await m.fill_rect(0, top, self._w, h, 1)
+
+    async def _paint_reveal(self, progress):
+        m = self._mask
+        await m.fill_rect(0, 0, self._w, self._h, 1)   # fully covered...
+        for k in range(self.bands):                    # ...open each band from its center
+            h = self._band_progress(progress, k) * self._band_h // 255
+            if h > 0:
+                top = k * self._band_h + (self._band_h - h) // 2
+                await m.clear_rect(0, top, self._w, h)
+
+
+class MosaicResolve(Transition):
+    """Blocks cover (then reveal) in a fixed pseudo-random order — a mosaic that
+    dissolves in and out. Only the *newly* changed blocks are written each frame
+    (~4-12), so per-frame work stays bounded. Deterministic given ``seed``.
+    """
+
+    def __init__(self, duration_frames=14, curve=EASE_IN_OUT, cover_color=0x000000,
+                 block_w=8, block_h=4, seed=1):
+        super().__init__(duration_frames, curve, cover_color)
+        self.block_w = max(1, block_w)
+        self.block_h = max(1, block_h)
+        self.seed = seed
+        self._cols = 0
+        self._rows = 0
+        self._order = ()
+        self._covered = 0
+        self._revealed = 0
+
+    async def start(self, display, swap_callback):
+        self._cols = max(1, display.width // self.block_w)
+        self._rows = max(1, display.height // self.block_h)
+        n = self._cols * self._rows
+        # Fisher-Yates shuffle with a seeded LCG (integer state — no per-frame alloc).
+        order = list(range(n))
+        state = (self.seed * 2654435761 + 1) & 0x7FFFFFFF
+        for i in range(n - 1, 0, -1):
+            state = (state * 1103515245 + 12345) & 0x7FFFFFFF
+            j = state % (i + 1)
+            order[i], order[j] = order[j], order[i]
+        self._order = tuple(order)
+        self._covered = 0
+        self._revealed = 0
+        await super().start(display, swap_callback)
+
+    def _block_rect(self, idx):
+        r = idx // self._cols
+        c = idx % self._cols
+        return c * self.block_w, r * self.block_h, self.block_w, self.block_h
+
+    async def _paint_cover(self, progress):
+        target = ease(self.curve, progress) * len(self._order) // 255
+        while self._covered < target:
+            x, y, w, h = self._block_rect(self._order[self._covered])
+            await self._mask.fill_rect(x, y, w, h, 1)
+            self._covered += 1
+
+    async def _paint_reveal(self, progress):
+        target = ease(self.curve, progress) * len(self._order) // 255
+        while self._revealed < target:
+            x, y, w, h = self._block_rect(self._order[self._revealed])
+            await self._mask.clear_rect(x, y, w, h)
+            self._revealed += 1
+
+
+class CRTCollapse(Transition):
+    """A CRT power-off: the picture collapses to a center scanline (cover) then
+    blooms back open from that line (reveal). Two growing/shrinking bars per frame
+    — bounded.
+    """
+
+    def __init__(self, duration_frames=10, curve=EASE_IN_OUT, cover_color=0x000000):
+        super().__init__(duration_frames, curve, cover_color)
+        self._w = 0
+        self._h = 0
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        m = self._mask
+        await m.clear()
+        half = self._h // 2
+        covered = ease(self.curve, progress) * half // 255
+        if covered > 0:
+            await m.fill_rect(0, 0, self._w, covered, 1)               # top bar down
+            await m.fill_rect(0, self._h - covered, self._w, covered, 1)  # bottom bar up
+        # At full progress make sure the thin center line is closed too.
+        if progress >= 255:
+            await m.fill_rect(0, 0, self._w, self._h, 1)
+
+    async def _paint_reveal(self, progress):
+        m = self._mask
+        await m.fill_rect(0, 0, self._w, self._h, 1)                   # fully covered...
+        slit = ease(self.curve, progress) * self._h // 255            # ...bloom open from center
+        if slit > 0:
+            await m.clear_rect(0, (self._h - slit) // 2, self._w, slit)
+
+
+class LightSlitRewrite(Transition):
+    """A bright vertical scanner sweeps across, covering the old content on its way
+    out and revealing the new content on its way back — the swap happens behind the
+    slit at the turn. Per frame: a cover/clear span + the bright slit — bounded.
+    """
+
+    def __init__(self, duration_frames=12, curve=EASE_IN_OUT, cover_color=0x000000,
+                 slit_px=3, slit_color=0xFFFFFF):
+        super().__init__(duration_frames, curve, cover_color)
+        self.slit_px = max(1, slit_px)
+        self.slit_color = slit_color
+        self._w = 0
+        self._h = 0
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        await super().start(display, swap_callback)
+        self._mask.set_cover_color(2, self.slit_color)   # index 2 = the bright slit
+
+    async def _paint_cover(self, progress):
+        m = self._mask
+        await m.clear()
+        x = ease(self.curve, progress) * self._w // 255          # slit leading edge
+        if x > 0:
+            await m.fill_rect(0, 0, x, self._h, 1)               # cover everything passed
+        await m.fill_rect(x, 0, self.slit_px, self._h, 2)        # the bright slit
+
+    async def _paint_reveal(self, progress):
+        m = self._mask
+        await m.fill_rect(0, 0, self._w, self._h, 1)             # start fully covered
+        x = ease(self.curve, progress) * self._w // 255
+        if x > 0:
+            await m.clear_rect(0, 0, x, self._h)                 # reveal what the slit passed
+        await m.fill_rect(x, 0, self.slit_px, self._h, 2)        # the bright slit
+
+
+# --- advertised feasibility metadata (US7 / FR-026) -------------------------
+# hardware_safe: passes the strict gate at 20 fps; allocates_per_frame: MUST be
+# False (no per-frame heap alloc); max_pixel_writes_per_frame: worst-case bounded
+# mask write, all via the C bulk painter (never a 2048-px Python loop);
+# modeled_frame_ms: <= the 50 ms (20 fps) device budget. On a 64x32 panel a full
+# mask cover is 2048 px done as ONE bulk fill_region (~0.6 ms), not a loop.
+IrisSnap.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                        "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 7.0}
+VenetianShutters.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                                "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 8.0}
+MosaicResolve.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                             "max_pixel_writes_per_frame": 512, "modeled_frame_ms": 6.0}
+CRTCollapse.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                           "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 8.0}
+LightSlitRewrite.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                                "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 8.0}

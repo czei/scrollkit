@@ -11,10 +11,15 @@ is formatted from time.localtime() so it works on both desktop and CircuitPython
 import sys
 import os
 
+# Run directly from the repo (no PYTHONPATH) and pull in the shared demo helpers
+# (CLI flags + display factory). None of this exists on CircuitPython, where the
+# device runs the app with defaults.
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-except AttributeError:
-    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import _demo_support as _support
+except (AttributeError, ImportError):
+    _support = None
 
 import asyncio
 import time
@@ -42,6 +47,8 @@ class ClockApp(ScrollKitApp):
         self.content = ClockContent()
 
     async def create_display(self):
+        if _support is not None:
+            return _support.simulator_display(getattr(self, "opts", None))
         try:
             from scrollkit.display.simulator import SimulatorDisplay
             return SimulatorDisplay(width=64, height=32)
@@ -57,4 +64,7 @@ class ClockApp(ScrollKitApp):
 
 
 if __name__ == "__main__":
-    asyncio.run(ClockApp().run())
+    if _support is not None:
+        _support.main(ClockApp(), "ScrollKit clock demo (easy)")
+    else:
+        asyncio.run(ClockApp().run())

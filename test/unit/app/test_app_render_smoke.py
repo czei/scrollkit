@@ -67,8 +67,10 @@ async def test_app_loop_runs_continuously_and_renders_visible_pixels():
 
     # The scroll started at display width (64) and must have advanced left.
     # If the loop died after one frame (the create_task bug) this stays ~63-64.
-    assert content._position is not None and content._position < 60, (
-        f"scroll position did not advance (position={content._position}); "
+    # ``position`` is the public integer x (the fixed-point accumulator >> 4).
+    position = content.describe()["position"]
+    assert position is not None and position < 60, (
+        f"scroll position did not advance (position={position}); "
         "the display loop is not iterating"
     )
 

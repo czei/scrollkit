@@ -38,9 +38,9 @@ async def test_scrolling_reuses_one_label_no_per_frame_alloc():
         await d.show()
         if first is None:
             first = d._label_pool[0]
-    # One label, reused — not 60.
+    # One label, reused — not 60. Labels live in the content sub-group (D11).
     assert len(d._label_pool) == 1
-    assert len(d.main_group) == 1
+    assert len(d._content_group) == 1
     assert d._label_pool[0] is first
 
 
@@ -53,7 +53,7 @@ async def test_changing_text_every_frame_stays_bounded():
         await d.show()
     # Slot reuse bounds it even when the text changes — no growth.
     assert len(d._label_pool) == 1
-    assert len(d.main_group) == 1
+    assert len(d._content_group) == 1
 
 
 @pytest.mark.asyncio
@@ -70,7 +70,7 @@ async def test_multi_text_frame_then_fewer_hides_leftovers():
     await d.draw_text("B", 0, 0, 0xFFFFFF)
     await d.show()
     assert len(d._label_pool) == 3  # pool retained, not regrown
-    visible = [c for c in d.main_group if not getattr(c, "hidden", False)]
+    visible = [c for c in d._content_group if not getattr(c, "hidden", False)]
     assert len(visible) == 1
 
 

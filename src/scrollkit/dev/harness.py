@@ -95,7 +95,7 @@ class RunResult:
 
 
 def run_headless(app, frames=None, seconds=None, screenshot=None,
-                 hardware=True, warmup_data=False):
+                 hardware=True, warmup_data=False, strict=False):
     """Run ``app`` headlessly for a fixed number of frames; return a ``RunResult``.
 
     Args:
@@ -107,6 +107,11 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
             report (default True).
         warmup_data: call ``update_data()`` once after ``setup()`` (default
             False — kept off so headless runs never block on the network).
+        strict: enforce the feasibility gate. A sustained over-budget run (or a
+            catastrophic single frame, or a RAM breach) raises FeasibilityError,
+            which is caught, recorded in ``result.errors`` (tagged ``feasibility:``)
+            and stops the run, so ``result.ok`` is False. Implies hardware
+            modeling. Off by default.
 
     Synchronous wrapper around :func:`run_headless_async`. Call the async form
     directly from inside an existing event loop.
@@ -114,24 +119,31 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
     import asyncio
     return asyncio.run(run_headless_async(
         app, frames=frames, seconds=seconds, screenshot=screenshot,
-        hardware=hardware, warmup_data=warmup_data))
+        hardware=hardware, warmup_data=warmup_data, strict=strict))
 
 
 async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
-                             hardware=True, warmup_data=False):
+                             hardware=True, warmup_data=False, strict=False):
     """Async core of :func:`run_headless` (use inside a running event loop)."""
     if frames is None and seconds is not None:
         frames = max(1, int(round(seconds * TARGET_FPS)))
     if frames is None:
         frames = DEFAULT_FRAMES
 
+    # strict enforcement needs the timing model active, so it implies hardware.
+    if strict:
+        hardware = True
+
     # Headless pygame + opt the simulator into hardware timing via its env hook,
-    # so this works regardless of how the app builds its display. Both are
+    # so this works regardless of how the app builds its display. All are
     # restored afterwards so we don't perturb the caller's environment.
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     prev_hw = os.environ.get("SCROLLKIT_HW_SIM")
+    prev_strict = os.environ.get("SCROLLKIT_HW_STRICT")
     if hardware:
         os.environ["SCROLLKIT_HW_SIM"] = "1"
+    if strict:
+        os.environ["SCROLLKIT_HW_STRICT"] = "1"
 
     errors = []
     warnings = []
@@ -188,7 +200,15 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
                         first_sig = sig
                     last_sig = sig
             except Exception as e:
-                errors.append("frame %d failed: %r" % (i + 1, e))
+                # The strict feasibility gate raises FeasibilityError mid-render
+                # (deep inside display.show()); surface it with a clear tag so
+                # callers can tell a budget bust from an ordinary crash.
+                from scrollkit.exceptions import FeasibilityError
+                if isinstance(e, FeasibilityError):
+                    errors.append("feasibility: frame %d busts the device budget: %s"
+                                  % (i + 1, e))
+                else:
+                    errors.append("frame %d failed: %r" % (i + 1, e))
                 break
 
         shot = None
@@ -269,3 +289,7 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             os.environ.pop("SCROLLKIT_HW_SIM", None)
         else:
             os.environ["SCROLLKIT_HW_SIM"] = prev_hw
+        if prev_strict is None:
+            os.environ.pop("SCROLLKIT_HW_STRICT", None)
+        else:
+            os.environ["SCROLLKIT_HW_STRICT"] = prev_strict

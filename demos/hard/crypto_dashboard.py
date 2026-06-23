@@ -12,7 +12,7 @@ This is the showpiece. It fills the whole 64x32 matrix with a dashboard that
 Under the hood it also shows the library's depth:
   - TWO public, no-API-key data sources (CoinGecko prices + open-meteo weather)
   - the CHUNKED-FETCH workaround for CircuitPython's blocking HTTP library
-  - the effects engine (rainbow color helper)
+  - the palette-system rainbow ramp (rainbow_color helper)
   - a configuration web server (enable_web=True)
   - an OTA update check at startup
 
@@ -26,16 +26,21 @@ Data sources: CoinGecko /simple/price and open-meteo /v1/forecast (no API key).
 import sys
 import os
 
+# Run directly from the repo (no PYTHONPATH) and pull in the shared demo helpers
+# (CLI flags + display factory). None of this exists on CircuitPython, where the
+# device runs the app with defaults.
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-except AttributeError:
-    pass  # CircuitPython has no os.path; scrollkit is already on the path (/lib)
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import _demo_support as _support
+except (AttributeError, ImportError):
+    _support = None
 
 import asyncio
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import DisplayContent
-from scrollkit.effects.effects import EffectsEngine
+from scrollkit.display.bitmap_text import rainbow_color
 from scrollkit.network.http_client import HttpClient
 from scrollkit.ota.client import OTAClient
 
@@ -84,13 +89,12 @@ class DashboardContent(DisplayContent):
     def __init__(self, app):
         super().__init__(duration=None)   # never completes; animates forever
         self.app = app
-        self.effects = EffectsEngine()
         self.frame = 0
         self.ticker_x = 64
 
     def _rainbow(self, i):
-        """Rainbow color flowing over character index i and time."""
-        return self.effects.get_rainbow_color(((i * 2 + self.frame) % 30) / 30.0)
+        """Rainbow color flowing over character index i and time (palette-system ramp)."""
+        return rainbow_color((i * 2 + self.frame) // 5)
 
     async def render(self, display):
         self.frame += 1
@@ -176,6 +180,8 @@ class CryptoDashboardApp(ScrollKitApp):
         self.dashboard = DashboardContent(self)
 
     async def create_display(self):
+        if _support is not None:
+            return _support.simulator_display(getattr(self, "opts", None))
         try:
             from scrollkit.display.simulator import SimulatorDisplay
             return SimulatorDisplay(width=64, height=32)
@@ -197,8 +203,10 @@ class CryptoDashboardApp(ScrollKitApp):
         try:
             ota = OTAClient.for_github("myorg", "myapp", current_version="1.0.0")
             has_update, info = ota.check_for_updates()
+            # `info` is the new manifest when has_update, else a reason string
+            # (this points at a placeholder repo, so expect "no update").
             print("OTA:", ("update available -> " + info.version) if has_update
-                  else "up to date (%s)" % (info,))
+                  else "no update (%s)" % (info,))
         except Exception as e:
             print("OTA check skipped:", e)
 
@@ -226,4 +234,7 @@ class CryptoDashboardApp(ScrollKitApp):
 
 
 if __name__ == "__main__":
-    asyncio.run(CryptoDashboardApp().run())
+    if _support is not None:
+        _support.main(CryptoDashboardApp(), "ScrollKit crypto-dashboard demo (hard)")
+    else:
+        asyncio.run(CryptoDashboardApp().run())

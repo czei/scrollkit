@@ -35,8 +35,12 @@ class DisplayInterface:
         """Clear the display."""
         raise NotImplementedError("Subclass must implement clear()")
 
-    async def show(self) -> None:
-        """Update the physical display."""
+    async def show(self) -> bool:
+        """Update the physical display.
+
+        Returns False when the user closed the simulator window (so the app loop
+        can shut down); True otherwise.
+        """
         raise NotImplementedError("Subclass must implement show()")
 
     async def set_pixel(self, x: int, y: int, color: int) -> None:
@@ -85,7 +89,7 @@ class DisplayInterface:
     
     async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.
-        
+
         Args:
             text: Text to scroll
             y: Y coordinate for text
@@ -94,3 +98,38 @@ class DisplayInterface:
         """
         # Subclasses should override with efficient scrolling
         pass
+
+    # --- bounded painters + graphics bridge (see display/_graphics.py) --------
+    # Real displays mix in GraphicsMixin, which provides concrete implementations
+    # backed by C bulk ops (bitmaptools). These stubs document the contract for
+    # any other DisplayInterface.
+
+    async def fill_rect(self, x: int, y: int, w: int, h: int, color: int) -> None:
+        """Fill a bounded rectangle with ``color`` via a C bulk op (no full loop)."""
+        raise NotImplementedError("Subclass must implement fill_rect()")
+
+    async def fill_span(self, y: int, x0: int, x1: int, color: int) -> None:
+        """Fill the single-row span ``[x0, x1)`` with ``color``."""
+        raise NotImplementedError("Subclass must implement fill_span()")
+
+    async def clear_rect(self, x: int, y: int, w: int, h: int) -> None:
+        """Clear a bounded rectangle back to the background."""
+        raise NotImplementedError("Subclass must implement clear_rect()")
+
+    def measure_text(self, text: str, font: Any = None) -> int:
+        """Rendered pixel width of ``text`` (summed glyph advances; not len*6)."""
+        return len(text) * 6   # coarse fallback; real displays override
+
+    @property
+    def gfx(self) -> Any:
+        """Platform-resolved graphics namespace (Bitmap/Palette/TileGrid/Group/
+        bitmaptools), cached per display."""
+        raise NotImplementedError("Subclass must implement gfx")
+
+    def add_layer(self, tilegrid: Any) -> None:
+        """Composite a TileGrid above content (persistent across frames)."""
+        raise NotImplementedError("Subclass must implement add_layer()")
+
+    def remove_layer(self, tilegrid: Any) -> None:
+        """Remove a layer added via add_layer()."""
+        raise NotImplementedError("Subclass must implement remove_layer()")

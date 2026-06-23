@@ -38,13 +38,15 @@ except ImportError:
     )
 
 from .interface import DisplayInterface
+from ._graphics import GraphicsMixin
 
 
-class SimulatorDisplay(DisplayInterface):
+class SimulatorDisplay(GraphicsMixin, DisplayInterface):
     """Simulator display implementation for desktop development."""
     
     def __init__(self, width: int = 64, height: int = 32, scale: int = 10,
-                 *, hardware_timing: bool = False, throttle: bool = False):
+                 *, hardware_timing: bool = False, throttle: bool = False,
+                 strict: bool = False):
         """Initialize simulator display.
 
         Args:
@@ -56,6 +58,11 @@ class SimulatorDisplay(DisplayInterface):
                 also enabled by the env var SCROLLKIT_HW_SIM=1.
             throttle: When hardware_timing is on, also sleep so the window crawls
                 at the modeled hardware speed (off by default; tests never use it).
+            strict: Enforce the feasibility gate — a sustained over-budget run (or
+                a catastrophic single frame, or a RAM breach) raises
+                FeasibilityError instead of just warning. Implies hardware_timing
+                (you can't gate a model you aren't running). Also enabled by
+                SCROLLKIT_HW_STRICT=1. Off by default.
         """
         self._width: int = width
         self._height: int = height
@@ -63,6 +70,7 @@ class SimulatorDisplay(DisplayInterface):
         # Hardware-realism simulation (opt-in).
         self._hardware_timing: bool = hardware_timing
         self._throttle: bool = throttle
+        self._strict: bool = strict
         self._perf: Any = None
         # Full brightness by default so content is clearly visible in the
         # simulator. (At 1.0 the LED renderer also applies its high-visibility
@@ -74,8 +82,15 @@ class SimulatorDisplay(DisplayInterface):
         self.matrix: Any = None
         self.display: Any = None
         
-        # Display groups
+        # Display groups. main_group = [_content_group (below), _layer_group
+        # (above)]; _content_group holds the fill background + pooled Labels and
+        # is emptied each frame by clear(); _layer_group holds persistent effect
+        # layers (overlay-mask / bitmap-text / paint canvas) and is never touched
+        # by clear() (see GraphicsMixin / D11).
         self.main_group: Any = None
+        self._content_group: Any = None
+        self._layer_group: Any = None
+        self._gfx: Any = None
         self._initialized: bool = False
         
         # Default font
@@ -125,10 +140,12 @@ class SimulatorDisplay(DisplayInterface):
             self.matrix = self.device.matrix
             self.display = self.device.display
             
-            # Set up display groups
+            # Set up display groups (content below, layers above) + cache gfx.
             self.main_group = displayio.Group()
             self.display.root_group = self.main_group
-            
+            from scrollkit.simulator import bitmaptools as _bitmaptools
+            self._init_graphics(displayio, _bitmaptools)
+
             # Initialize surface
             if hasattr(self.matrix, 'initialize_surface'):
                 self.matrix.initialize_surface()
@@ -145,14 +162,20 @@ class SimulatorDisplay(DisplayInterface):
     
     async def clear(self) -> None:
         """Clear the display (start a new frame)."""
-        # Empty the display group so backgrounds/labels from the previous frame
+        # Empty the CONTENT group so backgrounds/labels from the previous frame
         # don't accumulate. The Label *objects* survive in self._label_pool and
         # are re-appended (reused) by draw_text(), so this isn't a per-frame
-        # allocation — just list membership churn (cheap on desktop).
-        if self.main_group is not None:
-            while len(self.main_group):
-                self.main_group.pop()
+        # allocation — just list membership churn (cheap on desktop). Persistent
+        # effect layers live in _layer_group and are deliberately NOT cleared.
+        if self._content_group is not None:
+            while len(self._content_group):
+                self._content_group.pop()
         self._label_idx = 0
+
+        # Wipe the bounded-painter canvas so fill_rect drawings don't ghost across
+        # frames (immediate-mode, like draw_text). One C bulk fill; layer stays.
+        if getattr(self, "_paint_bitmap", None) is not None:
+            self._paint_bitmap.fill(0)
 
         # Drop any foreground set_pixel() overlay for the new frame.
         self._overlay_pixels = {}
@@ -260,15 +283,18 @@ class SimulatorDisplay(DisplayInterface):
         import os
         env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
         env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
+        env_strict = os.environ.get("SCROLLKIT_HW_STRICT") == "1"
         want_throttle = self._throttle or env_throttle
-        want_timing = self._hardware_timing or env_sim or want_throttle
+        want_strict = self._strict or env_strict
+        # strict implies hardware timing — you can't gate a model you aren't running.
+        want_timing = self._hardware_timing or env_sim or want_throttle or want_strict
         if not want_timing:
             return
         from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
         from scrollkit.simulator.core.performance_manager import (
             PerformanceManager, set_active)
         self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
-                                        throttle=want_throttle)
+                                        throttle=want_throttle, strict=want_strict)
         self.device.performance_manager = self._perf   # read by LEDMatrix
         set_active(self._perf)                          # read by the Label rebuild hook
 
@@ -309,18 +335,18 @@ class SimulatorDisplay(DisplayInterface):
         Args:
             color: Color as 24-bit RGB integer
         """
-        if self.main_group is None:
+        if self._content_group is None:
             return
         # Render fill through the displayio layer: a full-screen background
-        # TileGrid inserted behind other content, so it survives show()'s
-        # per-frame refresh (which clears the matrix and re-renders the group).
+        # TileGrid inserted at the bottom of the CONTENT group (behind labels,
+        # below any effect layers), re-added each frame after clear() empties it.
         bitmap = displayio.Bitmap(self._width, self._height, 1)
         palette = displayio.Palette(1)
         palette[0] = color
         tile = displayio.TileGrid(bitmap, pixel_shader=palette)
         tile.x = 0
         tile.y = 0
-        self.main_group.insert(0, tile)
+        self._content_group.insert(0, tile)
     
     async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
@@ -368,7 +394,7 @@ class SimulatorDisplay(DisplayInterface):
             label.x = x
             label.y = y
             self._label_pool.append(label)
-        self.main_group.append(label)
+        self._content_group.append(label)
         self._label_idx += 1
     
     async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:

@@ -67,8 +67,15 @@ class SLDKWebServer:
         self._port = None
 
     def _create_composite_handler(self) -> type:
-        """Create a composite handler that combines multiple handler types."""
-        class CompositeHandler(WebHandler, StaticFileHandler, APIHandler):
+        """Create a composite handler that combines multiple handler types.
+
+        ``StaticFileHandler`` and ``APIHandler`` both already derive from
+        ``WebHandler``, so listing ``WebHandler`` *first* is an illegal MRO (a
+        base may not precede its own subclasses). It stays reachable through the
+        other two — MRO: CompositeHandler -> StaticFileHandler -> APIHandler ->
+        WebHandler -> object.
+        """
+        class CompositeHandler(StaticFileHandler, APIHandler):
             def __init__(self, adapter: ServerAdapter) -> None:
                 WebHandler.__init__(self, adapter)
                 StaticFileHandler.__init__(self, adapter)
@@ -229,24 +236,37 @@ class SLDKWebApplication:
         Returns:
             SLDKWebServer instance
         """
+        app = self
         handler_classes = self.handlers or [WebHandler, StaticFileHandler, APIHandler]
+
+        # Build the route registry once from the programmatic routes registered via
+        # SLDKWebApplication.route(). Each path maps to a generated ``route_*`` method
+        # name; the metadata lives in the class-level ``_routes`` registry (never on
+        # the function object — CircuitPython functions have no __dict__).
+        app_routes: Dict[str, Dict[str, Any]] = {}
+        app_funcs: Dict[str, Any] = {}
+        for path, route_info in app._routes.items():
+            route_name = f"route_{path.replace('/', '_').replace('<', '').replace('>', '').strip('_')}"
+            app_routes[route_name] = {'path': path, 'methods': route_info['methods']}
+            app_funcs[route_name] = route_info['function']
 
         class ApplicationHandler(*handler_classes):  # type: ignore
             def __init__(self, adapter: ServerAdapter) -> None:
                 for handler_class in handler_classes:
                     handler_class.__init__(self, adapter)
 
-                for path, route_info in app._routes.items():
-                    func = route_info['function']
-                    methods = route_info['methods']
-
-                    route_name = f"route_{path.replace('/', '_').replace('<', '').replace('>', '').strip('_')}"
-
-                    func._route_info = {'path': path, 'methods': methods}
-
+                # Bind the programmatic route functions as instance attributes so
+                # ``getattr(handler, route_name)`` returns the original ``(request)``
+                # callable (not a method bound to ``self``), matching the dispatch
+                # contract used by the server adapters.
+                for route_name, func in app_funcs.items():
                     setattr(self, route_name, func)
 
-        app = self
+        # Merge the programmatic routes into the class-level registry that
+        # RouteRegistryMixin built from any inherited ``@route`` methods.
+        merged_routes = dict(getattr(ApplicationHandler, '_routes', {}))
+        merged_routes.update(app_routes)
+        ApplicationHandler._routes = merged_routes
 
         return SLDKWebServer(
             app=self.sldk_app,

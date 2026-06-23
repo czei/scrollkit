@@ -11,14 +11,18 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from .adapters import route, MockResponse
+from .adapters import route, MockResponse, RouteRegistryMixin
 
 
-class WebHandler:
+class WebHandler(RouteRegistryMixin):
     """Base class for web request handlers.
 
     Provides common functionality for handling HTTP requests
     and generating responses.
+
+    Inherits ``RouteRegistryMixin`` so ``@route``-decorated ``route_*`` methods are
+    collected into a class-level ``_routes`` registry (CircuitPython-safe) rather
+    than tagged as function attributes.
     """
 
     adapter: Any
@@ -77,12 +81,14 @@ class WebHandler:
         }
 
         color = status_colors.get(status, "#2196F3")
+        # CircuitPython's str has no .title(); capitalize the status word safely.
+        status_title = (status[:1].upper() + status[1:]) if status else status
 
         html = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SLDK - {status.title()}</title>
+    <title>SLDK - {status_title}</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
