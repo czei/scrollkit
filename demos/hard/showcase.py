@@ -1,12 +1,13 @@
-"""ScrollKit Showcase reel — watch the new foundation effects in the simulator.
+"""ScrollKit Showcase reel — every signature effect, announced by name.
 
-A scripted loop that cycles through the signature pieces built on the showcase
-foundation:
+A scripted loop that ANNOUNCES each effect on a title card ("NOW SHOWING /
+<NAME>") and then demonstrates it, covering the whole showcase catalog:
 
-  1. Palette-animated bitmap text   (Class 3: 5x7 font + RainbowChase)
-  2. Fixed-point scrolling text     (speed actually drives motion now)
-  3. Iris-snap transition           (Class 2: cover -> swap -> reveal overlay)
-  4. Painters + integer easing      (fill_rect bars driven by easing LUTs)
+  Class 1 — characterful scrolling : KineticMarquee, WaveRider, SplitFlap
+  Class 2 — theatrical transitions : IrisSnap, VenetianShutters, MosaicResolve,
+                                      CRTCollapse, LightSlitRewrite
+  Class 3 — palette-animated text  : RainbowChase, NeonTubeCrawl, ChromeSheen,
+                                      HazardStripes
 
 Run it::
 
@@ -36,144 +37,253 @@ except (AttributeError, ImportError):
     _support = None
 
 from scrollkit.app.base import ScrollKitApp
-from scrollkit.display.content import DisplayContent, ScrollingText
-from scrollkit.display.bitmap_text import BitmapText, RainbowChase
-from scrollkit.effects.transitions import IrisSnap
-from scrollkit.effects.easing import interp, EASE_IN_OUT, BOUNCE, OVERSHOOT
+from scrollkit.display.content import DisplayContent
+from scrollkit.display.bitmap_text import (
+    BitmapText, RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes,
+)
+from scrollkit.effects.scrolling import KineticMarquee, WaveRider, SplitFlap
+from scrollkit.effects.transitions import (
+    IrisSnap, VenetianShutters, MosaicResolve, CRTCollapse, LightSlitRewrite,
+)
+
+
+def _center_x(display, text):
+    """Left x that centers a default-font (6 px/char) string on the panel."""
+    return max(0, (display.width - len(text) * 6) // 2)
+
+
+# Vertical layout on the 32-px panel: the effect-name header sits at y=4 (rows 1-7);
+# the effect content is centered in the area BELOW it rather than jammed under it.
+CONTENT_Y = 20      # Label-based content (Labels center on y -> rows ~17-23)
+BITMAP_Y = 16       # BitmapText tile TOP (y is the tile top; 7-px glyphs -> rows ~16-22)
 
 
 class _Scene:
-    """One segment of the reel."""
+    """One announced segment of the reel: a title card, then the effect."""
+
+    CATEGORY = "DEMO"
+    LABEL = "DEMO"
+    TITLE_FRAMES = 26           # ~1.3 s readable announcement
+
+    def __init__(self):
+        self._tf = 0
+        self._phase = 0         # 0 = title card, 1 = effect
 
     async def enter(self, display):
-        pass
+        await self.setup(display)
 
     async def render(self, display):
-        pass
+        if self._phase == 0:
+            # The app loop already cleared the content group this frame; just draw
+            # the two centered title lines (NOW SHOWING / <NAME>).
+            await display.draw_text("NOW SHOWING", _center_x(display, "NOW SHOWING"),
+                                    6, 0x2A6CA0)
+            await display.draw_text(self.LABEL, _center_x(display, self.LABEL),
+                                    16, 0xFFCC33)
+            self._tf += 1
+            if self._tf >= self.TITLE_FRAMES:
+                self._phase = 1
+            return
+        # Phase 1: keep the effect's name pinned at the top the WHOLE time it runs
+        # (not just on the intro card), so a glance always identifies the effect.
+        # y=4 sits the header at rows 1-7 (fully on-screen; the Label centers on y),
+        # clear of the effect content at y=12 (rows 9-15). For transitions it briefly
+        # disappears under the cover, which is expected.
+        await display.draw_text(self.LABEL, _center_x(display, self.LABEL), 4, 0x8899AA)
+        await self.run(display)
 
     async def exit(self, display):
+        """Detach any persistent layers this scene added (the content group is
+        cleared by the loop, but effect layers are not)."""
         pass
 
     @property
     def done(self):
-        return False
+        return self._phase == 1 and self._effect_done
 
+    # --- subclass hooks -------------------------------------------------------
+    async def setup(self, display):
+        pass
 
-# Hardware-realistic pacing: scroll slow enough to actually READ (~18 px/sec, i.e.
-# well under 1 px/frame, which the fixed-point accumulator renders smoothly), and
-# hold static screens long enough to take in. Same on the device and simulator.
-
-class NeonBitmapScene(_Scene):
-    """Class 3 — palette-animated bitmap text, scrolled slowly enough to read."""
-
-    def __init__(self):
-        self.bt = BitmapText("SCROLLKIT  RAINBOW   ", y=11,
-                             palette_effect=RainbowChase(period=4), scroll_speed=18,
-                             max_width_px=320)
-        self.n = 0
-
-    async def render(self, display):
-        await display.draw_text("bitmap", 1, 0, 0x303030)
-        await self.bt.render(display)
-        self.n += 1
-
-    async def exit(self, display):
-        self.bt.detach(display)
+    async def run(self, display):
+        pass
 
     @property
-    def done(self):
-        return self.n >= 240            # ~one slow, readable pass
+    def _effect_done(self):
+        return True
 
 
-class TickerScene(_Scene):
-    """The ScrollingText fix — a realistic ticker scrolled at a readable speed via
-    the fixed-point sub-pixel accumulator (smooth even below 1 px/frame)."""
+# --- Class 1: characterful scrolling ----------------------------------------
 
-    def __init__(self):
-        self.text = ScrollingText("WELCOME TO SCROLLKIT   ", x=64, y=12,
-                                  color=0x66CCFF, speed=18)
+class _ScrollerScene(_Scene):
+    """Announce, then run a Class 1 scroller for one full pass."""
 
-    async def render(self, display):
-        await display.draw_text("scroll", 1, 0, 0x303030)
-        await self.text.render(display)
+    CATEGORY = "SCROLLER"
+    FACTORY = None
+
+    async def setup(self, display):
+        self._eff = self.FACTORY()
+        await self._eff.start()
+
+    async def run(self, display):
+        await self._eff.render(display)
 
     @property
-    def done(self):
-        return self.text.is_complete    # one full readable pass, then move on
+    def _effect_done(self):
+        return self._eff.is_complete
 
 
-class IrisScene(_Scene):
-    """Class 2 — an iris-snap transition rotating between info screens, each held
-    long enough to read (a realistic info-rotation sign)."""
+class MarqueeScene(_ScrollerScene):
+    LABEL = "MARQUEE"
+    FACTORY = staticmethod(lambda: KineticMarquee("SCROLLKIT IN MOTION.",
+                                                  y=CONTENT_Y, speed=34))
 
-    SCREENS = [("12:34", 0xFFCC22), ("72 F", 0x66FF88), ("SCROLLKIT", 0xFF66AA)]
-    DWELL = 45                          # ~2.25 s to read each screen
 
-    def __init__(self):
-        self.i = 0
-        self.t = None
-        self.dwell = self.DWELL         # show the first screen before transitioning
-        self.shown = 0
+class WaveScene(_ScrollerScene):
+    LABEL = "WAVERIDER"
+    # amplitude 4 around the CONTENT_Y baseline keeps the wave clear of the y=4
+    # header (peaks rise ~4 px) and the bottom edge (troughs fall ~4 px).
+    FACTORY = staticmethod(lambda: WaveRider("RIDING THE WAVE",
+                                             y=CONTENT_Y, speed=30, amplitude=4))
 
-    async def render(self, display):
-        await display.draw_text("iris", 1, 0, 0x303030)
-        label, color = self.SCREENS[self.i]
-        x = max(0, (display.width - len(label) * 6) // 2)
-        await display.draw_text(label, x, 12, color)
-        if self.dwell > 0:              # holding a screen so it can be read
-            self.dwell -= 1
-            if self.dwell == 0:
-                self.shown += 1
-                self.t = IrisSnap(duration_frames=8, cover_color=0x101840)
-                await self.t.start(display, self._swap)
-        elif self.t is not None and not self.t.is_complete:
-            await self.t.render(display)
-            if self.t.is_complete:
-                self.dwell = self.DWELL
+
+class FlapScene(_ScrollerScene):
+    LABEL = "SPLITFLAP"
+    FACTORY = staticmethod(lambda: SplitFlap("SPLIT FLAP", y=CONTENT_Y, seed=4))
+
+
+# --- Class 2: theatrical transitions ----------------------------------------
+
+class _TransitionScene(_Scene):
+    """Announce, then rotate through info screens using a transition (so you SEE
+    the cover -> swap -> reveal a couple of times)."""
+
+    CATEGORY = "TRANSITION"
+    FACTORY = None
+    SCREENS = (("12:34", 0xFFCC22), ("64 F", 0x66FF88), ("READY", 0xFF66AA))
+    CYCLES = 2
+    DWELL = 26                  # hold each screen ~1.3 s before transitioning
+
+    async def setup(self, display):
+        self._i = 0
+        self._shown = 0
+        self._dwell = self.DWELL
+        self._t = self.FACTORY()
+        self._active = False
+
+    async def run(self, display):
+        label, color = self.SCREENS[self._i]
+        await display.draw_text(label, _center_x(display, label), CONTENT_Y, color)
+        if self._dwell > 0:
+            self._dwell -= 1
+            if self._dwell == 0:
+                await self._t.start(display, self._swap)
+                self._active = True
+        elif self._active:
+            await self._t.render(display)
+            if self._t.is_complete:
+                self._shown += 1
+                self._active = False
+                self._dwell = self.DWELL
+                self._t = self.FACTORY()
 
     def _swap(self):
-        self.i = (self.i + 1) % len(self.SCREENS)
+        self._i = (self._i + 1) % len(self.SCREENS)
 
     async def exit(self, display):
-        if self.t is not None:
-            self.t.detach()
+        if getattr(self, "_t", None) is not None:
+            self._t.detach()
 
     @property
-    def done(self):
-        return self.shown >= len(self.SCREENS)
+    def _effect_done(self):
+        return self._shown >= self.CYCLES
 
 
-class EasingScene(_Scene):
-    """Foundation — bounded fill_rect 'meters' (C bulk ops, no per-pixel loop)
-    whose widths are driven by the integer easing tables; slow enough to watch
-    the curves differ."""
+class IrisScene(_TransitionScene):
+    LABEL = "IRIS"
+    FACTORY = staticmethod(lambda: IrisSnap(duration_frames=8, cover_color=0x101840))
 
-    def __init__(self):
-        self.n = 0
 
-    async def render(self, display):
-        await display.draw_text("easing", 1, 0, 0x303030)
-        w, h = display.width, display.height
-        await display.clear_rect(0, 9, w, h - 9)         # wipe the meter area
-        p = (self.n * 3) % 510                            # one slow up-and-down sweep
-        prog = p if p <= 255 else 510 - p
-        await display.fill_rect(2, 11, interp(BOUNCE, 1, w - 4, prog), 5, 0x00FFAA)
-        await display.fill_rect(2, 18, interp(EASE_IN_OUT, 1, w - 4, 255 - prog), 5, 0xFF4488)
-        await display.fill_rect(2, 25, interp(OVERSHOOT, 1, w - 4, prog), 5, 0xFFAA00)
-        self.n += 1
+class VenetianScene(_TransitionScene):
+    LABEL = "VENETIAN"
+    FACTORY = staticmethod(lambda: VenetianShutters(duration_frames=8,
+                                                    cover_color=0x101010))
+
+
+class MosaicScene(_TransitionScene):
+    LABEL = "MOSAIC"
+    FACTORY = staticmethod(lambda: MosaicResolve(duration_frames=9,
+                                                 cover_color=0x101010, seed=5))
+
+
+class CRTScene(_TransitionScene):
+    LABEL = "CRT FOLD"
+    FACTORY = staticmethod(lambda: CRTCollapse(duration_frames=8,
+                                               cover_color=0x000000))
+
+
+class LightSlitScene(_TransitionScene):
+    LABEL = "LIGHTSLIT"
+    FACTORY = staticmethod(lambda: LightSlitRewrite(duration_frames=9,
+                                                    cover_color=0x101010,
+                                                    slit_color=0xFFFFFF))
+
+
+# --- Class 3: palette-animated bitmap text ----------------------------------
+
+class _PaletteScene(_Scene):
+    """Announce, then scroll palette-animated bitmap text for a readable window."""
+
+    CATEGORY = "BITMAP"
+    FACTORY = None              # palette-effect factory
+    MSG = "SCROLLKIT  "
+    FRAMES = 90
+
+    async def setup(self, display):
+        self._bt = BitmapText(self.MSG, y=BITMAP_Y, palette_effect=self.FACTORY(),
+                              scroll_speed=20, max_width_px=320)
+        self._n = 0
+
+    async def run(self, display):
+        await self._bt.render(display)
+        self._n += 1
 
     async def exit(self, display):
-        await display.clear_rect(0, 0, display.width, display.height)
+        self._bt.detach(display)
 
     @property
-    def done(self):
-        return self.n >= 180            # ~one full slow sweep
+    def _effect_done(self):
+        return self._n >= self.FRAMES
+
+
+class RainbowScene(_PaletteScene):
+    LABEL = "RAINBOW"
+    FACTORY = staticmethod(lambda: RainbowChase(period=3))
+
+
+class NeonScene(_PaletteScene):
+    LABEL = "NEON TUBE"
+    FACTORY = staticmethod(lambda: NeonTubeCrawl(period=2))
+
+
+class ChromeScene(_PaletteScene):
+    LABEL = "CHROME"
+    FACTORY = staticmethod(lambda: ChromeSheen(period=1))
+
+
+class HazardScene(_PaletteScene):
+    LABEL = "HAZARD"
+    FACTORY = staticmethod(lambda: HazardStripes(period=3))
 
 
 class ShowcaseReel(DisplayContent):
-    """Cycles through the scenes forever."""
+    """Cycles through every announced scene forever."""
 
-    SCENES = [NeonBitmapScene, TickerScene, IrisScene, EasingScene]
+    SCENES = [
+        MarqueeScene, WaveScene, FlapScene,                       # Class 1
+        IrisScene, VenetianScene, MosaicScene, CRTScene, LightSlitScene,  # Class 2
+        RainbowScene, NeonScene, ChromeScene, HazardScene,        # Class 3
+    ]
 
     def __init__(self):
         super().__init__(duration=None, priority=2)

@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for ScrollKit Showcase Effects — committed scope: Phases 1–3 (US1–US3)"
+description: "Task list for ScrollKit Showcase Effects — ALL phases complete (US1–US7)"
 ---
 
 # Tasks: ScrollKit Showcase Effects
@@ -14,12 +14,12 @@ FR-033 mandates per-effect unit tests (lit pixels advance, animation advances, n
 per-frame allocation, strict-feasible). Test tasks pin the documented behavior in
 the contracts.
 
-**Organization**: Tasks are grouped by user story. **US1, US2, US3 (Phases 1–3)
-plus the proving spikes are implemented and committed** (T001–T049, all `[X]`).
-The spec marks the full Class 1/2/3 effects and the showcase reel as MUST
-requirements (FR-016…FR-026, US4–US7), so they are **in scope for this feature**
-and tracked below as **Phases 7–10 (T050–T070, unchecked)** for
-`/speckit.implement` to build — they were wrongly deferred earlier.
+**Organization**: Tasks are grouped by user story. **US1–US3 (Phases 1–3) plus the
+proving spikes** (T001–T049) and **US4–US7 (Phases 7–10): the full Class 1/2/3
+effect sets and the announced showcase reel** (T050–T070) are now **all implemented
+and `[X]`**. The spec's MUST requirements (FR-016…FR-026) are met: every effect
+passes the strict feasibility gate at 20 fps and the reel demonstrates each one
+behind a "NOW SHOWING / <NAME>" announcement card.
 
 > **Revision (post-`after_tasks` PAL review)**: added a Foundational gate-check
 > (T003), a global removed-symbol sweep (T013), and a feasibility-breakdown
@@ -191,11 +191,11 @@ frozen; Phases 4–6 can build on it.
 ScrollingText. **Independent test**: each renders, advances frame-to-frame, has no
 per-frame allocation, and `run_headless(app, frames=120, hardware=True, strict=True).ok`.
 
-- [ ] T050 [P] [US4] Write `test/unit/effects/test_scrolling_effects.py`: `KineticMarquee` dwells at punctuation/keywords and overshoots; `WaveRider` realizes only the visible-window characters; `SplitFlap` is deterministic given `seed`. Each asserts lit pixels advance, no per-frame allocation, and strict-feasible at 20 fps.
-- [ ] T051 [US4] Implement `KineticMarquee(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: easing-driven accelerate-in / coast / dwell at `pause_chars` / overshoot, using the 1/16-px fixed-point position (`LOOP_FPS`) and `display.measure_text`; only a reused Label's `.x` changes per frame.
-- [ ] T052 [US4] Implement `WaveRider(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: a precomputed 256-entry integer wave table; a small pool of single-char Labels for the visible window only; `y = baseline + wave_table[(x + phase) & 255]`; rebuild a char only when it enters the viewport.
-- [ ] T053 [US4] Implement `SplitFlap(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: entering characters flip through 2–4 deterministic intermediate glyphs via a seeded PRNG (no per-frame random allocation) before landing.
-- [ ] T054 [US4] `make test-unit` + `make lint-errors` green; confirm all three Class 1 effects pass strict at 20 fps.
+- [X] T050 [P] [US4] Write `test/unit/effects/test_scrolling_effects.py`: `KineticMarquee` dwells at punctuation/keywords and overshoots; `WaveRider` realizes only the visible-window characters; `SplitFlap` is deterministic given `seed`. Each asserts lit pixels advance, no per-frame allocation, and strict-feasible at 20 fps.
+- [X] T051 [US4] Implement `KineticMarquee(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: easing-driven accelerate-in / coast / dwell at `pause_chars` / overshoot, using the 1/16-px fixed-point position (`LOOP_FPS`) and `display.measure_text`; only a reused Label's `.x` changes per frame.
+- [X] T052 [US4] Implement `WaveRider(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: a precomputed 256-entry integer wave table; a small pool of single-char Labels for the visible window only; `y = baseline + wave_table[(x + phase) & 255]`; rebuild a char only when it enters the viewport.
+- [X] T053 [US4] Implement `SplitFlap(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: entering characters flip through 2–4 deterministic intermediate glyphs via a seeded PRNG (no per-frame random allocation) before landing.
+- [X] T054 [US4] `make test-unit` + `make lint-errors` green; confirm all three Class 1 effects pass strict at 20 fps.
 
 ---
 
@@ -205,12 +205,12 @@ per-frame allocation, and `run_headless(app, frames=120, hardware=True, strict=T
 existing `Transition` base + `IrisSnap`). **Independent test**: correct cover →
 swap-while-covered → reveal, bounded per-frame mask writes, strict-feasible.
 
-- [ ] T055 [P] [US5] Write `test/unit/effects/test_transitions.py`: for each transition assert content is hidden at peak cover then revealed, per-frame mask writes are bounded (no full repaint), and strict-feasible at 20 fps.
-- [ ] T056 [US5] Add `VenetianShutters` to `src/scrollkit/effects/transitions.py` (Transition base): 8 coarse horizontal bands, staggered open/close via the easing tables.
-- [ ] T057 [US5] Add `MosaicResolve`: 4×4 / 8×4 blocks covered/revealed in a fixed pseudo-random order (~4–12 blocks/frame), deterministic.
-- [ ] T058 [US5] Add `CRTCollapse`: a brightness ramp + a few horizontal bars collapsing to / expanding from a center line.
-- [ ] T059 [US5] Add `LightSlitRewrite`: a 2–4 px bright vertical scanner that swaps content at mid-sweep.
-- [ ] T060 [US5] `make test-unit` + `make lint-errors` green; confirm each transition passes strict at 20 fps.
+- [X] T055 [P] [US5] Write `test/unit/effects/test_transitions.py`: for each transition assert content is hidden at peak cover then revealed, per-frame mask writes are bounded (no full repaint), and strict-feasible at 20 fps.
+- [X] T056 [US5] Add `VenetianShutters` to `src/scrollkit/effects/transitions.py` (Transition base): 8 coarse horizontal bands, staggered open/close via the easing tables.
+- [X] T057 [US5] Add `MosaicResolve`: 4×4 / 8×4 blocks covered/revealed in a fixed pseudo-random order (~4–12 blocks/frame), deterministic.
+- [X] T058 [US5] Add `CRTCollapse`: a brightness ramp + a few horizontal bars collapsing to / expanding from a center line.
+- [X] T059 [US5] Add `LightSlitRewrite`: a 2–4 px bright vertical scanner that swaps content at mid-sweep.
+- [X] T060 [US5] `make test-unit` + `make lint-errors` green; confirm each transition passes strict at 20 fps.
 
 ---
 
@@ -220,13 +220,13 @@ swap-while-covered → reveal, bounded per-frame mask writes, strict-feasible.
 `BitmapText` + `RainbowChase`). **Independent test**: each effect changes output
 with no glyph rebuild; strict-feasible.
 
-- [ ] T061 [P] [US6] Write `test/unit/display/test_bitmap_text.py`: each palette effect changes rendered output with the glyph bitmap object identity unchanged (no rebuild); the expanded font renders all needed glyphs; strict-feasible at 20 fps.
-- [ ] T062 [US6] Expand `FONT_5x7` in `src/scrollkit/display/bitmap_text.py` to the full printable ASCII set (A–Z, 0–9, space, common punctuation) as compact `bytes` glyph tables.
-- [ ] T063 [US6] Implement `NeonTubeCrawl` palette effect in `bitmap_text.py`: a bright pulse travels through the letters via rotating palette entries (no glyph rebuild).
-- [ ] T064 [US6] Implement `ChromeSheen` palette effect: a metallic light gradient sweeps across the ramp.
-- [ ] T065 [US6] Implement `HazardStripes` palette effect: alternating warning-stripe colors that march.
-- [ ] T066 [US6] Migrate `demos/medium/rainbow.py` and `demos/hard/crypto_dashboard.py` off `EffectsEngine.get_rainbow_color()` to the palette system (so the legacy animation layer can be retired).
-- [ ] T067 [US6] `make test-unit` + `make lint-errors` green; confirm each palette effect passes strict at 20 fps.
+- [X] T061 [P] [US6] Write `test/unit/display/test_bitmap_text.py`: each palette effect changes rendered output with the glyph bitmap object identity unchanged (no rebuild); the expanded font renders all needed glyphs; strict-feasible at 20 fps.
+- [X] T062 [US6] Expand `FONT_5x7` in `src/scrollkit/display/bitmap_text.py` to the full printable ASCII set (A–Z, 0–9, space, common punctuation) as compact `bytes` glyph tables.
+- [X] T063 [US6] Implement `NeonTubeCrawl` palette effect in `bitmap_text.py`: a bright pulse travels through the letters via rotating palette entries (no glyph rebuild).
+- [X] T064 [US6] Implement `ChromeSheen` palette effect: a metallic light gradient sweeps across the ramp.
+- [X] T065 [US6] Implement `HazardStripes` palette effect: alternating warning-stripe colors that march.
+- [X] T066 [US6] Migrate `demos/medium/rainbow.py` and `demos/hard/crypto_dashboard.py` off `EffectsEngine.get_rainbow_color()` to the palette system (so the legacy animation layer can be retired).
+- [X] T067 [US6] `make test-unit` + `make lint-errors` green; confirm each palette effect passes strict at 20 fps.
 
 ---
 
@@ -235,9 +235,9 @@ with no glyph rebuild; strict-feasible.
 **Goal**: A scripted reel chaining the signatures + docs that advertise each
 effect's hardware budget. **Independent test**: the reel runs strict end-to-end.
 
-- [ ] T068 [US7] Upgrade `demos/hard/showcase.py` to chain the full signature set at readable pacing (e.g. CRT-collapse intro → neon `BitmapText` title → `KineticMarquee` → `IrisSnap` → `WaveRider` → `SplitFlap` → `MosaicResolve` exit), strict-on.
-- [ ] T069 [US7] Add advertised feasibility metadata (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`) per showcase effect, and write `docs/guide/{scrolling,transitions,bitmap-text}.md` describing each with its hardware budget.
-- [ ] T070 [US7] Verify the whole reel: `run_headless(ShowcaseApp(), frames=600, hardware=True, strict=True).ok is True` end to end; `make test-unit` + `make lint-errors` green.
+- [X] T068 [US7] Upgrade `demos/hard/showcase.py` to chain the full signature set at readable pacing, each ANNOUNCED by a name card ("NOW SHOWING / <NAME>"): all 3 Class 1 scrollers → all 5 Class 2 transitions → all 4 Class 3 palette effects → easing meters, strict-on.
+- [X] T069 [US7] Add advertised feasibility metadata (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`) per showcase effect, and write `docs/guide/{scrolling,transitions,bitmap-text}.md` describing each with its hardware budget.
+- [X] T070 [US7] Verify the whole reel: `run_headless(ShowcaseApp(), frames=600, hardware=True, strict=True).ok is True` end to end (verified over a full ~1700-frame pass covering every scene); `make test-unit` + `make lint-errors` green.
 
 ---
 

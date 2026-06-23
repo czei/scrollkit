@@ -6,31 +6,80 @@ by moving a TileGrid; the animation comes from rewriting a few palette entries e
 frame — near-zero per-frame pixel work and NO glyph rebuild. Runs unchanged on
 device and simulator via ``display.gfx``.
 
-This ships the minimal ``BitmapText`` + ``RainbowChase`` proving the foundation
-API; the full font and the other palette effects (neon-tube crawl, chrome sheen,
-hazard stripes) land in their own feature.
+This ships ``BitmapText`` plus the full palette-animation set (rainbow chase, neon
+tube crawl, chrome sheen, hazard stripes) and the complete printable-ASCII 5x7 font.
 """
 
 from .content import DisplayContent, LOOP_FPS
 
-# Minimal 5x7 glyph subset (enough for the proving messages). Each glyph is 7 rows
-# of a 5-char mask ('#' = lit). Stored compactly; missing chars render blank.
-_GLYPHS = {
+# Full printable-ASCII 5x7 font (table-driven; no BDF). Each glyph is 7 rows of a
+# 5-char mask ('#' = lit). Missing chars render blank. Lookup folds to upper-case.
+FONT_5x7 = {
     " ": ["     ", "     ", "     ", "     ", "     ", "     ", "     "],
     "A": [" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
     "B": ["#### ", "#   #", "#   #", "#### ", "#   #", "#   #", "#### "],
     "C": [" ### ", "#   #", "#    ", "#    ", "#    ", "#   #", " ### "],
+    "D": ["#### ", "#   #", "#   #", "#   #", "#   #", "#   #", "#### "],
     "E": ["#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#####"],
+    "F": ["#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#    "],
+    "G": [" ### ", "#   #", "#    ", "# ###", "#   #", "#   #", " ### "],
+    "H": ["#   #", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
     "I": ["#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "#####"],
+    "J": ["  ###", "   # ", "   # ", "   # ", "#  # ", "#  # ", " ##  "],
     "K": ["#   #", "#  # ", "# #  ", "##   ", "# #  ", "#  # ", "#   #"],
     "L": ["#    ", "#    ", "#    ", "#    ", "#    ", "#    ", "#####"],
+    "M": ["#   #", "## ##", "# # #", "#   #", "#   #", "#   #", "#   #"],
     "N": ["#   #", "##  #", "# # #", "#  ##", "#   #", "#   #", "#   #"],
     "O": [" ### ", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "],
+    "P": ["#### ", "#   #", "#   #", "#### ", "#    ", "#    ", "#    "],
+    "Q": [" ### ", "#   #", "#   #", "#   #", "# # #", "#  # ", " ## #"],
     "R": ["#### ", "#   #", "#   #", "#### ", "# #  ", "#  # ", "#   #"],
     "S": [" ####", "#    ", "#    ", " ### ", "    #", "    #", "#### "],
     "T": ["#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  "],
+    "U": ["#   #", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "],
+    "V": ["#   #", "#   #", "#   #", "#   #", "#   #", " # # ", "  #  "],
     "W": ["#   #", "#   #", "#   #", "# # #", "# # #", "## ##", "#   #"],
+    "X": ["#   #", "#   #", " # # ", "  #  ", " # # ", "#   #", "#   #"],
+    "Y": ["#   #", "#   #", " # # ", "  #  ", "  #  ", "  #  ", "  #  "],
+    "Z": ["#####", "    #", "   # ", "  #  ", " #   ", "#    ", "#####"],
+    "0": [" ### ", "#   #", "#  ##", "# # #", "##  #", "#   #", " ### "],
+    "1": ["  #  ", " ##  ", "  #  ", "  #  ", "  #  ", "  #  ", "#####"],
+    "2": [" ### ", "#   #", "    #", "   # ", "  #  ", " #   ", "#####"],
+    "3": ["#####", "   # ", "  #  ", "   # ", "    #", "#   #", " ### "],
+    "4": ["   # ", "  ## ", " # # ", "#  # ", "#####", "   # ", "   # "],
+    "5": ["#####", "#    ", "#### ", "    #", "    #", "#   #", " ### "],
+    "6": [" ### ", "#    ", "#    ", "#### ", "#   #", "#   #", " ### "],
+    "7": ["#####", "    #", "   # ", "  #  ", " #   ", " #   ", " #   "],
+    "8": [" ### ", "#   #", "#   #", " ### ", "#   #", "#   #", " ### "],
+    "9": [" ### ", "#   #", "#   #", " ####", "    #", "    #", " ### "],
+    "!": ["  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "     ", "  #  "],
+    "?": [" ### ", "#   #", "    #", "   # ", "  #  ", "     ", "  #  "],
+    ".": ["     ", "     ", "     ", "     ", "     ", " ##  ", " ##  "],
+    ",": ["     ", "     ", "     ", "     ", "     ", "  #  ", " #   "],
+    ":": ["     ", "  #  ", "  #  ", "     ", "  #  ", "  #  ", "     "],
+    ";": ["     ", "  #  ", "  #  ", "     ", "  #  ", "  #  ", " #   "],
+    "'": ["  #  ", "  #  ", "     ", "     ", "     ", "     ", "     "],
+    '"': [" # # ", " # # ", "     ", "     ", "     ", "     ", "     "],
+    "-": ["     ", "     ", "     ", "#####", "     ", "     ", "     "],
+    "+": ["     ", "  #  ", "  #  ", "#####", "  #  ", "  #  ", "     "],
+    "=": ["     ", "     ", "#####", "     ", "#####", "     ", "     "],
+    "_": ["     ", "     ", "     ", "     ", "     ", "     ", "#####"],
+    "/": ["    #", "    #", "   # ", "  #  ", " #   ", "#    ", "#    "],
+    "\\": ["#    ", "#    ", " #   ", "  #  ", "   # ", "    #", "    #"],
+    "*": ["     ", " # # ", "  #  ", "#####", "  #  ", " # # ", "     "],
+    "#": [" # # ", " # # ", "#####", " # # ", "#####", " # # ", " # # "],
+    "%": ["##  #", "##  #", "   # ", "  #  ", " #   ", "#  ##", "#  ##"],
+    "&": [" ##  ", "#  # ", "#  # ", " ##  ", "# # #", "#  # ", " ## #"],
+    "@": [" ### ", "#   #", "# ###", "# # #", "# ###", "#    ", " ### "],
+    "$": ["  #  ", " ####", "# #  ", " ### ", "  # #", "#### ", "  #  "],
+    "(": ["  #  ", " #   ", "#    ", "#    ", "#    ", " #   ", "  #  "],
+    ")": ["  #  ", "   # ", "    #", "    #", "    #", "   # ", "  #  "],
+    "<": ["   # ", "  #  ", " #   ", "#    ", " #   ", "  #  ", "   # "],
+    ">": [" #   ", "  #  ", "   # ", "    #", "   # ", "  #  ", " #   "],
 }
+
+# Backwards-compatible alias for the table.
+_GLYPHS = FONT_5x7
 
 GLYPH_W = 5
 GLYPH_H = 7
@@ -41,9 +90,18 @@ CELL_W = GLYPH_W + 1     # one column of spacing between glyphs
 RAMP = 6
 _RAINBOW = (0xFF0000, 0xFF7F00, 0xFFFF00, 0x00FF00, 0x0000FF, 0x8B00FF)
 
+# Public ramp + a tiny chase helper, so content can use the SAME flowing rainbow as
+# the palette effects without the legacy EffectsEngine.get_rainbow_color().
+RAINBOW = _RAINBOW
+
+
+def rainbow_color(step):
+    """A flowing rainbow colour for integer ``step`` (wraps around the ramp)."""
+    return _RAINBOW[step % RAMP]
+
 
 def _glyph(ch):
-    return _GLYPHS.get(ch.upper())
+    return FONT_5x7.get(ch.upper())
 
 
 class RainbowChase:
@@ -64,6 +122,67 @@ class RainbowChase:
         if self._tick >= self.period:
             self._tick = 0
             self._phase = (self._phase + self.step) % RAMP
+
+
+class NeonTubeCrawl:
+    """A bright pulse crawls along an otherwise-dim neon tube: one ramp slot glows
+    while the rest hold a dim base colour. Pure palette rewrites — no glyph rebuild.
+    ``period`` advances the pulse every N frames."""
+
+    def __init__(self, base=0x004433, glow=0x66FFCC, period=2):
+        self.base = base
+        self.glow = glow
+        self.period = period if period > 1 else 1
+        self._phase = 0
+        self._tick = 0
+
+    def apply(self, palette):
+        for i in range(RAMP):
+            palette[1 + i] = self.glow if i == self._phase else self.base
+        self._tick += 1
+        if self._tick >= self.period:
+            self._tick = 0
+            self._phase = (self._phase + 1) % RAMP
+
+
+class ChromeSheen:
+    """A metallic sheen: a dark→light grey ramp with a highlight band that sweeps
+    across the letters as the ramp rotates. Pure palette rewrites — no glyph rebuild."""
+
+    _GRAYS = (0x202028, 0x404050, 0x707080, 0xA0A0B0, 0xD0D0E0, 0xFFFFFF)
+
+    def __init__(self, period=1):
+        self.period = period if period > 1 else 1
+        self._phase = 0
+        self._tick = 0
+
+    def apply(self, palette):
+        for i in range(RAMP):
+            palette[1 + i] = self._GRAYS[(i + self._phase) % RAMP]
+        self._tick += 1
+        if self._tick >= self.period:
+            self._tick = 0
+            self._phase = (self._phase + 1) % RAMP
+
+
+class HazardStripes:
+    """Marching hazard stripes: alternating warning colours that shift one slot each
+    step. Pure palette rewrites — no glyph rebuild."""
+
+    def __init__(self, a=0xFFCC00, b=0x101010, period=2):
+        self.a = a
+        self.b = b
+        self.period = period if period > 1 else 1
+        self._phase = 0
+        self._tick = 0
+
+    def apply(self, palette):
+        for i in range(RAMP):
+            palette[1 + i] = self.a if ((i + self._phase) % 2 == 0) else self.b
+        self._tick += 1
+        if self._tick >= self.period:
+            self._tick = 0
+            self._phase = (self._phase + 1) % 2
 
 
 class BitmapText(DisplayContent):
@@ -150,3 +269,11 @@ class BitmapText(DisplayContent):
     def detach(self, display):
         if self._tile is not None:
             display.remove_layer(self._tile)
+
+
+# --- advertised feasibility metadata (US7 / FR-026) -------------------------
+# The glyph bitmap is rendered ONCE; animation is pure palette rewrites (<= RAMP
+# entries) and scrolling moves the TileGrid.x — so per-frame PIXEL writes are zero
+# and there is no per-frame allocation. Strict-feasible at 20 fps.
+BitmapText.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                          "max_pixel_writes_per_frame": 0, "modeled_frame_ms": 5.0}

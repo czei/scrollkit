@@ -3,12 +3,19 @@
 `scrollkit.effects` adds visual polish: particle systems and colour animations —
 all built to respect the device's memory and frame budget.
 
-!!! note "The old transition effects were removed"
+!!! note "The old transition effects were removed and replaced"
     The earlier `transitions`, `basic_transitions`, and `reveal` modules
     (fades/slides/wipes/reveal) were broken or fake — they looped over all 2048
     pixels in Python and only rendered placeholder content — and have been
-    removed. Theatrical transitions are being rebuilt on the new overlay-mask
-    primitive as part of the *ScrollKit Showcase Effects* work.
+    removed. Their replacements are the *ScrollKit Showcase* effect classes,
+    built on the zero-allocation overlay-mask/painter/easing primitives:
+
+    - **[Characterful scrolling](scrolling.md)** — kinetic marquee, wave-rider, split-flap
+    - **[Theatrical transitions](transitions.md)** — iris, venetian, mosaic, CRT, light-slit
+    - **[Palette-animated bitmap text](bitmap-text.md)** — rainbow, neon, chrome, hazard
+
+    See `demos/hard/showcase.py` for a reel that announces and demonstrates every
+    one of them.
 
 ## EffectsEngine
 
@@ -52,8 +59,13 @@ and the simulator, and is budgeted against the calibrated MatrixPortal S3 model
 | `display.measure_text(text)` | Real rendered text width (summed glyph advances) | Replaces the old `len(text) * 6` estimate; measured once, off the hot path |
 | `display.gfx` + `add_layer` / `remove_layer` | Platform-resolved `Bitmap`/`Palette`/`TileGrid`/`bitmaptools`, plus a content/layer group split | Cached once per display; persistent effect layers keep a stable z-order across the per-frame clear |
 | `scrollkit.effects.overlay.OverlayMask` | One preallocated indexed mask (transparent index 0) composited above content | Allocate once; transitions write only dirty spans |
-| `scrollkit.effects.transitions.IrisSnap` | Diamond-aperture cover → swap → reveal transition | Bounded mask spans per frame; swaps content while fully covered |
-| `scrollkit.display.bitmap_text.BitmapText` | A message rendered once into an indexed bitmap, scrolled via a TileGrid, with palette animation (`RainbowChase`) | Animation is a few palette writes per frame — near-zero per-frame pixel work, no glyph rebuild |
+| `scrollkit.effects.scrolling` | [Characterful scrolling](scrolling.md): `KineticMarquee`, `WaveRider`, `SplitFlap` | One / a few small Labels repositioned per frame; bounded rebuilds |
+| `scrollkit.effects.transitions` | [Theatrical transitions](transitions.md): `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite` | Bounded mask spans per frame; swaps content while fully covered |
+| `scrollkit.display.bitmap_text` | [Palette-animated bitmap text](bitmap-text.md): `BitmapText` + `RainbowChase`/`NeonTubeCrawl`/`ChromeSheen`/`HazardStripes` | Animation is a few palette writes per frame — zero per-frame pixel work, no glyph rebuild |
+
+Every showcase effect carries an advertised `FEASIBILITY` dict (`hardware_safe`,
+`allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`); see the
+per-class pages above.
 
 ### Strict feasibility gate
 

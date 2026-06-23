@@ -47,6 +47,9 @@ nav:
       - App Framework: guide/app.md
       - Display: guide/display.md
       - Effects: guide/effects.md
+      - Characterful Scrolling: guide/scrolling.md
+      - Theatrical Transitions: guide/transitions.md
+      - Palette-Animated Bitmap Text: guide/bitmap-text.md
       - Web Interface: guide/web.md
       - OTA Updates: guide/ota.md
       - Networking: guide/networking.md

@@ -12,7 +12,7 @@ This is the showpiece. It fills the whole 64x32 matrix with a dashboard that
 Under the hood it also shows the library's depth:
   - TWO public, no-API-key data sources (CoinGecko prices + open-meteo weather)
   - the CHUNKED-FETCH workaround for CircuitPython's blocking HTTP library
-  - the effects engine (rainbow color helper)
+  - the palette-system rainbow ramp (rainbow_color helper)
   - a configuration web server (enable_web=True)
   - an OTA update check at startup
 
@@ -40,7 +40,7 @@ import asyncio
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import DisplayContent
-from scrollkit.effects.effects import EffectsEngine
+from scrollkit.display.bitmap_text import rainbow_color
 from scrollkit.network.http_client import HttpClient
 from scrollkit.ota.client import OTAClient
 
@@ -89,13 +89,12 @@ class DashboardContent(DisplayContent):
     def __init__(self, app):
         super().__init__(duration=None)   # never completes; animates forever
         self.app = app
-        self.effects = EffectsEngine()
         self.frame = 0
         self.ticker_x = 64
 
     def _rainbow(self, i):
-        """Rainbow color flowing over character index i and time."""
-        return self.effects.get_rainbow_color(((i * 2 + self.frame) % 30) / 30.0)
+        """Rainbow color flowing over character index i and time (palette-system ramp)."""
+        return rainbow_color((i * 2 + self.frame) // 5)
 
     async def render(self, display):
         self.frame += 1
