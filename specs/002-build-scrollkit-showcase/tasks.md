@@ -14,11 +14,12 @@ FR-033 mandates per-effect unit tests (lit pixels advance, animation advances, n
 per-frame allocation, strict-feasible). Test tasks pin the documented behavior in
 the contracts.
 
-**Organization**: Tasks are grouped by user story. Per the plan's *Scope &
-sequencing*, this file fully implements **US1, US2, US3 (Phases 1–3)** plus the
-per-primitive **proving spikes**. **US4, US5, US6, US7 (Phases 4–7) are deferred**
-to their own `/specify` → `/plan` → `/tasks` cycles (see *Deferred work* below) —
-they are committed deliverables of the feature, not dropped.
+**Organization**: Tasks are grouped by user story. **US1, US2, US3 (Phases 1–3)
+plus the proving spikes are implemented and committed** (T001–T049, all `[X]`).
+The spec marks the full Class 1/2/3 effects and the showcase reel as MUST
+requirements (FR-016…FR-026, US4–US7), so they are **in scope for this feature**
+and tracked below as **Phases 7–10 (T050–T070, unchecked)** for
+`/speckit.implement` to build — they were wrongly deferred earlier.
 
 > **Revision (post-`after_tasks` PAL review)**: added a Foundational gate-check
 > (T003), a global removed-symbol sweep (T013), and a feasibility-breakdown
@@ -184,16 +185,64 @@ frozen; Phases 4–6 can build on it.
 
 ---
 
-## Deferred work (own spec-kit features — NOT in this tasks.md)
+## Phase 7: User Story 4 - Class 1 Characterful scrolling (Priority: P2)
 
-Per the plan's *Scope & sequencing*, these remain committed deliverables of the
-feature but get their own `/specify` → `/plan` → `/tasks`, building on the proven
-foundation:
+**Goal**: Scrolling text with personality, built on the easing engine + fixed-point
+ScrollingText. **Independent test**: each renders, advances frame-to-frame, has no
+per-frame allocation, and `run_headless(app, frames=120, hardware=True, strict=True).ok`.
 
-- **US4 / Phase 4 — Class 1 (full)**: `KineticMarquee`, `WaveRider`, `SplitFlap` in `src/scrollkit/effects/scrolling.py` (+ tests).
-- **US5 / Phase 5 — Class 2 (full)**: the remaining transitions (`VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`) added to `src/scrollkit/effects/transitions.py` beyond the `IrisSnap` spike (+ tests).
-- **US6 / Phase 6 — Class 3 (full)**: the full 5×7 font, the remaining palette effects (`NeonTubeCrawl`, `ChromeSheen`, `HazardStripes`) in `src/scrollkit/display/bitmap_text.py`; migrate `demos/medium/rainbow.py` + `demos/hard/crypto_dashboard.py` off `get_rainbow_color()` (+ tests).
-- **US7 / Phase 7 — Demo reel + docs**: `demos/hard/showcase.py`, per-effect docs pages with feasibility metadata (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`).
+- [ ] T050 [P] [US4] Write `test/unit/effects/test_scrolling_effects.py`: `KineticMarquee` dwells at punctuation/keywords and overshoots; `WaveRider` realizes only the visible-window characters; `SplitFlap` is deterministic given `seed`. Each asserts lit pixels advance, no per-frame allocation, and strict-feasible at 20 fps.
+- [ ] T051 [US4] Implement `KineticMarquee(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: easing-driven accelerate-in / coast / dwell at `pause_chars` / overshoot, using the 1/16-px fixed-point position (`LOOP_FPS`) and `display.measure_text`; only a reused Label's `.x` changes per frame.
+- [ ] T052 [US4] Implement `WaveRider(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: a precomputed 256-entry integer wave table; a small pool of single-char Labels for the visible window only; `y = baseline + wave_table[(x + phase) & 255]`; rebuild a char only when it enters the viewport.
+- [ ] T053 [US4] Implement `SplitFlap(DisplayContent)` in `src/scrollkit/effects/scrolling.py`: entering characters flip through 2–4 deterministic intermediate glyphs via a seeded PRNG (no per-frame random allocation) before landing.
+- [ ] T054 [US4] `make test-unit` + `make lint-errors` green; confirm all three Class 1 effects pass strict at 20 fps.
+
+---
+
+## Phase 8: User Story 5 - Class 2 Theatrical transition pack (Priority: P2)
+
+**Goal**: The full transition pack on the overlay-mask primitive (extends the
+existing `Transition` base + `IrisSnap`). **Independent test**: correct cover →
+swap-while-covered → reveal, bounded per-frame mask writes, strict-feasible.
+
+- [ ] T055 [P] [US5] Write `test/unit/effects/test_transitions.py`: for each transition assert content is hidden at peak cover then revealed, per-frame mask writes are bounded (no full repaint), and strict-feasible at 20 fps.
+- [ ] T056 [US5] Add `VenetianShutters` to `src/scrollkit/effects/transitions.py` (Transition base): 8 coarse horizontal bands, staggered open/close via the easing tables.
+- [ ] T057 [US5] Add `MosaicResolve`: 4×4 / 8×4 blocks covered/revealed in a fixed pseudo-random order (~4–12 blocks/frame), deterministic.
+- [ ] T058 [US5] Add `CRTCollapse`: a brightness ramp + a few horizontal bars collapsing to / expanding from a center line.
+- [ ] T059 [US5] Add `LightSlitRewrite`: a 2–4 px bright vertical scanner that swaps content at mid-sweep.
+- [ ] T060 [US5] `make test-unit` + `make lint-errors` green; confirm each transition passes strict at 20 fps.
+
+---
+
+## Phase 9: User Story 6 - Class 3 Palette-animated bitmap text (Priority: P2)
+
+**Goal**: The full palette-animation set + a complete font (extends the existing
+`BitmapText` + `RainbowChase`). **Independent test**: each effect changes output
+with no glyph rebuild; strict-feasible.
+
+- [ ] T061 [P] [US6] Write `test/unit/display/test_bitmap_text.py`: each palette effect changes rendered output with the glyph bitmap object identity unchanged (no rebuild); the expanded font renders all needed glyphs; strict-feasible at 20 fps.
+- [ ] T062 [US6] Expand `FONT_5x7` in `src/scrollkit/display/bitmap_text.py` to the full printable ASCII set (A–Z, 0–9, space, common punctuation) as compact `bytes` glyph tables.
+- [ ] T063 [US6] Implement `NeonTubeCrawl` palette effect in `bitmap_text.py`: a bright pulse travels through the letters via rotating palette entries (no glyph rebuild).
+- [ ] T064 [US6] Implement `ChromeSheen` palette effect: a metallic light gradient sweeps across the ramp.
+- [ ] T065 [US6] Implement `HazardStripes` palette effect: alternating warning-stripe colors that march.
+- [ ] T066 [US6] Migrate `demos/medium/rainbow.py` and `demos/hard/crypto_dashboard.py` off `EffectsEngine.get_rainbow_color()` to the palette system (so the legacy animation layer can be retired).
+- [ ] T067 [US6] `make test-unit` + `make lint-errors` green; confirm each palette effect passes strict at 20 fps.
+
+---
+
+## Phase 10: User Story 7 - Showcase reel + feasibility-tagged docs (Priority: P3)
+
+**Goal**: A scripted reel chaining the signatures + docs that advertise each
+effect's hardware budget. **Independent test**: the reel runs strict end-to-end.
+
+- [ ] T068 [US7] Upgrade `demos/hard/showcase.py` to chain the full signature set at readable pacing (e.g. CRT-collapse intro → neon `BitmapText` title → `KineticMarquee` → `IrisSnap` → `WaveRider` → `SplitFlap` → `MosaicResolve` exit), strict-on.
+- [ ] T069 [US7] Add advertised feasibility metadata (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`) per showcase effect, and write `docs/guide/{scrolling,transitions,bitmap-text}.md` describing each with its hardware budget.
+- [ ] T070 [US7] Verify the whole reel: `run_headless(ShowcaseApp(), frames=600, hardware=True, strict=True).ok is True` end to end; `make test-unit` + `make lint-errors` green.
+
+---
+
+## Deferred (genuinely out of scope)
+
 - **Calibration TODO**: capture `fill_region`/`blit` at 2–3 sizes in `test/claude/device_benchmarks.py` to *fit* `bulk_base_us`/slope rather than estimate (research D6).
 
 ---
