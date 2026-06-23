@@ -219,6 +219,11 @@ if IS_CIRCUITPYTHON:
 
             for attr_name, route_info in _iter_routes(handler):
                 method = getattr(handler, attr_name)
+                if isinstance(method, _RouteMarker):
+                    # Defensive: if the setattr-restore in _iter_routes didn't take,
+                    # getattr returns the marker — bind the raw function to the handler.
+                    _func = method.func
+                    method = lambda req, *a, _f=_func, **k: _f(handler, req)
                 if not callable(method):
                     continue
                 path = route_info['path']
@@ -626,13 +631,37 @@ def _iter_routes(handler: Any) -> Any:
     methods for a legacy ``_route_info`` function attribute so handlers that don't
     derive from the mixin still dispatch on CPython.
     """
-    routes = getattr(type(handler), '_routes', None)
+    cls = type(handler)
+    routes = getattr(cls, '_routes', None)
     if routes:
         for fname, info in routes.items():
             yield fname, info
         return
 
-    # Legacy fallback (function-attribute metadata). Not reachable on CircuitPython.
+    # CircuitPython does NOT invoke __init_subclass__, so RouteRegistryMixin never
+    # populated _routes and the @route markers are still live on the class. Build the
+    # registry now from those markers (verified on a Matrix Portal S3: __init_subclass__
+    # defined but never called, markers un-replaced, _routes == {}). Restore each real
+    # function so dispatch can getattr(handler, name) and call it; cache so we scan once.
+    found = {}
+    for name in dir(cls):
+        value = getattr(cls, name, None)
+        if isinstance(value, _RouteMarker):
+            found[name] = {'path': value.path, 'methods': value.methods}
+            try:
+                setattr(cls, name, value.func)
+            except Exception:
+                pass
+    if found:
+        try:
+            cls._routes = found
+        except Exception:
+            pass
+        for fname, info in found.items():
+            yield fname, info
+        return
+
+    # Legacy fallback (function-attribute metadata; CPython non-mixin handlers).
     for attr_name in dir(handler):
         if attr_name.startswith('route_'):
             method = getattr(handler, attr_name)
