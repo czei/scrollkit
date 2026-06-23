@@ -40,7 +40,9 @@ class FormField:
             validators: List of validator functions
         """
         self.name = name
-        self.label = label or name.replace('_', ' ').title()
+        # CircuitPython's str has no .title(); title-case each word safely.
+        self.label = label or ' '.join(
+            w[:1].upper() + w[1:] for w in name.replace('_', ' ').split())
         self.required = required
         self.default = default
         self.validators = validators or []

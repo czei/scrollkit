@@ -81,12 +81,14 @@ class WebHandler(RouteRegistryMixin):
         }
 
         color = status_colors.get(status, "#2196F3")
+        # CircuitPython's str has no .title(); capitalize the status word safely.
+        status_title = (status[:1].upper() + status[1:]) if status else status
 
         html = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SLDK - {status.title()}</title>
+    <title>SLDK - {status_title}</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>

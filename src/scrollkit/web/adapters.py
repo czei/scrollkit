@@ -212,9 +212,28 @@ if IS_CIRCUITPYTHON:
 
             def make_route_handler(method: Any) -> Any:
                 def route_handler(request: Any, *args: Any, **kwargs: Any) -> Any:
-                    mock_request = adapter._to_mock_request(request)
-                    result = method(mock_request)
-                    return adapter._to_http_response(Response, request, result)
+                    # Never let a handler exception become a silent empty reply
+                    # (adafruit_httpserver swallows them when debug=False). Log the
+                    # traceback and return a 500 so failures are diagnosable.
+                    try:
+                        mock_request = adapter._to_mock_request(request)
+                        result = method(mock_request)
+                        return adapter._to_http_response(Response, request, result)
+                    except Exception as exc:  # noqa: BLE001
+                        print("Web handler error on %s: %r" % (
+                            getattr(request, 'path', '?'), exc))
+                        try:
+                            import sys
+                            sys.print_exception(exc)  # CircuitPython traceback
+                        except Exception:
+                            try:
+                                import traceback
+                                traceback.print_exc()
+                            except Exception:
+                                pass
+                        return Response(request, "Internal server error: %s" % exc,
+                                        content_type="text/plain",
+                                        status=(500, "Internal Server Error"))
                 return route_handler
 
             for attr_name, route_info in _iter_routes(handler):
