@@ -382,17 +382,19 @@ class PixelDissolve(Transition):
 
 
 class ColumnRain(Transition):
-    """Eight columns cascade from the top down, staggered left-to-right like
-    rainfall. The leftmost column falls first; the rightmost last. Reveal drains
-    the same columns right-to-left. Text that's mid-scroll when rain starts
-    keeps moving underneath the falling curtain.
+    """Pixels drip down from the sky into position. Cover: dark columns cascade
+    top-to-bottom, staggered left-to-right. Reveal: each column's new content
+    appears from the top downward — pixels settle from above, dripping into
+    their final place. Stagger flows left-to-right so the rainfall reads as a
+    single sweep across the display.
     """
 
     NUM_COLS = 8
 
     def __init__(self, duration_frames=14, **kw):
         super().__init__(duration_frames, **kw)
-        self._col_fill = []
+        self._col_fill = []    # rows covered from top (cover phase)
+        self._col_reveal = []  # rows uncovered from top (reveal phase)
         self._col_w = 0
         self._h = 0
 
@@ -401,6 +403,7 @@ class ColumnRain(Transition):
         self._col_w = max(1, display.width // n)
         self._h = display.height
         self._col_fill = [0] * n
+        self._col_reveal = [0] * n
         await super().start(display, swap_callback)
 
     def _col_progress(self, progress, c, n):
@@ -423,18 +426,18 @@ class ColumnRain(Transition):
                 self._col_fill[c] = target_h
 
     async def _paint_reveal(self, progress):
-        # Drain right-to-left: rightmost column clears first.
+        # Drip left-to-right: leftmost column settles first.
+        # Each column's content appears from the TOP downward so the pixels
+        # look like they fell from above and landed in place.
         n = self.NUM_COLS
         cw = self._col_w
         h = self._h
-        for c in range(n - 1, -1, -1):
-            rev = n - 1 - c
-            cleared = h * self._col_progress(progress, rev, n) // 255
-            remaining = h - cleared
-            if self._col_fill[c] > remaining:
-                await self._mask.clear_rect(c * cw, remaining,
-                                            cw, self._col_fill[c] - remaining)
-                self._col_fill[c] = remaining
+        for c in range(n):
+            target_reveal = h * self._col_progress(progress, c, n) // 255
+            if target_reveal > self._col_reveal[c]:
+                await self._mask.clear_rect(c * cw, self._col_reveal[c],
+                                            cw, target_reveal - self._col_reveal[c])
+                self._col_reveal[c] = target_reveal
 
 
 class ScanFold(Transition):
