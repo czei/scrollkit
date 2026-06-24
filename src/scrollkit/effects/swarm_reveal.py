@@ -66,6 +66,28 @@ class SwarmReveal:
     :func:`pixels_from_text` / :func:`pixels_from_font_text`), :meth:`start` it
     with the display, then call :meth:`step` once per frame until it reports
     complete.  The captured-text overlay persists until :meth:`detach`.
+
+    Args:
+        pixels:          Iterable of ``(x, y)`` target cells to assemble.
+        text_color:      24-bit RGB of the captured/assembled image.
+        bird_color:      24-bit RGB of the flock.
+        num_birds:       Flock size.  **This is the hardware-feasibility knob.**
+                         The per-frame cost grows ~``num_birds**2`` (the boids
+                         neighbor pass).  MEASURED per-frame time on a MatrixPortal
+                         S3 (bit_depth 4, incl. the panel refresh):
+
+                             14 birds -> ~25 ms  (the default; safe headroom)
+                             20 birds -> ~34 ms  (usable, near the ceiling)
+                             28 birds -> ~48 ms  (at the 50 ms / 20 fps limit)
+                             40 birds -> ~95 ms  (too slow: ~10 fps)
+                            100 birds -> ~0.6 s  (unusable on-device)
+
+                         **On-device keep num_birds <= ~20.**  The desktop
+                         simulator has no such limit — use more there for a denser
+                         flock.  Fewer birds also flock more visibly.
+        bird_speed:      Pixels per frame a bird may travel (a higher value fills
+                         faster but flocks less tightly).
+        disperse_frames: Frames the flock flies off after the image is complete.
     """
 
     def __init__(self, pixels, text_color=0xFFCC00, bird_color=0xFFE08A,
@@ -351,6 +373,11 @@ async def show_swarm_splash(
 
     Args mirror :class:`SwarmReveal`.  ``max_steps`` bounds the run so an
     unreachable pixel can never hang the loop.
+
+    Hardware note: cost grows ~``num_birds**2``.  On a MatrixPortal S3 keep
+    ``num_birds <= ~20`` (14 ~25 ms/frame, 20 ~34 ms, 28 ~48 ms at the 20 fps
+    limit, 100 ~0.6 s/frame = unusable).  See :class:`SwarmReveal` for the full
+    measured table.  The desktop simulator has no such limit.
 
     Returns ``True`` when finished normally, ``False`` if the display reported a
     close (simulator window closed). On hardware ``show()`` never closes, so this

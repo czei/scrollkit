@@ -222,6 +222,11 @@ The cardinal rules that follow from the data:
 5. **Heavy compute competes with rendering** — it's cooperative (~500k Python
    ops/sec, no background thread), so a 1,000-op calc costs ~1.5 ms of your frame.
    Chunk long work across frames (and across the synchronous HTTP fetch).
+6. **`SwarmReveal` (boids splash): keep `num_birds ≤ ~20` on-device.** Per-frame
+   cost grows ~`num_birds²` (the neighbor pass). Measured on an S3 (incl. refresh):
+   **14 → ~25 ms** (the default, safe) · 20 → ~34 ms · 28 → ~48 ms (the 20 fps
+   limit) · 40 → ~95 ms · **100 → ~0.6 s/frame (unusable)**. Fewer birds also flock
+   more visibly. The desktop simulator has no such limit.
 
 ## Pre-flight validation
 
