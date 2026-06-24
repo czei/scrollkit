@@ -114,6 +114,101 @@ class TestContentQueue:
         assert contents[0] == low_priority
         assert contents[1] == high_priority
 
+    def test_clear_stops_abandoned_content(self):
+        """clear() must let the display loop stop() the in-flight content.
+
+        Regression: a content holding an external resource — e.g. a settled
+        DripReveal overlay in the display's persistent layer group — leaked it
+        forever when a rebuild cleared the queue without stopping the current
+        item. The next get_current() must release it (run its async stop()).
+        """
+        import asyncio
+
+        class _OverlayContent:
+            """Minimal content that 'owns' a layer, like RideScreenContent's drip."""
+            priority = 2
+
+            def __init__(self, layers):
+                self._layers = layers
+                self.tile = object()
+                self.is_complete = False
+                self.stopped = False
+
+            async def start(self):
+                self._layers.append(self.tile)   # render adds the overlay
+
+            async def stop(self):
+                self.stopped = True
+                if self.tile in self._layers:
+                    self._layers.remove(self.tile)
+
+            async def render(self, display):
+                pass
+
+        async def scenario():
+            layers = []                          # stands in for display._layer_group
+            queue = ContentQueue()
+
+            first = _OverlayContent(layers)
+            queue.add(first)
+            await queue.get_current()            # starts -> overlay added
+            assert layers == [first.tile]
+
+            # Rebuild the queue mid-display (a refresh / settings change).
+            queue.clear()
+            second = _OverlayContent(layers)
+            queue.add(second)
+
+            # The display loop's next frame must stop the abandoned content
+            # before showing the new one — releasing the orphaned overlay.
+            current = await queue.get_current()
+            assert first.stopped is True
+            assert current is second
+            # Exactly one overlay (the new ride's), not a leaked stack.
+            assert layers == [second.tile]
+
+        asyncio.run(scenario())
+
+    def test_clear_to_empty_still_stops_current(self):
+        """A rebuild to an EMPTY queue must still release the old overlay."""
+        import asyncio
+
+        class _OverlayContent:
+            priority = 2
+
+            def __init__(self, layers):
+                self._layers = layers
+                self.tile = object()
+                self.is_complete = False
+                self.stopped = False
+
+            async def start(self):
+                self._layers.append(self.tile)
+
+            async def stop(self):
+                self.stopped = True
+                if self.tile in self._layers:
+                    self._layers.remove(self.tile)
+
+            async def render(self, display):
+                pass
+
+        async def scenario():
+            layers = []
+            queue = ContentQueue()
+            c = _OverlayContent(layers)
+            queue.add(c)
+            await queue.get_current()
+            assert layers == [c.tile]
+
+            queue.clear()                        # no items added back
+            result = await queue.get_current()   # empty -> None, but stop() must run
+            assert result is None
+            assert c.stopped is True
+            assert layers == []
+
+        asyncio.run(scenario())
+
 
 class TestContentQueueWithDurations:
     """Test content queue behavior with time-based content."""

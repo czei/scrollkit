@@ -312,6 +312,9 @@ class ContentQueue:
         self._items: List[Any] = []
         self._current_index: int = 0
         self._current_content: Optional[Any] = None
+        # Content abandoned by clear() that still needs its async stop() run by the
+        # display loop (see clear()). None when there is nothing pending.
+        self._pending_stop: Optional[Any] = None
         # Incremented every time a content item starts (first play counts as 1;
         # each subsequent cycle increments by 1). The display loop detects
         # changes to fire transitions between plays without relying on object
@@ -336,6 +339,18 @@ class ContentQueue:
     
     def clear(self) -> None:
         """Clear all content from queue."""
+        # Hand the in-flight content to the display loop to stop() on its next
+        # frame. stop() is a content's only chance to release external resources it
+        # holds — e.g. a persistent overlay layer added to the display's layer group,
+        # which the per-frame clear() never touches and so stays on screen until the
+        # content detaches it in stop(). A rebuild that drops the current content
+        # without stopping it would orphan such a resource forever. Deferring keeps
+        # the async stop() out of this synchronous method, so every rebuild path (a
+        # timed refresh and a synchronous settings handler alike) is covered with no
+        # race. If a prior clear() already queued one and the loop hasn't run yet,
+        # keep it: by then _current_content is None, so the older pending isn't lost.
+        if self._current_content is not None:
+            self._pending_stop = self._current_content
         self._items.clear()
         self._current_index = 0
         self._current_content = None
@@ -357,9 +372,22 @@ class ContentQueue:
     
     async def get_current(self) -> Optional[Any]:
         """Get current content to display."""
+        # Stop content abandoned by a clear()/rebuild before showing anything new,
+        # so it releases its overlay layer (see clear()). Cleared first so a
+        # concurrent clear() during stop() isn't lost; guarded so a misbehaving
+        # stop() can't wedge the loop. Runs even when the queue is now empty (a
+        # rebuild to no items must still detach the old overlay).
+        if self._pending_stop is not None:
+            pending = self._pending_stop
+            self._pending_stop = None
+            try:
+                await pending.stop()
+            except Exception:
+                pass
+
         if not self._items:
             return None
-        
+
         # Check if we need to advance
         if self._current_content is None:
             self._current_content = self._items[self._current_index]
