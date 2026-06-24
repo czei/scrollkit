@@ -37,7 +37,7 @@ class SettingsManager:
         # Built-in library settings — always defined so the default web UI shows them.
         self.define("brightness_scale", 0.5, label="Brightness", min=0.0, max=1.0, step=0.05)
         self.define("scroll_speed", "Medium", label="Scroll Speed",
-                    options=["Slow", "Medium", "Fast"])
+                    options=["None", "Slow", "Medium", "Fast"])
         self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
         self.define("transition_style", "None", label="Transition Style",
                     options=["None", "Iris Snap", "Venetian Shutters",
@@ -123,7 +123,14 @@ class SettingsManager:
         )
 
     def get_scroll_speed_px(self):
-        """Return scroll speed in pixels per second (for ScrollingText speed= arg)."""
+        """Return scroll speed in pixels per second (for ScrollingText speed= arg).
+
+        Returns 0 when scroll_speed is "None" — ScrollingText treats 0 as
+        static-display mode: text is shown centred for a fixed duration rather
+        than scrolling.
+        """
+        if self.settings.get("scroll_speed", "Medium") == "None":
+            return 0
         secs = self.get_scroll_speed()
         return int(round(1.0 / secs)) if secs > 0 else 25
 

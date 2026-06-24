@@ -173,74 +173,125 @@ class StaticText(DisplayContent):
 
 
 class ScrollingText(DisplayContent):
-    """Scrolling text display content."""
-    
-    def __init__(self, text: str, x: Optional[int] = None, y: int = 0, color=None, speed=None, priority: int = 2):
+    """Scrolling text display content.
+
+    When speed resolves to 0 (the library's "None" scroll speed setting),
+    the text is shown centred on-screen for ``static_duration`` seconds and
+    then completes — so the transition effect fires on every repetition without
+    any scrolling motion.
+    """
+
+    # How long static (speed=0) display lingers before completing.
+    DEFAULT_STATIC_DURATION = 5.0
+
+    def __init__(self, text: str, x: Optional[int] = None, y: int = 0,
+                 color=None, speed=None, priority: int = 2,
+                 static_duration: float = DEFAULT_STATIC_DURATION):
         """Initialize scrolling text.
 
         Args:
-            text: Text to scroll
-            x: Starting X coordinate (None = start from right edge)
-            y: Y coordinate
-            color: Text color as 24-bit RGB int (None = use library default_color setting)
-            speed: Scroll speed in pixels per second (None = use library scroll_speed setting)
-            priority: Queue priority (default Priority.NORMAL)
+            text: Text to display / scroll.
+            x: Starting X (None = right edge for scrolling, centred for static).
+            y: Y coordinate (baseline).
+            color: 24-bit RGB int (None = library default_color setting).
+            speed: px/sec (None = library scroll_speed setting; 0 = static mode).
+            priority: Queue priority (default Priority.NORMAL).
+            static_duration: Seconds to show text before completing in static mode.
         """
-        super().__init__(duration=None, priority=priority)  # Scrolls until complete
+        super().__init__(duration=None, priority=priority)
         self.text: str = text
         self.x: Optional[int] = x
         self.y: int = y
-        self._color_setting = "default_color" if color is None else (color if isinstance(color, str) else None)
+        self._color_setting = ("default_color" if color is None
+                               else (color if isinstance(color, str) else None))
         self.color: int = _resolve_color(color)
         self._speed_is_default = (speed is None)
-        self.speed: int = _resolve_speed(speed)
-        # Position is a fixed-point accumulator in 1/16-px units, so a sub-pixel
-        # per-frame speed still produces smooth integer motion. Render x = pos>>4.
+        self._static_duration: float = static_duration
+        # Internal speed storage; use the property setter so _static_mode and
+        # position state are always consistent.
+        self._speed: int = 0
+        self._static_mode: bool = False
         self._pos_q: Optional[int] = None
         self._measured_width: Optional[int] = None
+        self.speed = _resolve_speed(speed)   # property setter
+
+    # --- speed property -------------------------------------------------------
+
+    @property
+    def speed(self) -> int:
+        return self._speed
+
+    @speed.setter
+    def speed(self, value: int) -> None:
+        old_static = self._static_mode
+        self._speed = value
+        self._static_mode = (value == 0)
+        if self._static_mode != old_static:
+            # Switching modes: reset position so render() re-initialises for
+            # the new mode, and clear any prior completion flag.
+            self._pos_q = None
+            self._measured_width = None
+            self._is_complete = False
+
+    # --- lifecycle ------------------------------------------------------------
 
     async def start(self) -> None:
-        """Start scrolling from the right edge."""
+        """Reset position so render() re-initialises on the first frame."""
         await super().start()
-        # Position + measured width are established on the first render (we need a
-        # display to measure against). Reset so a restarted item re-initializes.
         self._pos_q = None
         self._measured_width = None
 
+    # --- rendering ------------------------------------------------------------
+
     def _delta_q(self) -> int:
         """Per-frame motion in 1/16-px units, derived from speed (px/sec)."""
-        return int(round(self.speed * 16 / LOOP_FPS))
+        return int(round(self._speed * 16 / LOOP_FPS))
 
     async def render(self, display) -> None:
-        """Render scrolling text to display (fixed-point sub-pixel motion)."""
-        # First render: set the start position and measure the real text width
-        # ONCE (never per frame — measuring is off the hot path).
+        """Render text: scrolling when speed > 0, centred-static when speed == 0."""
+        if self._static_mode:
+            # First render in static mode: measure width and choose x position.
+            if self._pos_q is None:
+                self._measured_width = display.measure_text(self.text)
+                if self.x is not None:
+                    x = self.x
+                else:
+                    x = max(0, (display.width - self._measured_width) // 2)
+                self._pos_q = x << 4
+            await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
+            return
+
+        # Scrolling mode: initialise position on first render (needs display.width).
         if self._pos_q is None:
             start_x = display.width if self.x is None else self.x
             self._pos_q = int(start_x) << 4
             self._measured_width = display.measure_text(self.text)
 
-        # Draw the (reused) Label at the current integer position.
         await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
-
-        # Advance left by the speed-derived sub-pixel delta.
         self._pos_q -= self._delta_q()
 
-        # Complete once the whole measured width has scrolled off the left edge.
         if (self._pos_q >> 4) < -self._measured_width:
             self._is_complete = True
 
+    # --- completion -----------------------------------------------------------
+
     @property
     def is_complete(self) -> bool:
-        """Check if text has scrolled off screen."""
-        return self._is_complete
+        if self._is_complete:
+            return True
+        if self._static_mode:
+            return self.elapsed >= self._static_duration
+        return False
+
+    # --- introspection --------------------------------------------------------
 
     def describe(self) -> dict:
         info = super().describe()
         info.update({
             "text": self.text,
             "y": self.y,
-            "speed": self.speed,
+            "speed": self._speed,
+            "static_mode": self._static_mode,
             "position": None if self._pos_q is None else (self._pos_q >> 4),
             "text_width": self._measured_width,
             "started": self._pos_q is not None,
