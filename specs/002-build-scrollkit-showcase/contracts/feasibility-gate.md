@@ -16,12 +16,19 @@ deleted and pruned from `effects.__all__`):
 
 ### Retained (unchanged public behavior)
 
+!!! note "Superseded by the effects consolidation"
+    The base/engine symbols this (002) feature retained were **later removed** by
+    the effects-consolidation work (see the repo `CHANGELOG.md`):
+    `scrollkit.effects.base` (the `Effect` ABC, `EffectRegistry`, `register_effect`,
+    `CompositeEffect`), `scrollkit.effects.effects` (`EffectsEngine`,
+    `get_rainbow_color`, `SimpleEffect` and the concrete `SparkleEffect` /
+    `EdgeGlowEffect` / `PulseEffect` / `RainbowCycleEffect` / `CornerFlashEffect`),
+    and the orphaned `scrollkit.display.enhanced_content`. The standalone particle
+    system below is the only one still retained.
+
 | Symbol | Location | Reason |
 |---|---|---|
-| `EffectsEngine` + `get_rainbow_color()` | `scrollkit.effects.effects` | demos + tests |
-| `SparkleEffect`, `EdgeGlowEffect`, `PulseEffect(SimpleEffect)`, `RainbowCycleEffect`, `CornerFlashEffect` | `scrollkit.effects.effects` | `enhanced_content.py` |
-| `ParticleEngine`, `Particle`, `Sparkle`, `RainDrop`, `Ember`, `Snow` | `scrollkit.effects.particles` | tests + `enhanced_content.py` |
-| `Effect`, `CompositeEffect`, `EffectRegistry`, `register_effect` | `scrollkit.effects.base` | base classes |
+| `ParticleEngine`, `Particle`, `Sparkle`, `RainDrop`, `Ember`, `Snow` | `scrollkit.effects.particles` | standalone particle system (still retained) |
 
 ### Catalog behavior
 

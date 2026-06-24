@@ -223,11 +223,7 @@ class DisplayQueue:
             if not strategy:
                 raise ValueError(f"Unknown strategy: {next_item.strategy_name}")
             
-            # Apply effects if any
-            if next_item.effects:
-                await self._apply_effects(strategy, display, next_item)
-            else:
-                await strategy.render(display, next_item.data)
+            await strategy.render(display, next_item.data)
             
             self.stats['items_processed'] += 1
             return True
@@ -238,32 +234,7 @@ class DisplayQueue:
             self._current_item = None
             self._item_start_time = None
             return await self.process_next(display)  # Try next item
-    
-    async def _apply_effects(self, strategy, display, item: DisplayItem) -> None:
-        """Apply effects to the rendering process.
-        
-        Args:
-            strategy: Strategy instance to render with
-            display: Display interface
-            item: DisplayItem with effects
-        """
-        # Create a render function for effects to call
-        async def render_func():
-            await strategy.render(display, item.data)
-        
-        # Apply effects in order
-        current_render_func = render_func
-        for effect in reversed(item.effects):  # Apply in reverse order
-            effect_render_func = current_render_func
-            
-            async def apply_effect():
-                await effect.apply(display, effect_render_func)
-            
-            current_render_func = apply_effect
-        
-        # Execute the final render function with all effects applied
-        await current_render_func()
-    
+
     def _should_continue_current_item(self) -> bool:
         """Check if the current item should continue displaying.
         

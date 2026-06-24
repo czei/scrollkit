@@ -5,6 +5,7 @@ Copyright 2024 3DUPFitters LLC
 import json
 
 from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.config.transition_names import TRANSITION_NAMES
 
 # Initialize logger
 logger = ErrorHandler("error_log")
@@ -39,13 +40,12 @@ class SettingsManager:
         self.define("scroll_speed", "Medium", label="Scroll Speed",
                     options=["None", "Slow", "Medium", "Fast"])
         self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
+        # Choices derive from the single source of truth (config.transition_names),
+        # which the dispatch map in effects.transitions is tested to match — so a
+        # selectable name can never silently fail to dispatch. Plain "None" + list
+        # concatenation (no *-unpacking) for CircuitPython-parser safety.
         self.define("transition_style", "None", label="Transition Style",
-                    options=["None",
-                             "Drop from Sky",
-                             "Pixel Dissolve", "Column Rain", "Gradual Reveal",
-                             "Scan Fold", "Horizontal Wipe", "Glitch Bars",
-                             "Diagonal Wipe", "Iris Snap", "Venetian Shutters",
-                             "Mosaic Resolve", "CRT Collapse", "Light Slit"])
+                    options=["None"] + list(TRANSITION_NAMES))
 
         # Apply application-provided defaults
         if defaults:

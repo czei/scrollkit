@@ -48,7 +48,7 @@ your app  ──▶  scrollkit.app.ScrollKitApp        (async lifecycle: display
                  │
                  ├─ scrollkit.display   UnifiedDisplay ─▶ hardware (displayio) | simulator (pygame)
                  │                      DisplayQueue (priority + expiry), DisplayContent
-                 ├─ scrollkit.effects   EffectsEngine: transitions, particles, reveals
+                 ├─ scrollkit.effects   Transition (content swaps), particles, splash reveals
                  ├─ scrollkit.web       ScrollKitWebServer (config UI; adafruit_httpserver | async)
                  ├─ scrollkit.ota       OTAClient + UpdateManifest (GitHub-hosted)
                  ├─ scrollkit.network   WiFiManager, HttpClient

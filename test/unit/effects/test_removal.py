@@ -2,8 +2,8 @@
 
 Asserts every FR-001 removed name is unimportable from its old module, absent
 from ``scrollkit.effects.__all__``, and absent from the ``capabilities()``
-catalog. Retained items (``EffectsEngine.get_rainbow_color``, particles) are
-spot-checked so the removal didn't take them with it.
+catalog. Retained items (the standalone particle system) are spot-checked so the
+removal didn't take them with it.
 """
 
 import os
@@ -22,6 +22,11 @@ import scrollkit.effects as fx
 REMOVED_MODULES = [
     "scrollkit.effects.reveal",
     "scrollkit.effects.basic_transitions",
+    # Effects-consolidation removals: the dead Effect/EffectRegistry stack, the
+    # SimpleEffect/EffectsEngine system, and the orphaned enhanced-content family.
+    "scrollkit.effects.base",
+    "scrollkit.effects.effects",
+    "scrollkit.display.enhanced_content",
 ]
 
 OLD_TRANSITION_CLASSES = (
@@ -29,14 +34,18 @@ OLD_TRANSITION_CLASSES = (
     "SlideTransition",
 )
 
-# Every FR-001 name. NOTE: ``PulseEffect`` here is the broken duplicate that
-# lived in ``basic_transitions``; the retained ``PulseEffect(SimpleEffect)`` in
-# ``effects.effects`` is intentionally NOT exported and not part of this list's
-# package-namespace check.
+# Every removed name: the original FR-001 batch (broken transitions/effects) plus
+# the effects-consolidation removals (the Effect ABC + registry, the
+# SimpleEffect/EffectsEngine system, and the concrete SimpleEffects). Since
+# ``effects.effects`` is now deleted, the formerly-retained ``PulseEffect`` is gone
+# too — all of these must be absent from the package namespace and the catalog.
 REMOVED_NAMES = [
     "TransitionEngine", "BaseTransition", "FadeTransition", "WipeTransition",
     "SlideTransition", "RevealEffect", "RevealCenterEffect", "FadeInEffect",
     "SlideInEffect", "WipeEffect", "FlashEffect", "PulseEffect",
+    # effects-consolidation removals
+    "EffectsEngine", "Effect", "CompositeEffect", "SimpleEffect",
+    "SparkleEffect", "EdgeGlowEffect", "RainbowCycleEffect", "CornerFlashEffect",
 ]
 
 
@@ -69,8 +78,25 @@ def test_fresh_transitions_module_lacks_the_old_broken_classes():
     assert hasattr(tr, "Transition") and hasattr(tr, "IrisSnap")
 
 
+def test_effect_attachment_api_is_removed():
+    """WS1 Tier 2: the dead Effect.apply attachment surface is gone.
+
+    It drove a contract (``Effect.apply``) that no longer exists, was a no-op in
+    practice, and a trap for AI-authored code that called it expecting effects.
+    """
+    from scrollkit.display.strategy import DisplayItem
+    from scrollkit.content_classes import BaseContent
+    item = DisplayItem("text", {})
+    for attr in ("effects", "add_effect", "with_effect"):
+        assert not hasattr(item, attr), "DisplayItem still has %s" % attr
+    for attr in ("with_effect", "with_effects"):
+        assert not hasattr(BaseContent, attr), "BaseContent still has %s" % attr
+
+
 def test_retained_items_still_work():
-    from scrollkit.effects.effects import EffectsEngine
+    # The standalone particle system is orthogonal to the removed effect systems
+    # and must survive the consolidation.
     from scrollkit.effects.particles import (  # noqa: F401
         ParticleEngine, Sparkle, Snow, RainDrop, Ember)
-    assert hasattr(EffectsEngine, "get_rainbow_color")
+    import scrollkit.effects.particles as p
+    assert hasattr(p, "ParticleEngine")

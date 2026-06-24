@@ -62,3 +62,40 @@ Each class exposes a `FEASIBILITY` dict. A full-screen cover on the 64×32 panel
 
 All are `hardware_safe = True`, `allocates_per_frame = False`, and stay well under
 the ~50 ms (20 fps) `bit_depth=4` device budget.
+
+## Adding your own transition
+
+Subclass `Transition` and implement two methods — the base class runs the
+cover → swap → reveal lifecycle for you. The full, heavily-annotated reference is
+**`demos/medium/golden_transition.py`** (`GoldenWipe`); copy it. The rules:
+
+1. Implement `_paint_cover(progress)` and `_paint_reveal(progress)`, where
+   `progress` is an eased `0..255` through each phase. Paint into `self._mask` (an
+   `OverlayMask`) with `fill_rect` / `clear_rect` — **bounded, bulk** writes only.
+   No per-pixel Python loop over the panel; no per-frame allocation.
+2. Override `start(display, swap_callback)` to capture `display.width/height`, then
+   `await super().start(...)`.
+3. Declare a `FEASIBILITY` dict on the **class** (CircuitPython can't attach
+   attributes to functions).
+
+Then **prove it** — the safety gate is the headless feasibility harness, not a
+runtime sandbox:
+
+```python
+from scrollkit.dev import run_headless
+result = run_headless(my_app, frames=120, strict=True)
+assert result.ok and not result.errors   # raises FeasibilityError if over budget
+```
+
+To make it a **selectable built-in** (offered in the `transition_style` setting):
+
+1. Add the class to `_TRANSITION_MAP` in `scrollkit/effects/transitions.py`.
+2. Add its user-facing name to `TRANSITION_NAMES` in
+   `scrollkit/config/transition_names.py`, in the same position.
+
+These two lists are the single source of truth for transitions; a unit test
+(`test_transition_registry.py`) fails if they drift, so a selectable name can never
+silently fail to dispatch, and importing the settings never drags the effects
+package onto the device boot path. To use a custom transition **without** making it
+a built-in, override `_get_transition()` on your app to return an instance (see the
+golden demo).

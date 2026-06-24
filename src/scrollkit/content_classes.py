@@ -1,14 +1,13 @@
 """Content system for SLDK.
 
-Provides content classes that work with the display strategy and effects system.
-These classes offer a higher-level interface for creating display content with
-built-in support for effects.
+Provides content classes that work with the display strategy system. These
+classes offer a higher-level interface for creating display content.
 """
 
 from __future__ import annotations
 
 try:
-    from typing import Dict, Any, Optional, List
+    from typing import Dict, Any, Optional
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
@@ -19,7 +18,7 @@ from .display.strategy import DisplayItem, Priority
 class BaseContent:
     """Base class for display content.
     
-    Provides common functionality for creating DisplayItems with effects support.
+    Provides common functionality for creating DisplayItems.
     """
     
     def __init__(self, 
@@ -39,50 +38,19 @@ class BaseContent:
         self.data: Dict[str, Any] = data
         self.priority: int = priority
         self.duration: Optional[float] = duration
-        self.effects: List[Any] = []
-    
-    def with_effect(self, effect: Any) -> 'BaseContent':
-        """Add an effect to this content.
-        
-        Args:
-            effect: Effect instance to add
-            
-        Returns:
-            Self for method chaining
-        """
-        self.effects.append(effect)
-        return self
-    
-    def with_effects(self, effects: List[Any]) -> 'BaseContent':
-        """Add multiple effects to this content.
-        
-        Args:
-            effects: List of Effect instances
-            
-        Returns:
-            Self for method chaining
-        """
-        self.effects.extend(effects)
-        return self
-    
+
     def to_display_item(self) -> DisplayItem:
         """Convert this content to a DisplayItem.
         
         Returns:
             DisplayItem instance ready for queue
         """
-        item = DisplayItem(
+        return DisplayItem(
             strategy_name=self.strategy_name,
             data=self.data,
             priority=self.priority,
             duration=self.duration
         )
-        
-        # Add effects
-        for effect in self.effects:
-            item.add_effect(effect)
-        
-        return item
 
 
 class TextContent(BaseContent):

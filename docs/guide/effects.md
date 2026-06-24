@@ -17,33 +17,38 @@ all built to respect the device's memory and frame budget.
     See `demos/hard/showcase.py` for a reel that announces and demonstrates every
     one of them.
 
-## EffectsEngine
+## One effect contract, plus standalone helpers
 
-`scrollkit.effects.effects.EffectsEngine` coordinates active effects. It caps the
-number of concurrent effects (default 2) and uses pre-allocated colour tables to
-avoid per-frame allocation on CircuitPython.
+After the effects consolidation there is **one** content-swap contract —
+`scrollkit.effects.transitions.Transition` (see
+[Theatrical transitions](transitions.md)) — plus standalone splash and particle
+helpers. The old `Effect` / `EffectRegistry`, `SimpleEffect` / `EffectsEngine`, and
+`EnhancedDisplayContent` systems were **removed**: they overlapped, were unused, and
+the enhanced-content family even looped over all 2048 pixels in Python — the exact
+anti-pattern the feasibility gate forbids. There is intentionally no shared
+per-frame "effect" base class to inherit from.
 
-```python
-from scrollkit.effects.effects import EffectsEngine
-
-effects = EffectsEngine(display)
-```
+To add your own effect, write a `Transition`: see
+**[Adding your own transition](transitions.md#adding-your-own-transition)** and the
+heavily-annotated reference in `demos/medium/golden_transition.py`.
 
 ## What's available
 
-| Module | Effects |
-|--------|---------|
-| `scrollkit.effects.effects` | `EffectsEngine`, colour helpers (`get_rainbow_color`), simple animations |
-| `scrollkit.effects.particles` | particle systems (sparkles, rain, embers, snow) |
-| `scrollkit.effects.base` | the `Effect` base class for writing your own |
+| Module | What it gives you |
+|--------|-------------------|
+| `scrollkit.effects.transitions` | content-swap transitions on the `Transition` base ([guide](transitions.md)) |
+| `scrollkit.effects.scrolling` | characterful scrolling text ([guide](scrolling.md)) |
+| `scrollkit.display.bitmap_text` | palette-animated bitmap text ([guide](bitmap-text.md)) |
+| `scrollkit.effects.particles` | standalone particle systems (sparkles, rain, embers, snow) |
+| `scrollkit.effects` splash helpers | `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
 
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
 
 !!! tip "Memory ladder"
-    Effects are the first thing to disable on a memory-starved device. Keep the
-    concurrent-effect cap low and prefer the lighter transitions when targeting
-    the MatrixPortal S3.
+    Effects are the first thing to disable on a memory-starved device. Prefer the
+    lighter transitions and keep splash/particle counts low when targeting the
+    MatrixPortal S3.
 
 ## Showcase foundation primitives
 

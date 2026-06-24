@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 try:
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Dict, Optional
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 from .strategy import Priority, get_strategy_registry
@@ -113,8 +113,7 @@ class DisplayManager:
     
     def add_item(self, strategy_name: str, data: Dict[str, Any], 
                  priority: int = Priority.NORMAL, 
-                 duration: Optional[float] = None,
-                 effects: Optional[List[Any]] = None) -> bool:
+                 duration: Optional[float] = None) -> bool:
         """Add an item to the display queue.
         
         Args:
@@ -122,17 +121,11 @@ class DisplayManager:
             data: Data dictionary for the strategy
             priority: Priority level
             duration: Display duration in seconds
-            effects: List of effects to apply
             
         Returns:
             True if item was added successfully
         """
         item = DisplayItem(strategy_name, data, priority, duration)
-        
-        if effects:
-            for effect in effects:
-                item.add_effect(effect)
-        
         return self.queue.add_item(item)
     
     def add_display_item(self, item: DisplayItem) -> bool:

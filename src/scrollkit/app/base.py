@@ -281,37 +281,26 @@ class SLDKApp:
             print("content settings apply error:", e)
 
     def _get_transition(self):
-        """Return a fresh Transition for the current transition_style setting, or None."""
+        """Return a fresh Transition for the current transition_style setting, or None.
+
+        The name -> class dispatch lives in effects.transitions.transition_factory
+        (kept in lockstep with config.transition_names.TRANSITION_NAMES, which is
+        what the settings UI offers). Imported lazily so a "None" transition style
+        never drags the effects package onto the RAM-constrained device.
+        """
         style = self.settings.get("transition_style", "None")
         if not style or style == "None":
             return None
         try:
-            from ..effects.transitions import (
-                IrisSnap, VenetianShutters, MosaicResolve,
-                CRTCollapse, LightSlitRewrite,
-                PixelDissolve, ColumnRain, GradualReveal, ScanFold,
-                HorizontalWipe, GlitchBars, DiagonalWipe,
-                DropFromSky,
-            )
-            _map = {
-                "Pixel Dissolve": PixelDissolve,
-                "Column Rain": ColumnRain,
-                "Gradual Reveal": GradualReveal,
-                "Drop from Sky": DropFromSky,
-                "Scan Fold": ScanFold,
-                "Horizontal Wipe": HorizontalWipe,
-                "Glitch Bars": GlitchBars,
-                "Diagonal Wipe": DiagonalWipe,
-                "Iris Snap": IrisSnap,
-                "Venetian Shutters": VenetianShutters,
-                "Mosaic Resolve": MosaicResolve,
-                "CRT Collapse": CRTCollapse,
-                "Light Slit": LightSlitRewrite,
-            }
-            cls = _map.get(style)
-            return cls() if cls else None
+            from ..effects.transitions import transition_factory
         except ImportError:
             return None
+        t = transition_factory(style)
+        if t is None:
+            # A stale/unknown saved value shouldn't silently disable transitions
+            # without a trace — make it visible (non-fatal).
+            print("Unknown transition_style %r; using None" % (style,))
+        return t
 
     def on_settings_changed(self):
         """Called synchronously after the web UI saves settings.

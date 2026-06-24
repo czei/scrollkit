@@ -80,6 +80,22 @@ def _effects():
     return out
 
 
+def _transitions():
+    """``[{name, doc, feasibility}]`` for the built-in content-swap transitions.
+
+    Enumerated via the explicit ``_TRANSITION_MAP`` (not ``Transition.__subclasses__``)
+    so the duck-typed ``DropFromSky`` is included and the user-facing names match
+    the settings UI. ``feasibility`` is each class's ``FEASIBILITY`` budget so an
+    agent can see the per-frame cost before choosing one.
+    """
+    from ..effects.transitions import _TRANSITION_MAP
+    out = []
+    for name, cls in _TRANSITION_MAP.items():
+        out.append({"name": name, "doc": _first_line(cls),
+                    "feasibility": getattr(cls, "FEASIBILITY", None)})
+    return out
+
+
 def _named_colors():
     """name -> 0xRRGGBB int, from the simple API's color table (deduped)."""
     from ..app.minimal import MinimalLEDApp
@@ -172,7 +188,8 @@ def capabilities():
         ),
     }
     for key, fn in (("content_types", _content_types), ("priorities", _priorities),
-                    ("effects", _effects), ("named_colors", _named_colors),
+                    ("effects", _effects), ("transitions", _transitions),
+                    ("named_colors", _named_colors),
                     ("display_api", _display_api), ("hardware", _hardware),
                     ("performance", _performance)):
         try:
@@ -207,6 +224,14 @@ def as_text(cat=None):
     fx = cat.get("effects")
     if isinstance(fx, list) and fx:
         lines.append("Effects: " + ", ".join(e["name"] for e in fx))
+    tr = cat.get("transitions")
+    if isinstance(tr, list) and tr:
+        lines.append("Transitions (transition_style setting):")
+        for t in tr:
+            feas = t.get("feasibility") or {}
+            ms = feas.get("modeled_frame_ms")
+            budget = " (~%sms/frame)" % ms if ms is not None else ""
+            lines.append("  - %s%s — %s" % (t["name"], budget, t["doc"]))
     nc = cat.get("named_colors")
     if isinstance(nc, dict) and nc:
         lines.append("Named colors: " + ", ".join(sorted(nc)))

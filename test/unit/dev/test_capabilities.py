@@ -18,7 +18,7 @@ from scrollkit.dev.capabilities import as_text
 
 def test_catalog_has_expected_sections():
     cat = capabilities()
-    for key in ("panel", "content_types", "priorities", "effects",
+    for key in ("panel", "content_types", "priorities", "effects", "transitions",
                 "named_colors", "display_api", "hardware", "verification"):
         assert key in cat, "missing section: %s" % key
 
@@ -55,16 +55,33 @@ def test_display_api_lists_draw_text():
     assert {"draw_text", "set_pixel", "fill", "clear", "show"} <= names
 
 
-def test_effects_exclude_the_abstract_base():
+def test_effects_exclude_the_removed_base_and_systems():
     names = {e["name"] for e in capabilities()["effects"]}
-    assert "Effect" not in names          # abstract base is filtered out
-    assert "Sparkle" in names             # a retained, exported effect
+    assert "Effect" not in names          # the removed Effect ABC is gone
+    assert "EffectsEngine" not in names   # the removed SimpleEffect/engine system
+    assert "Sparkle" in names             # a retained, exported particle effect
     # the removed transition effects are gone from the catalog
     assert "FadeInEffect" not in names
     assert "RevealEffect" not in names
+
+
+def test_transitions_are_cataloged_with_feasibility_budgets():
+    tr = {t["name"]: t for t in capabilities()["transitions"]}
+    # a real Transition subclass and the duck-typed DropFromSky both appear,
+    # keyed by their user-facing (settings UI) names
+    assert "Iris Snap" in tr and "Drop from Sky" in tr
+    feas = tr["Iris Snap"]["feasibility"]
+    assert isinstance(feas, dict)
+    assert feas.get("hardware_safe") is True
+    assert "modeled_frame_ms" in feas
+    # the catalog names match the settings single-source-of-truth
+    from scrollkit.config.transition_names import TRANSITION_NAMES
+    assert set(tr) == set(TRANSITION_NAMES)
 
 
 def test_as_text_is_a_readable_summary():
     text = as_text()
     assert "ScrollKit capabilities" in text
     assert "ScrollingText" in text and "Priorities:" in text
+    # transitions are visible to humans/agents, not just in the JSON
+    assert "Iris Snap" in text

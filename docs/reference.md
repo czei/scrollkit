@@ -43,7 +43,8 @@ from scrollkit.display.strategy import Priority
 ## Effects
 
 ```python
-from scrollkit.effects.effects import EffectsEngine
+from scrollkit.effects.transitions import transition_factory, Transition
+from scrollkit.effects import ParticleEngine, show_reveal_splash
 ```
 
 ## Web

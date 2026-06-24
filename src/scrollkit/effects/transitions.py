@@ -760,3 +760,47 @@ class DropFromSky:
 
 DropFromSky.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                             "max_pixel_writes_per_frame": 0, "modeled_frame_ms": 0.5}
+
+
+# --- transition registry -----------------------------------------------------
+# Maps the user-facing transition name (as shown in settings / the web UI) to its
+# class. Defined at the BOTTOM of the module so every class above is in scope.
+#
+# DropFromSky is intentionally included even though it does NOT subclass
+# Transition: it is duck-typed (start/render/is_complete + pre_render_hook). So
+# always enumerate transitions via _TRANSITION_MAP.items() — never
+# Transition.__subclasses__(), which would silently drop it.
+#
+# This map is the dispatch half of the single-source-of-truth; the name half is
+# the literal scrollkit.config.transition_names.TRANSITION_NAMES tuple. They are
+# kept in lockstep (same names, same order) by test_transition_registry. Author
+# new entries in both places, in UI order.
+_TRANSITION_MAP = {
+    "Drop from Sky": DropFromSky,
+    "Pixel Dissolve": PixelDissolve,
+    "Column Rain": ColumnRain,
+    "Gradual Reveal": GradualReveal,
+    "Scan Fold": ScanFold,
+    "Horizontal Wipe": HorizontalWipe,
+    "Glitch Bars": GlitchBars,
+    "Diagonal Wipe": DiagonalWipe,
+    "Iris Snap": IrisSnap,
+    "Venetian Shutters": VenetianShutters,
+    "Mosaic Resolve": MosaicResolve,
+    "CRT Collapse": CRTCollapse,
+    "Light Slit": LightSlitRewrite,
+}
+
+
+def transition_factory(name):
+    """Return a FRESH transition instance for a user-facing name, or None.
+
+    None means the name is not a known transition (caller decides what to do).
+    """
+    cls = _TRANSITION_MAP.get(name)
+    return cls() if cls is not None else None
+
+
+def supported_names():
+    """The user-facing transition names this module can dispatch, in UI order."""
+    return tuple(_TRANSITION_MAP)

@@ -190,36 +190,9 @@ class DisplayItem:
         self.priority = priority
         self.duration = duration
         self.expires_at = expires_at
-        self.effects = []
         self.created_at = time.time()
         self.metadata = {}
-    
-    def add_effect(self, effect) -> 'DisplayItem':
-        """Add an effect to this display item.
-        
-        Args:
-            effect: Effect instance to apply during rendering
-            
-        Returns:
-            Self for method chaining
-        """
-        self.effects.append(effect)
-        return self
-    
-    def with_effect(self, effect) -> 'DisplayItem':
-        """Add an effect to this display item (alias for add_effect).
-        
-        This method provides the fluent interface pattern requested:
-        DisplayItem(...).with_effect(SparkleEffect())
-        
-        Args:
-            effect: Effect instance to apply during rendering
-            
-        Returns:
-            Self for method chaining
-        """
-        return self.add_effect(effect)
-    
+
     def is_expired(self) -> bool:
         """Check if this item has expired.
         
