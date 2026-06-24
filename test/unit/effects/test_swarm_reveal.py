@@ -12,7 +12,16 @@ import pytest
 pygame = pytest.importorskip("pygame")
 
 from scrollkit.display.simulator import SimulatorDisplay
-from scrollkit.effects import SwarmReveal, pixels_from_text
+from scrollkit.effects import SwarmReveal, show_swarm_splash, pixels_from_text
+
+
+def test_feasibility_lives_on_the_class_not_the_function():
+    # CircuitPython/MicroPython can't set attributes on function objects, so
+    # FEASIBILITY must live on the class. Attaching it to the wrapper function
+    # crashes `import scrollkit.effects` on-device (passes on desktop CPython,
+    # which is why this guard exists).
+    assert isinstance(SwarmReveal.FEASIBILITY, dict)
+    assert not hasattr(show_swarm_splash, "FEASIBILITY")
 
 
 async def _make():

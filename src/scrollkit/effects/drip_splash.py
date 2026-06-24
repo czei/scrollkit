@@ -205,11 +205,14 @@ async def show_drip_splash(
 # image (a few hundred for typical text), so even a dense 512-px image is
 # ~9 us + 512*7 us ~= 3.6 ms — well inside the 50 ms (20 fps) budget. No
 # per-frame allocation (the drop list is built once; positions are recomputed).
+# NOTE: FEASIBILITY is attached to the CLASS only. CircuitPython/MicroPython does
+# not allow setting attributes on function objects, so the convenience wrapper
+# does NOT carry it (callers read DripReveal.FEASIBILITY). Setting it on a
+# function crashes `import scrollkit.effects` on-device.
 _FEASIBILITY = {
     "hardware_safe": True,
     "allocates_per_frame": False,
     "max_pixel_writes_per_frame": 512,
     "modeled_frame_ms": 4.0,
 }
-show_drip_splash.FEASIBILITY = _FEASIBILITY
 DripReveal.FEASIBILITY = _FEASIBILITY

@@ -391,5 +391,6 @@ _FEASIBILITY = {
     "modeled_frame_ms": 25.0,             # measured: 14 birds avg on S3 (incl. refresh)
     "note": "cost ~ num_birds^2; measured 14->25ms, 20->34ms, 28->48ms on S3",
 }
-show_swarm_splash.FEASIBILITY = _FEASIBILITY
+# CLASS only — CircuitPython can't set attributes on function objects, so the
+# wrapper does NOT carry FEASIBILITY (read SwarmReveal.FEASIBILITY instead).
 SwarmReveal.FEASIBILITY = _FEASIBILITY

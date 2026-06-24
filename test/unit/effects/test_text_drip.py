@@ -14,10 +14,19 @@ pygame = pytest.importorskip("pygame")
 from scrollkit.display.simulator import SimulatorDisplay
 from scrollkit.effects import (
     DripReveal,
+    show_drip_splash,
     pixels_from_font_text,
     font_text_width,
 )
 from scrollkit.effects.text_render import _glyph_fields
+
+
+def test_feasibility_lives_on_the_class_not_the_function():
+    # CircuitPython can't set attributes on function objects -> FEASIBILITY must
+    # live on the class. Attaching it to the wrapper crashes effects import
+    # on-device (but not on desktop CPython, hence this guard).
+    assert isinstance(DripReveal.FEASIBILITY, dict)
+    assert not hasattr(show_drip_splash, "FEASIBILITY")
 
 
 async def _make():
