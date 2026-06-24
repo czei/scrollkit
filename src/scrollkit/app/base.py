@@ -138,6 +138,11 @@ class SLDKApp:
         print("Display process started")
         _prev_content = None
         _active_transition = None
+        # Flag survives across frames: if a save triggers a content change while
+        # a transition is still playing, _prev_content catches up within one frame
+        # and the identity check would miss it. The flag defers the trigger until
+        # the active transition finishes.
+        _wants_transition = False
 
         while self.running:
             try:
@@ -145,14 +150,18 @@ class SLDKApp:
                 self._current_content = content
 
                 if content and self.display:
-                    # Start a transition when the queue advances to new content.
-                    if (content is not _prev_content
-                            and _prev_content is not None
-                            and _active_transition is None):
+                    # Mark that content changed; persist across frames so saves
+                    # that arrive during an active transition aren't silently lost.
+                    if content is not _prev_content and _prev_content is not None:
+                        _wants_transition = True
+
+                    # Fire the deferred transition as soon as nothing is active.
+                    if _wants_transition and _active_transition is None:
                         t = self._get_transition()
                         if t is not None:
                             await t.start(self.display, lambda: None)
                             _active_transition = t
+                        _wants_transition = False
 
                     await self.display.clear()
                     await content.render(self.display)
