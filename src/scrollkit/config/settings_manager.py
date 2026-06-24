@@ -41,7 +41,7 @@ class SettingsManager:
         self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
         self.define("transition_style", "None", label="Transition Style",
                     options=["None",
-                             "Drips From Sky",
+                             "Drop from Sky",
                              "Pixel Dissolve", "Column Rain", "Gradual Reveal",
                              "Scan Fold", "Horizontal Wipe", "Glitch Bars",
                              "Diagonal Wipe", "Iris Snap", "Venetian Shutters",

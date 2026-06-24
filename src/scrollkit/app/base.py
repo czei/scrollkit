@@ -173,6 +173,13 @@ class SLDKApp:
                         _wants_transition = False
 
                     await self.display.clear()
+
+                    # Let the active transition adjust content position before
+                    # it renders (used by DropFromSky to animate y each frame).
+                    if _active_transition is not None and hasattr(
+                            _active_transition, 'pre_render_hook'):
+                        _active_transition.pre_render_hook(content)
+
                     await content.render(self.display)
 
                     if _active_transition is not None:
@@ -284,13 +291,13 @@ class SLDKApp:
                 CRTCollapse, LightSlitRewrite,
                 PixelDissolve, ColumnRain, GradualReveal, ScanFold,
                 HorizontalWipe, GlitchBars, DiagonalWipe,
-                DripsFromSky,
+                DropFromSky,
             )
             _map = {
                 "Pixel Dissolve": PixelDissolve,
                 "Column Rain": ColumnRain,
                 "Gradual Reveal": GradualReveal,
-                "Drips From Sky": DripsFromSky,
+                "Drop from Sky": DropFromSky,
                 "Scan Fold": ScanFold,
                 "Horizontal Wipe": HorizontalWipe,
                 "Glitch Bars": GlitchBars,
