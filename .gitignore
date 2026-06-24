@@ -72,3 +72,6 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Runtime settings (created by the web UI; must never land in source control)
+settings.json

@@ -39,6 +39,9 @@ class SettingsManager:
         self.define("scroll_speed", "Medium", label="Scroll Speed",
                     options=["Slow", "Medium", "Fast"])
         self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
+        self.define("transition_style", "None", label="Transition Style",
+                    options=["None", "Iris Snap", "Venetian Shutters",
+                             "Mosaic Resolve", "CRT Collapse", "Light Slit"])
 
         # Apply application-provided defaults
         if defaults:
@@ -114,15 +117,15 @@ class SettingsManager:
                 self._bool_keys.append(key)
 
     def get_scroll_speed(self):
-        """
-        Get the scroll speed based on the current setting.
-
-        Returns:
-            The scroll speed in seconds per pixel
-        """
+        """Return scroll speed in seconds per pixel (for timing loops)."""
         return self.scroll_speed.get(
             self.settings.get("scroll_speed", "Medium"), 0.04
         )
+
+    def get_scroll_speed_px(self):
+        """Return scroll speed in pixels per second (for ScrollingText speed= arg)."""
+        secs = self.get_scroll_speed()
+        return int(round(1.0 / secs)) if secs > 0 else 25
 
     @staticmethod
     def get_pretty_name(settings_name):

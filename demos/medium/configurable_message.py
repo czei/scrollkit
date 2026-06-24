@@ -59,10 +59,8 @@ class ConfigurableMessageApp(ScrollKitApp):
     def _rebuild(self):
         """Rebuild display content from current settings."""
         msg = self.settings.get("message", "Hello ScrollKit")
-        color = self.settings.get("default_color", 0xFFFFFF)
-        speed = self.settings.get_scroll_speed()
         self.content_queue.clear()
-        self.content_queue.add(ScrollingText(msg, y=12, color=color, speed=speed))
+        self.content_queue.add(ScrollingText(msg, y=12))  # color + speed from library settings
 
     def on_settings_changed(self):
         """Rebuild display immediately after the browser saves new settings."""

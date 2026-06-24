@@ -23,6 +23,46 @@ get_time = lambda: time.monotonic()
 # motion against this. Kept here so the scroll math and the budget stay in sync.
 LOOP_FPS = 20
 
+# Set by SLDKApp.__init__ so content objects can read library defaults without
+# being tightly coupled to the app.  None when running outside an app context
+# (tests, standalone scripts) — helpers fall back to hardcoded values.
+_settings = None
+
+
+def _resolve_color(color):
+    """Resolve a color argument to an int.
+
+    ``None``  → library default_color setting (or 0xFFFFFF if no app running)
+    ``str``   → a named settings key; reads the current value from _settings
+    ``int``   → used as-is
+    """
+    if color is None:
+        color = "default_color"
+    if isinstance(color, str):
+        if _settings is not None:
+            try:
+                return _settings.get(color, 0xFFFFFF)
+            except Exception:
+                pass
+        return 0xFFFFFF
+    return color
+
+
+def _resolve_speed(speed):
+    """Resolve a speed argument to pixels/second.
+
+    ``None`` → library scroll_speed setting (or 25 if no app running)
+    ``int``/``float`` → used as-is
+    """
+    if speed is None:
+        if _settings is not None:
+            try:
+                return _settings.get_scroll_speed_px()
+            except Exception:
+                pass
+        return 25
+    return speed
+
 
 class DisplayContent:
     """Base class for displayable content."""
@@ -103,14 +143,14 @@ class DisplayContent:
 class StaticText(DisplayContent):
     """Static text display content."""
     
-    def __init__(self, text: str, x: int = 0, y: int = 0, color=0xFFFFFF, duration: Optional[float] = None, priority: int = 2):
+    def __init__(self, text: str, x: int = 0, y: int = 0, color=None, duration: Optional[float] = None, priority: int = 2):
         """Initialize static text.
 
         Args:
             text: Text to display
             x: X coordinate
             y: Y coordinate
-            color: Text color as 24-bit RGB int or (r, g, b) tuple
+            color: Text color as 24-bit RGB int (None = use library default_color setting)
             duration: Display duration in seconds
             priority: Queue priority (default Priority.NORMAL)
         """
@@ -118,8 +158,10 @@ class StaticText(DisplayContent):
         self.text: str = text
         self.x: int = x
         self.y: int = y
-        self.color: int = color
-    
+        # None → "default_color"; str → named setting key; int → explicit value
+        self._color_setting = "default_color" if color is None else (color if isinstance(color, str) else None)
+        self.color: int = _resolve_color(color)
+
     async def render(self, display) -> None:
         """Render static text to display."""
         await display.draw_text(self.text, self.x, self.y, self.color)
@@ -133,23 +175,25 @@ class StaticText(DisplayContent):
 class ScrollingText(DisplayContent):
     """Scrolling text display content."""
     
-    def __init__(self, text: str, x: Optional[int] = None, y: int = 0, color=0xFFFFFF, speed: int = 30, priority: int = 2):
+    def __init__(self, text: str, x: Optional[int] = None, y: int = 0, color=None, speed=None, priority: int = 2):
         """Initialize scrolling text.
 
         Args:
             text: Text to scroll
             x: Starting X coordinate (None = start from right edge)
             y: Y coordinate
-            color: Text color as 24-bit RGB int or (r, g, b) tuple
-            speed: Scroll speed in pixels per second
+            color: Text color as 24-bit RGB int (None = use library default_color setting)
+            speed: Scroll speed in pixels per second (None = use library scroll_speed setting)
             priority: Queue priority (default Priority.NORMAL)
         """
         super().__init__(duration=None, priority=priority)  # Scrolls until complete
         self.text: str = text
         self.x: Optional[int] = x
         self.y: int = y
-        self.color: int = color
-        self.speed: int = speed                 # pixels per second (now honored)
+        self._color_setting = "default_color" if color is None else (color if isinstance(color, str) else None)
+        self.color: int = _resolve_color(color)
+        self._speed_is_default = (speed is None)
+        self.speed: int = _resolve_speed(speed)
         # Position is a fixed-point accumulator in 1/16-px units, so a sub-pixel
         # per-frame speed still produces smooth integer motion. Render x = pos>>4.
         self._pos_q: Optional[int] = None

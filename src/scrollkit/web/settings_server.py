@@ -24,6 +24,32 @@ _SEE_OTHER = (303, "See Other")
 _POLL_INTERVAL = 0.05   # seconds between poll() calls (~20×/s, matches display loop)
 
 
+def _url_decode(s):
+    """Decode application/x-www-form-urlencoded value.
+
+    adafruit_httpserver does not URL-decode form values, so we do it here.
+    CircuitPython-compatible: no urllib.parse available on device.
+    """
+    result = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == '+':
+            result.append(' ')
+            i += 1
+        elif c == '%' and i + 2 < len(s):
+            try:
+                result.append(chr(int(s[i + 1:i + 3], 16)))
+                i += 3
+            except ValueError:
+                result.append(c)
+                i += 1
+        else:
+            result.append(c)
+            i += 1
+    return ''.join(result)
+
+
 # --------------------------------------------------------------------------- #
 # HTML helpers
 # --------------------------------------------------------------------------- #
@@ -238,6 +264,8 @@ class SettingsWebServer:
                 v = fd.get(key)
                 if isinstance(v, bytes):
                     v = v.decode("utf-8", "replace")
+                if isinstance(v, str):
+                    v = _url_decode(v)
                 return v
             except Exception:
                 return None
@@ -276,11 +304,17 @@ class SettingsWebServer:
 
         sm.save_settings()
 
-        if app is not None and hasattr(app, "on_settings_changed"):
-            try:
-                app.on_settings_changed()
-            except Exception as e:
-                print("on_settings_changed error:", e)
+        if app is not None:
+            if hasattr(app, "_apply_library_settings"):
+                try:
+                    app._apply_library_settings()
+                except Exception as e:
+                    print("_apply_library_settings error:", e)
+            if hasattr(app, "on_settings_changed"):
+                try:
+                    app.on_settings_changed()
+                except Exception as e:
+                    print("on_settings_changed error:", e)
 
     # ------------------------------------------------------------------ #
     # ScrollKitApp web contract

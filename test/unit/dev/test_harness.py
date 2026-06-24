@@ -226,7 +226,10 @@ def test_strict_run_fails_on_sustained_over_budget():
 
 
 def test_strict_run_passes_a_cheap_effect():
-    result = run_headless(_ScrollApp(), frames=120, strict=True)
+    # 160 frames (8 s at 20 FPS) keeps the text mid-scroll on its second pass
+    # for any library speed setting (25–50 px/s), avoiding the blank-buffer
+    # restart frame that frames=120 coincidentally hit with Medium speed.
+    result = run_headless(_ScrollApp(), frames=160, strict=True)
     assert result.ok is True
     assert result.errors == []
     assert result.advanced is True

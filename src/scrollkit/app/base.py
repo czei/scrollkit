@@ -75,6 +75,11 @@ class SLDKApp:
         # default_color) are registered by SettingsManager.__init__ via define().
         from ..config.settings_manager import SettingsManager
         self.settings = SettingsManager("settings.json")
+
+        # Give the content module a reference so ScrollingText/StaticText can
+        # read library defaults at construction time without being coupled to the app.
+        from ..display import content as _content_mod
+        _content_mod._settings = self.settings
     
     # Abstract methods to be implemented by subclasses
     
@@ -131,32 +136,41 @@ class SLDKApp:
     async def _display_process(self) -> None:
         """Process 1: Handle display updates."""
         print("Display process started")
-        
+        _prev_content = None
+        _active_transition = None
+
         while self.running:
             try:
-                # Get content to display
                 content = await self.prepare_display_content()
                 self._current_content = content
 
                 if content and self.display:
-                    # Clear display first
-                    await self.display.clear()
+                    # Start a transition when the queue advances to new content.
+                    if (content is not _prev_content
+                            and _prev_content is not None
+                            and _active_transition is None):
+                        t = self._get_transition()
+                        if t is not None:
+                            await t.start(self.display, lambda: None)
+                            _active_transition = t
 
-                    # Render content
+                    await self.display.clear()
                     await content.render(self.display)
 
-                    # Update display. show() returns False when the user closes
-                    # the simulator window (or presses ESC) -> shut the app down.
+                    if _active_transition is not None:
+                        await _active_transition.render(self.display)
+                        if _active_transition.is_complete:
+                            _active_transition = None
+
+                    # show() returns False when the simulator window closes.
                     if await self.display.show() is False:
                         self._request_shutdown()
                         return
 
                     self._frame_count += 1
 
-                # Control frame rate
+                _prev_content = content
                 await sleep(0.05)  # 20 FPS
-
-                # Report memory periodically
                 await self._report_memory()
 
             except Exception as e:
@@ -207,6 +221,62 @@ class SLDKApp:
                 print(f"Data update error: {e}")
                 await sleep(30)  # Back off on error
     
+    def _apply_library_settings(self):
+        """Apply display-level settings to the live display and content queue.
+
+        Called by SettingsWebServer immediately after saving, before
+        on_settings_changed().  Handles settings the library owns: brightness
+        (pushed to the display hardware) and scroll speed (propagated to every
+        queue item that exposes a .speed attribute).
+        """
+        if self.display is not None:
+            try:
+                brightness = float(self.settings.get("brightness_scale", 0.5))
+                brightness = max(0.0, min(1.0, brightness))
+                self.display._brightness = brightness
+                hw = getattr(self.display, "hardware", None)
+                if hw is not None:
+                    hw.display.brightness = brightness
+                else:
+                    sim = getattr(self.display, "display", None)
+                    if sim is not None:
+                        sim.brightness = brightness
+            except Exception as e:
+                print("brightness apply error:", e)
+
+        try:
+            speed_px = self.settings.get_scroll_speed_px()
+            for item in self.content_queue:
+                key = getattr(item, "_color_setting", None)
+                if key is not None:
+                    item.color = self.settings.get(key, 0xFFFFFF)
+                if getattr(item, "_speed_is_default", False):
+                    item.speed = speed_px
+        except Exception as e:
+            print("content settings apply error:", e)
+
+    def _get_transition(self):
+        """Return a fresh Transition for the current transition_style setting, or None."""
+        style = self.settings.get("transition_style", "None")
+        if not style or style == "None":
+            return None
+        try:
+            from ..effects.transitions import (
+                IrisSnap, VenetianShutters, MosaicResolve,
+                CRTCollapse, LightSlitRewrite,
+            )
+            _map = {
+                "Iris Snap": IrisSnap,
+                "Venetian Shutters": VenetianShutters,
+                "Mosaic Resolve": MosaicResolve,
+                "CRT Collapse": CRTCollapse,
+                "Light Slit": LightSlitRewrite,
+            }
+            cls = _map.get(style)
+            return cls() if cls else None
+        except ImportError:
+            return None
+
     def on_settings_changed(self):
         """Called synchronously after the web UI saves settings.
 

@@ -111,17 +111,17 @@ def _check_color(color, label):
         return []
     if isinstance(color, str):
         return [Issue("error", "color_string",
-                      "%s: color is the string %r. The imperative content classes "
-                      "need an int or (r, g, b) tuple; a name would crash draw_text "
-                      "(only MinimalLEDApp understands color names)." % (label, color),
-                      "Use 0xRRGGBB or (r, g, b). To go from a name: "
-                      "scrollkit.dev.capabilities()['named_colors'][name].")]
+                      "%s: color is the string %r — pass an int 0xRRGGBB, a tuple "
+                      "(r, g, b), or a settings key defined via "
+                      "self.settings.define(key, default, type='color')." % (label, color),
+                      "Use 0xRRGGBB or (r, g, b). For a named setting: "
+                      "self.settings.define('highlight', 0xFF8800, type='color').")]
     return [Issue("error", "color_type",
                   "%s: color has unsupported type %s." % (label, type(color).__name__),
                   "Use an int 0xRRGGBB or an (r, g, b) tuple.")]
 
 
-def _static_checks(items, panel_width, panel_height):
+def _static_checks(items, panel_width, panel_height, app=None):
     issues = []
     if not items:
         issues.append(Issue(
@@ -132,12 +132,27 @@ def _static_checks(items, panel_width, panel_height):
             "self.content_queue.add(ScrollingText('HELLO'))."))
         return issues
 
+    # Build the set of defined settings keys so we can validate color references.
+    defined_keys = set()
+    if app is not None:
+        try:
+            schema = getattr(getattr(app, "settings", None), "_schema", [])
+            defined_keys = {e["key"] for e in schema}
+        except Exception:
+            pass
+
     for idx, item in enumerate(items):
         label = "%s#%d" % (type(item).__name__, idx)
 
-        color = getattr(item, "color", None)
-        if color is not None:
-            issues.extend(_check_color(color, label))
+        color_setting = getattr(item, "_color_setting", None)
+        if color_setting is not None:
+            # color was None or a string key — validate the key is defined
+            if color_setting not in defined_keys:
+                issues.extend(_check_color(color_setting, label))
+        else:
+            color = getattr(item, "color", None)
+            if color is not None:
+                issues.extend(_check_color(color, label))
 
         text = getattr(item, "text", None)
         scrolling = hasattr(item, "speed")  # ScrollingText has speed; StaticText doesn't
@@ -221,7 +236,7 @@ def validate(app, panel_width=PANEL_WIDTH, panel_height=PANEL_HEIGHT,
         items = list(app.content_queue)
     except Exception:
         items = []
-    issues.extend(_static_checks(items, panel_width, panel_height))
+    issues.extend(_static_checks(items, panel_width, panel_height, app=app))
 
     if result is not None:
         issues.extend(_dynamic_checks(result))

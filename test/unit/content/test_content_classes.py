@@ -2,9 +2,10 @@
 """Unit tests for content classes."""
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from scrollkit.content import StaticText, ScrollingText, RainbowText
+import scrollkit.display.content as _cnt
 
 
 class TestStaticText:
@@ -21,14 +22,15 @@ class TestStaticText:
         assert text.duration == 5.0
     
     def test_static_text_defaults(self):
-        """Test static text with default values."""
-        text = StaticText("Default")
-        
+        """Test static text with default values (no-app fallback)."""
+        with patch.object(_cnt, "_settings", None):
+            text = StaticText("Default")
+
         assert text.text == "Default"
         assert text.x == 0
         assert text.y == 0
-        assert text.color == 0xFFFFFF  # Default white
-        assert text.duration is None  # Permanent
+        assert text.color == 0xFFFFFF  # no-settings fallback
+        assert text.duration is None
     
     def test_static_text_position_validation(self):
         """Test position validation for static text."""
@@ -82,14 +84,15 @@ class TestScrollingText:
         assert text.speed == 25
     
     def test_scrolling_text_defaults(self):
-        """Test scrolling text with default values."""
-        text = ScrollingText("Default Scroll")
-        
+        """Test scrolling text with default values (no-app fallback)."""
+        with patch.object(_cnt, "_settings", None):
+            text = ScrollingText("Default Scroll")
+
         assert text.text == "Default Scroll"
         assert text.y == 0
-        assert text.color == 0xFFFFFF
-        assert text.speed == 30  # Default scroll speed
-        assert text.duration is None  # Permanent scrolling
+        assert text.color == 0xFFFFFF   # no-settings fallback
+        assert text.speed == 25         # no-settings fallback (Medium equivalent)
+        assert text.duration is None
     
     def test_scrolling_text_speed_validation(self):
         """Test scroll speed validation."""
