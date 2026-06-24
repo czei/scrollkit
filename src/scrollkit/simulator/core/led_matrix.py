@@ -1,9 +1,14 @@
 """Core LED matrix simulation with pixel-level control."""
 
-import pygame
+import os
 import numpy as np
 from .pixel_buffer import PixelBuffer
 from .color_utils import apply_brightness
+
+# pygame is imported lazily (inside the methods that build the desktop "LED
+# circle" window surface) so the pixel-buffer render path stays pure-Python +
+# numpy and importable in headless environments without pygame (e.g. Pyodide in
+# the browser, or CI). See the ``headless`` flag below.
 
 
 class LEDMatrix:
@@ -13,7 +18,8 @@ class LEDMatrix:
     including realistic LED rendering with configurable pitch and appearance.
     """
     
-    def __init__(self, width, height, pitch=3.0, led_size=None, performance_manager=None):
+    def __init__(self, width, height, pitch=3.0, led_size=None, performance_manager=None,
+                 headless=False):
         """Initialize LED matrix.
         
         Args:
@@ -40,6 +46,10 @@ class LEDMatrix:
         self.pixel_buffer = PixelBuffer(width, height)
         self.brightness = 1.0
         self.performance_manager = performance_manager
+        # Headless: populate the pixel buffer but skip the pygame window surface
+        # entirely (no pygame import). Per-instance, or process-wide via
+        # SCROLLKIT_HEADLESS=1 (used by the browser/Pyodide and CI render paths).
+        self.headless = headless or os.environ.get("SCROLLKIT_HEADLESS") == "1"
         
         # Calculate surface size based on LED arrangement
         self.surface_width = width * (self.led_size + self.spacing) - self.spacing
@@ -51,7 +61,10 @@ class LEDMatrix:
         self._background_color = (30, 30, 30)  # Medium gray background for realistic appearance
         
     def initialize_surface(self):
-        """Initialize the pygame surface for rendering."""
+        """Initialize the pygame surface for rendering (no-op when headless)."""
+        if self.headless:
+            return
+        import pygame
         if not pygame.get_init():
             pygame.init()
             
@@ -108,16 +121,27 @@ class LEDMatrix:
         self.brightness = max(0.0, min(1.0, brightness))
         
     def render(self):
-        """Render the matrix to pygame surface."""
-        if self.surface is None:
-            self.initialize_surface()
-            
+        """Draw the (already-populated) pixel buffer to the pygame window surface.
+
+        The buffer is filled by set_pixel()/fill() before this runs. When
+        headless the perf model still runs (it models device timing, not pixels)
+        but the pygame surface step is skipped, so no pygame is needed.
+        """
+
         if self.performance_manager and self.performance_manager.enabled:
             # Simulate display refresh delay
             self.performance_manager.simulate_io_operation("display_refresh")
             # Simulate potential GC pause during rendering
             self.performance_manager.simulate_gc_pause()
             
+        if self.headless:
+            # Buffer already populated by set_pixel(); skip the pygame surface.
+            self.pixel_buffer.clear_dirty()
+            return
+
+        if self.surface is None:
+            self.initialize_surface()
+
         # Only update dirty regions if tracking is enabled
         if self.pixel_buffer.is_dirty():
             dirty_region = self.pixel_buffer.get_dirty_region()
@@ -184,6 +208,7 @@ class LEDMatrix:
         Returns:
             Pygame surface with rendered LED
         """
+        import pygame
         # Create surface with per-pixel alpha
         led_surface = pygame.Surface((self.led_size, self.led_size), pygame.SRCALPHA)
         
@@ -248,4 +273,5 @@ class LEDMatrix:
             filename: Path to save the screenshot
         """
         if self.surface:
+            import pygame
             pygame.image.save(self.surface, filename)

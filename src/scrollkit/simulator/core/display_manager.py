@@ -1,7 +1,10 @@
 """Manages multiple LED matrix displays."""
 
-import pygame
 import sys
+
+# pygame is imported lazily inside the windowing/event methods so that importing
+# this module (pulled in by simulator.core.__init__) does not require pygame,
+# keeping the headless pixel-buffer render path pure-Python + numpy.
 
 
 class DisplayManager:
@@ -53,9 +56,10 @@ class DisplayManager:
             fullscreen: Whether to create fullscreen window
             resizable: Whether window is resizable
         """
+        import pygame
         if not pygame.get_init():
             pygame.init()
-            
+
         # Set window size
         if width:
             self.window_width = width
@@ -99,6 +103,7 @@ class DisplayManager:
         if not self.window:
             return
             
+        import pygame
         # Clear window
         self.window.fill(self.background_color)
         
@@ -122,6 +127,7 @@ class DisplayManager:
         Returns:
             False if quit event received, True otherwise
         """
+        import pygame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -178,6 +184,7 @@ class DisplayManager:
     def quit(self):
         """Quit pygame and clean up."""
         self.running = False
+        import pygame
         pygame.quit()
         
     def save_screenshot(self, filename):
@@ -187,6 +194,7 @@ class DisplayManager:
             filename: Path to save the screenshot
         """
         if self.window:
+            import pygame
             pygame.image.save(self.window, filename)
             print(f"Screenshot saved to {filename}")
             
