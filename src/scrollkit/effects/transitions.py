@@ -382,19 +382,31 @@ class PixelDissolve(Transition):
 
 
 class ColumnRain(Transition):
-    """Pixels drip down from the sky into position. Cover: dark columns cascade
-    top-to-bottom, staggered left-to-right. Reveal: each column's new content
-    appears from the top downward — pixels settle from above, dripping into
-    their final place. Stagger flows left-to-right so the rainfall reads as a
-    single sweep across the display.
+    """Each column's pixels drop from the sky into position at visible speed.
+
+    Both cover and reveal use a frame counter (not a progress value) so each
+    column's drip front moves at a fixed pixel-per-frame rate that is fast
+    enough to read as a falling raindrop, not a slow wipe. Columns trigger
+    one frame apart left-to-right.
+
+    DRIP_FRAMES: frames for a drip front to traverse the full display height.
+    STAGGER: frames between column starts.
+    duration_frames is derived automatically from these constants.
     """
 
     NUM_COLS = 8
+    DRIP_FRAMES = 5   # each column's front crosses 32 px in 5 frames (~6 px/frame)
+    STAGGER = 1       # one frame between column starts
 
-    def __init__(self, duration_frames=14, **kw):
-        super().__init__(duration_frames, **kw)
-        self._col_fill = []    # rows covered from top (cover phase)
-        self._col_reveal = []  # rows uncovered from top (reveal phase)
+    def __init__(self, **kw):
+        n, df, st = self.NUM_COLS, self.DRIP_FRAMES, self.STAGGER
+        # +1 so the last column is fully covered before the swap fires
+        kw.setdefault('duration_frames', (n - 1) * st + df + 1)
+        super().__init__(**kw)
+        self._col_fill = []
+        self._col_reveal = []
+        self._cover_frame = 0
+        self._reveal_frame = 0
         self._col_w = 0
         self._h = 0
 
@@ -404,10 +416,66 @@ class ColumnRain(Transition):
         self._h = display.height
         self._col_fill = [0] * n
         self._col_reveal = [0] * n
+        self._cover_frame = 0
+        self._reveal_frame = 0
+        await super().start(display, swap_callback)
+
+    def _drip_y(self, frame, col):
+        """Pixel row the drip front for *col* has reached by *frame*."""
+        elapsed = max(0, frame - col * self.STAGGER)
+        return min(self._h, self._h * elapsed // self.DRIP_FRAMES) if elapsed else 0
+
+    async def _paint_cover(self, progress):
+        # Ignore progress — use frame counter so speed is constant.
+        f = self._cover_frame
+        self._cover_frame += 1
+        cw = self._col_w
+        for c in range(self.NUM_COLS):
+            target = self._drip_y(f, c)
+            if target > self._col_fill[c]:
+                await self._mask.fill_rect(c * cw, self._col_fill[c],
+                                           cw, target - self._col_fill[c])
+                self._col_fill[c] = target
+
+    async def _paint_reveal(self, progress):
+        if self._reveal_frame == 0:
+            # Guarantee full coverage before the first drip clears anything —
+            # the last cover frame may have left the rightmost column slightly short.
+            await self._mask.fill_rect(0, 0, self.NUM_COLS * self._col_w, self._h)
+            for c in range(self.NUM_COLS):
+                self._col_fill[c] = self._h
+        f = self._reveal_frame
+        self._reveal_frame += 1
+        cw = self._col_w
+        for c in range(self.NUM_COLS):
+            target = self._drip_y(f, c)
+            if target > self._col_reveal[c]:
+                await self._mask.clear_rect(c * cw, self._col_reveal[c],
+                                            cw, target - self._col_reveal[c])
+                self._col_reveal[c] = target
+
+
+class GradualReveal(Transition):
+    """Staggered vertical bands wipe in left-to-right (cover), then peel back
+    right-to-left (reveal). A clean architectural transition — not rain.
+    """
+
+    NUM_COLS = 8
+
+    def __init__(self, duration_frames=14, **kw):
+        super().__init__(duration_frames, **kw)
+        self._col_fill = []
+        self._col_w = 0
+        self._h = 0
+
+    async def start(self, display, swap_callback):
+        n = self.NUM_COLS
+        self._col_w = max(1, display.width // n)
+        self._h = display.height
+        self._col_fill = [0] * n
         await super().start(display, swap_callback)
 
     def _col_progress(self, progress, c, n):
-        """Local progress for column c given global progress 0-255."""
         start = c * 255 // n
         if progress <= start:
             return 0
@@ -426,18 +494,17 @@ class ColumnRain(Transition):
                 self._col_fill[c] = target_h
 
     async def _paint_reveal(self, progress):
-        # Drip left-to-right: leftmost column settles first.
-        # Each column's content appears from the TOP downward so the pixels
-        # look like they fell from above and landed in place.
         n = self.NUM_COLS
         cw = self._col_w
         h = self._h
-        for c in range(n):
-            target_reveal = h * self._col_progress(progress, c, n) // 255
-            if target_reveal > self._col_reveal[c]:
-                await self._mask.clear_rect(c * cw, self._col_reveal[c],
-                                            cw, target_reveal - self._col_reveal[c])
-                self._col_reveal[c] = target_reveal
+        for c in range(n - 1, -1, -1):
+            rev = n - 1 - c
+            cleared = h * self._col_progress(progress, rev, n) // 255
+            remaining = h - cleared
+            if self._col_fill[c] > remaining:
+                await self._mask.clear_rect(c * cw, remaining,
+                                            cw, self._col_fill[c] - remaining)
+                self._col_fill[c] = remaining
 
 
 class ScanFold(Transition):
@@ -618,7 +685,9 @@ LightSlitRewrite.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": Fa
 PixelDissolve.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                              "max_pixel_writes_per_frame": 512, "modeled_frame_ms": 6.0}
 ColumnRain.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
-                          "max_pixel_writes_per_frame": 512, "modeled_frame_ms": 5.0}
+                          "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 4.0}
+GradualReveal.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                             "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 4.0}
 ScanFold.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                         "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 4.0}
 HorizontalWipe.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,

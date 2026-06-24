@@ -282,12 +282,13 @@ class SLDKApp:
             from ..effects.transitions import (
                 IrisSnap, VenetianShutters, MosaicResolve,
                 CRTCollapse, LightSlitRewrite,
-                PixelDissolve, ColumnRain, ScanFold,
+                PixelDissolve, ColumnRain, GradualReveal, ScanFold,
                 HorizontalWipe, GlitchBars, DiagonalWipe,
             )
             _map = {
                 "Pixel Dissolve": PixelDissolve,
                 "Column Rain": ColumnRain,
+                "Gradual Reveal": GradualReveal,
                 "Scan Fold": ScanFold,
                 "Horizontal Wipe": HorizontalWipe,
                 "Glitch Bars": GlitchBars,
