@@ -40,8 +40,11 @@ class SettingsManager:
                     options=["None", "Slow", "Medium", "Fast"])
         self.define("default_color", 0xFFFFFF, label="Default Color", type="color")
         self.define("transition_style", "None", label="Transition Style",
-                    options=["None", "Iris Snap", "Venetian Shutters",
-                             "Mosaic Resolve", "CRT Collapse", "Light Slit"])
+                    options=["None",
+                             "Pixel Dissolve", "Column Rain", "Scan Fold",
+                             "Horizontal Wipe", "Glitch Bars", "Diagonal Wipe",
+                             "Iris Snap", "Venetian Shutters", "Mosaic Resolve",
+                             "CRT Collapse", "Light Slit"])
 
         # Apply application-provided defaults
         if defaults:

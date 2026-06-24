@@ -18,6 +18,18 @@ pygame = pytest.importorskip("pygame")
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText, StaticText, DisplayContent
 from scrollkit.dev import run_headless, run_headless_async, RunResult
+from scrollkit.config.settings_manager import SettingsManager
+
+
+@pytest.fixture(autouse=True)
+def _no_settings_file(monkeypatch):
+    """Isolate harness tests from any runtime settings.json on disk.
+
+    Tests must not depend on the absence or contents of a user-created
+    settings.json.  Patch load_settings() to return empty dict so every
+    app sees only the library defaults defined via SettingsManager.define().
+    """
+    monkeypatch.setattr(SettingsManager, "load_settings", lambda self: {})
 
 
 class _ScrollApp(ScrollKitApp):

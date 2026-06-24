@@ -326,6 +326,275 @@ class LightSlitRewrite(Transition):
         await m.fill_rect(x, 0, self.slit_px, self._h, 2)        # the bright slit
 
 
+# ---------------------------------------------------------------------------
+# Motion-friendly transitions — designed to look good under scrolling text.
+# Each uses a delta approach: only newly changed mask regions are written
+# per frame (no full repaint), so the text keeps scrolling cleanly beneath.
+# ---------------------------------------------------------------------------
+
+class PixelDissolve(Transition):
+    """Text crumbles away as random 4×4 blocks cover the display, then the new
+    content dissolves in block-by-block in reverse order — like film grain
+    burning through. The irregular scatter works naturally with moving text.
+    """
+
+    BLOCK = 4
+
+    def __init__(self, duration_frames=16, **kw):
+        super().__init__(duration_frames, **kw)
+        self._order = ()
+        self._cols = 0
+        self._covered = 0
+        self._revealed = 0
+
+    async def start(self, display, swap_callback):
+        import random
+        bw = bh = self.BLOCK
+        self._cols = max(1, display.width // bw)
+        rows = max(1, display.height // bh)
+        order = list(range(self._cols * rows))
+        random.shuffle(order)
+        self._order = tuple(order)
+        self._covered = 0
+        self._revealed = 0
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        bw = bh = self.BLOCK
+        target = len(self._order) * progress // 256
+        while self._covered < target:
+            idx = self._order[self._covered]
+            x = (idx % self._cols) * bw
+            y = (idx // self._cols) * bh
+            await self._mask.fill_rect(x, y, bw, bh)
+            self._covered += 1
+
+    async def _paint_reveal(self, progress):
+        bw = bh = self.BLOCK
+        n = len(self._order)
+        target = n * progress // 256
+        while self._revealed < target:
+            idx = self._order[n - 1 - self._revealed]
+            x = (idx % self._cols) * bw
+            y = (idx // self._cols) * bh
+            await self._mask.clear_rect(x, y, bw, bh)
+            self._revealed += 1
+
+
+class ColumnRain(Transition):
+    """Eight columns cascade from the top down, staggered left-to-right like
+    rainfall. The leftmost column falls first; the rightmost last. Reveal drains
+    the same columns right-to-left. Text that's mid-scroll when rain starts
+    keeps moving underneath the falling curtain.
+    """
+
+    NUM_COLS = 8
+
+    def __init__(self, duration_frames=14, **kw):
+        super().__init__(duration_frames, **kw)
+        self._col_fill = []
+        self._col_w = 0
+        self._h = 0
+
+    async def start(self, display, swap_callback):
+        n = self.NUM_COLS
+        self._col_w = max(1, display.width // n)
+        self._h = display.height
+        self._col_fill = [0] * n
+        await super().start(display, swap_callback)
+
+    def _col_progress(self, progress, c, n):
+        """Local progress for column c given global progress 0-255."""
+        start = c * 255 // n
+        if progress <= start:
+            return 0
+        remaining = 255 - start
+        return min(255, (progress - start) * 255 // remaining) if remaining else 255
+
+    async def _paint_cover(self, progress):
+        n = self.NUM_COLS
+        cw = self._col_w
+        h = self._h
+        for c in range(n):
+            target_h = h * self._col_progress(progress, c, n) // 255
+            if target_h > self._col_fill[c]:
+                await self._mask.fill_rect(c * cw, self._col_fill[c],
+                                           cw, target_h - self._col_fill[c])
+                self._col_fill[c] = target_h
+
+    async def _paint_reveal(self, progress):
+        # Drain right-to-left: rightmost column clears first.
+        n = self.NUM_COLS
+        cw = self._col_w
+        h = self._h
+        for c in range(n - 1, -1, -1):
+            rev = n - 1 - c
+            cleared = h * self._col_progress(progress, rev, n) // 255
+            remaining = h - cleared
+            if self._col_fill[c] > remaining:
+                await self._mask.clear_rect(c * cw, remaining,
+                                            cw, self._col_fill[c] - remaining)
+                self._col_fill[c] = remaining
+
+
+class ScanFold(Transition):
+    """Top and bottom scanlines simultaneously fold toward the horizontal
+    centre until the screen is fully covered, then unfold outward to reveal
+    new content. Two bars per frame — very fast, good on scrolling text.
+    """
+
+    def __init__(self, duration_frames=12, **kw):
+        super().__init__(duration_frames, **kw)
+        self._w = 0
+        self._h = 0
+        self._cov = 0   # rows covered from each edge
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        self._cov = 0
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        half = self._h // 2
+        target = half * progress // 255
+        if target > self._cov:
+            dy = target - self._cov
+            await self._mask.fill_rect(0, self._cov, self._w, dy)            # top bar
+            await self._mask.fill_rect(0, self._h - target, self._w, dy)     # bottom bar
+            self._cov = target
+
+    async def _paint_reveal(self, progress):
+        half = self._h // 2
+        target_rem = half - half * progress // 255
+        if self._cov > target_rem:
+            dy = self._cov - target_rem
+            await self._mask.clear_rect(0, target_rem, self._w, dy)          # expose top
+            await self._mask.clear_rect(0, self._h - self._cov, self._w, dy) # expose bottom
+            self._cov = target_rem
+
+
+class HorizontalWipe(Transition):
+    """A crisp vertical edge sweeps left-to-right during cover — chasing the
+    direction text scrolls off screen — then sweeps back to reveal new content.
+    One rect per frame. Pairs well with fast-scrolling text.
+    """
+
+    def __init__(self, duration_frames=10, **kw):
+        super().__init__(duration_frames, **kw)
+        self._w = 0
+        self._h = 0
+        self._covered_x = 0
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        self._covered_x = 0
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        target_x = self._w * progress // 255
+        if target_x > self._covered_x:
+            await self._mask.fill_rect(self._covered_x, 0,
+                                       target_x - self._covered_x, self._h)
+            self._covered_x = target_x
+
+    async def _paint_reveal(self, progress):
+        remaining_x = self._w - self._w * progress // 255
+        if self._covered_x > remaining_x:
+            await self._mask.clear_rect(remaining_x, 0,
+                                        self._covered_x - remaining_x, self._h)
+            self._covered_x = remaining_x
+
+
+class GlitchBars(Transition):
+    """Random-height horizontal bars flash onto the display in a shuffled order —
+    like a corrupted video signal. Cover bars vary from 1 to 4 rows tall;
+    reveal clears them in reverse. The irregular pattern looks especially alive
+    over moving text.
+    """
+
+    def __init__(self, duration_frames=14, **kw):
+        super().__init__(duration_frames, **kw)
+        self._bars = ()
+        self._w = 0
+        self._covered = 0
+        self._revealed = 0
+
+    async def start(self, display, swap_callback):
+        import random
+        h = display.height
+        self._w = display.width
+        bars = []
+        y = 0
+        while y < h:
+            bh = min(random.randint(1, 4), h - y)
+            bars.append((y, bh))
+            y += bh
+        random.shuffle(bars)
+        self._bars = tuple(bars)
+        self._covered = 0
+        self._revealed = 0
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        n = len(self._bars)
+        target = n * progress // 256
+        while self._covered < target:
+            y, bh = self._bars[self._covered]
+            await self._mask.fill_rect(0, y, self._w, bh)
+            self._covered += 1
+
+    async def _paint_reveal(self, progress):
+        n = len(self._bars)
+        target = n * progress // 256
+        while self._revealed < target:
+            y, bh = self._bars[n - 1 - self._revealed]
+            await self._mask.clear_rect(0, y, self._w, bh)
+            self._revealed += 1
+
+
+class DiagonalWipe(Transition):
+    """A diagonal boundary sweeps top-left to bottom-right during cover, then
+    sweeps bottom-right to top-left during reveal. One delta span per row per
+    frame (32 spans for 64×32) — bounded. Creates a dynamic angled reveal that
+    cuts cleanly across scrolling text.
+    """
+
+    def __init__(self, duration_frames=12, **kw):
+        super().__init__(duration_frames, **kw)
+        self._w = 0
+        self._h = 0
+        self._row_fill = []
+
+    async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
+        self._row_fill = [0] * self._h
+        await super().start(display, swap_callback)
+
+    async def _paint_cover(self, progress):
+        w = self._w
+        h = self._h
+        k = (w + h) * progress // 255
+        for row in range(h):
+            target = min(max(0, k - row), w)
+            if target > self._row_fill[row]:
+                await self._mask.fill_span(row, self._row_fill[row], target)
+                self._row_fill[row] = target
+
+    async def _paint_reveal(self, progress):
+        w = self._w
+        h = self._h
+        k_max = w + h
+        k = k_max - k_max * progress // 255
+        for row in range(h):
+            target = min(max(0, k - row), w)
+            if target < self._row_fill[row]:
+                await self._mask.clear_rect(target, row, self._row_fill[row] - target, 1)
+                self._row_fill[row] = target
+
+
 # --- advertised feasibility metadata (US7 / FR-026) -------------------------
 # hardware_safe: passes the strict gate at 20 fps; allocates_per_frame: MUST be
 # False (no per-frame heap alloc); max_pixel_writes_per_frame: worst-case bounded
@@ -342,3 +611,16 @@ CRTCollapse.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                            "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 8.0}
 LightSlitRewrite.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                                 "max_pixel_writes_per_frame": 2048, "modeled_frame_ms": 8.0}
+# Motion-friendly additions
+PixelDissolve.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                             "max_pixel_writes_per_frame": 512, "modeled_frame_ms": 6.0}
+ColumnRain.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                          "max_pixel_writes_per_frame": 512, "modeled_frame_ms": 5.0}
+ScanFold.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                        "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 4.0}
+HorizontalWipe.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                              "max_pixel_writes_per_frame": 192, "modeled_frame_ms": 3.0}
+GlitchBars.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                          "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 5.0}
+DiagonalWipe.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                            "max_pixel_writes_per_frame": 384, "modeled_frame_ms": 6.0}
