@@ -253,7 +253,7 @@ class ContentQueue:
     
     def __init__(self, loop: bool = True):
         """Initialize content queue.
-        
+
         Args:
             loop: Whether to loop back to start when queue ends
         """
@@ -261,6 +261,11 @@ class ContentQueue:
         self._items: List[Any] = []
         self._current_index: int = 0
         self._current_content: Optional[Any] = None
+        # Incremented every time a content item starts (first play counts as 1;
+        # each subsequent cycle increments by 1). The display loop detects
+        # changes to fire transitions between plays without relying on object
+        # identity (which stays constant when a single-item queue loops).
+        self._advance_count: int = 0
     
     def add(self, content) -> None:
         """Add content to queue.
@@ -283,6 +288,9 @@ class ContentQueue:
         self._items.clear()
         self._current_index = 0
         self._current_content = None
+        # _advance_count is intentionally NOT reset: the display loop tracks it
+        # to detect advances; a reset would look like the first play and suppress
+        # the transition for the item that follows a rebuild.
     
     def get_content_count(self) -> int:
         """Get number of items in queue."""
@@ -303,19 +311,15 @@ class ContentQueue:
         
         # Check if we need to advance
         if self._current_content is None:
-            # First time - start with first item
             self._current_content = self._items[self._current_index]
             await self._current_content.start()
+            self._advance_count += 1
         elif self._current_content.is_complete:
-            # Stop current content
             await self._current_content.stop()
-            
-            # Advance to next
             self._current_index = (self._current_index + 1) % len(self._items)
-            
-            # Start new content
             self._current_content = self._items[self._current_index]
             await self._current_content.start()
+            self._advance_count += 1
         
         return self._current_content
     

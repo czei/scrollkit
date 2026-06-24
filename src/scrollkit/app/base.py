@@ -138,10 +138,11 @@ class SLDKApp:
         print("Display process started")
         _prev_content = None
         _active_transition = None
-        # Flag survives across frames: if a save triggers a content change while
-        # a transition is still playing, _prev_content catches up within one frame
-        # and the identity check would miss it. The flag defers the trigger until
-        # the active transition finishes.
+        _prev_advance = 0   # tracks content_queue._advance_count
+        # Survives across frames: set when content advances (queue cycle or
+        # rebuild); cleared only when a transition fires (or no transition is
+        # configured). This lets saves that arrive during a playing transition
+        # queue up and fire when the current one finishes.
         _wants_transition = False
 
         while self.running:
@@ -149,9 +150,17 @@ class SLDKApp:
                 content = await self.prepare_display_content()
                 self._current_content = content
 
+                # Detect queue advances (loop, multi-item advance, or rebuild).
+                # The advance counter increments on every start() call; _prev_advance > 0
+                # skips the very first play (nothing to transition from yet).
+                advance = getattr(self.content_queue, "_advance_count", 0)
+                if advance != _prev_advance and _prev_advance > 0:
+                    _wants_transition = True
+                _prev_advance = advance
+
                 if content and self.display:
-                    # Mark that content changed; persist across frames so saves
-                    # that arrive during an active transition aren't silently lost.
+                    # Fallback: object identity catches custom prepare_display_content()
+                    # implementations that don't use ContentQueue.
                     if content is not _prev_content and _prev_content is not None:
                         _wants_transition = True
 
