@@ -382,56 +382,63 @@ class PixelDissolve(Transition):
 
 
 class ColumnRain(Transition):
-    """Each column's pixels drop from the sky into position at visible speed.
+    """Sixteen thin drops fall from the sky in random order.
 
-    Both cover and reveal use a frame counter (not a progress value) so each
-    column's drip front moves at a fixed pixel-per-frame rate that is fast
-    enough to read as a falling raindrop, not a slow wipe. Columns trigger
-    one frame apart left-to-right.
+    Width: 4 px per drop column (16 × 4 = 64 px). Each drop's front races
+    down the display in DRIP_FRAMES frames (~8 px/frame on a 32-tall display).
+    Columns fire one frame apart in a shuffled order — so at any moment you see
+    ~4 drops at different heights scattered across the display, which reads as
+    actual rainfall rather than a directional wipe.
 
-    DRIP_FRAMES: frames for a drip front to traverse the full display height.
-    STAGGER: frames between column starts.
-    duration_frames is derived automatically from these constants.
+    Both cover and reveal use a frame counter (not eased progress) so the
+    falling speed is constant and perceptible.
     """
 
-    NUM_COLS = 8
-    DRIP_FRAMES = 5   # each column's front crosses 32 px in 5 frames (~6 px/frame)
-    STAGGER = 1       # one frame between column starts
+    NUM_COLS = 16     # 16 × 4 px = 64 px wide
+    DRIP_FRAMES = 4   # frames each front takes to traverse full height (~8 px/frame)
+    STAGGER = 1       # frames between successive drop starts
 
     def __init__(self, **kw):
         n, df, st = self.NUM_COLS, self.DRIP_FRAMES, self.STAGGER
-        # +1 so the last column is fully covered before the swap fires
         kw.setdefault('duration_frames', (n - 1) * st + df + 1)
         super().__init__(**kw)
         self._col_fill = []
         self._col_reveal = []
+        self._col_rank = []    # _col_rank[c] = which step column c fires on
         self._cover_frame = 0
         self._reveal_frame = 0
         self._col_w = 0
+        self._w = 0
         self._h = 0
 
     async def start(self, display, swap_callback):
+        import random
         n = self.NUM_COLS
         self._col_w = max(1, display.width // n)
+        self._w = display.width
         self._h = display.height
         self._col_fill = [0] * n
         self._col_reveal = [0] * n
+        order = list(range(n))
+        random.shuffle(order)
+        self._col_rank = [0] * n
+        for rank, col in enumerate(order):
+            self._col_rank[col] = rank
         self._cover_frame = 0
         self._reveal_frame = 0
         await super().start(display, swap_callback)
 
-    def _drip_y(self, frame, col):
-        """Pixel row the drip front for *col* has reached by *frame*."""
-        elapsed = max(0, frame - col * self.STAGGER)
+    def _drip_y(self, frame, rank):
+        """Y position the drip front has reached given its start rank."""
+        elapsed = max(0, frame - rank * self.STAGGER)
         return min(self._h, self._h * elapsed // self.DRIP_FRAMES) if elapsed else 0
 
     async def _paint_cover(self, progress):
-        # Ignore progress — use frame counter so speed is constant.
         f = self._cover_frame
         self._cover_frame += 1
         cw = self._col_w
         for c in range(self.NUM_COLS):
-            target = self._drip_y(f, c)
+            target = self._drip_y(f, self._col_rank[c])
             if target > self._col_fill[c]:
                 await self._mask.fill_rect(c * cw, self._col_fill[c],
                                            cw, target - self._col_fill[c])
@@ -439,16 +446,15 @@ class ColumnRain(Transition):
 
     async def _paint_reveal(self, progress):
         if self._reveal_frame == 0:
-            # Guarantee full coverage before the first drip clears anything —
-            # the last cover frame may have left the rightmost column slightly short.
-            await self._mask.fill_rect(0, 0, self.NUM_COLS * self._col_w, self._h)
+            # Guarantee the mask is fully opaque before the first drip clears.
+            await self._mask.fill_rect(0, 0, self._w, self._h)
             for c in range(self.NUM_COLS):
-                self._col_fill[c] = self._h
+                self._col_reveal[c] = 0
         f = self._reveal_frame
         self._reveal_frame += 1
         cw = self._col_w
         for c in range(self.NUM_COLS):
-            target = self._drip_y(f, c)
+            target = self._drip_y(f, self._col_rank[c])
             if target > self._col_reveal[c]:
                 await self._mask.clear_rect(c * cw, self._col_reveal[c],
                                             cw, target - self._col_reveal[c])
