@@ -103,7 +103,13 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         # Label+Group every frame. Reset each frame in clear().
         self._label_pool: List[Any] = []
         self._label_idx: int = 0
-        
+        # Parallel pool for integer-scaled labels (draw_text_scaled). Kept
+        # separate from _label_pool so a scaled and an unscaled draw in the same
+        # frame never thrash one Label's .scale attribute. Same discipline:
+        # reuse + mutate in place, reset index in clear(), hide-unused in show().
+        self._scaled_pool: List[Any] = []
+        self._scaled_idx: int = 0
+
     @property
     def width(self) -> int:
         """Display width in pixels."""
@@ -233,6 +239,7 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         hidden in show().
         """
         self._label_idx = 0
+        self._scaled_idx = 0
 
         # Wipe the bounded-painter canvas so fill_rect drawings don't ghost across
         # frames (immediate-mode, like draw_text). One C bulk fill; layer stays.
@@ -247,6 +254,10 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         """Hide pooled Labels that weren't drawn this frame (frame drew fewer)."""
         for i in range(self._label_idx, len(self._label_pool)):
             lbl = self._label_pool[i]
+            if hasattr(lbl, "hidden"):
+                lbl.hidden = True
+        for i in range(self._scaled_idx, len(self._scaled_pool)):
+            lbl = self._scaled_pool[i]
             if hasattr(lbl, "hidden"):
                 lbl.hidden = True
 
@@ -408,7 +419,55 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             self._label_pool.append(label)
             self._content_group.append(label)   # added directly; no per-label wrapper Group
         self._label_idx += 1
-    
+
+    async def draw_text_scaled(self, text: str, x: int = 0, y: int = 0,
+                               color: int = 0xFFFFFF, scale: int = 2,
+                               font: Any = None) -> None:
+        """Draw integer-scaled text (e.g. a large number), reusing a pooled Label.
+
+        Like :meth:`draw_text` but renders at ``scale`` x the font's native size.
+        Uses a dedicated scaled-Label pool so mixing scaled and unscaled draws in
+        the same frame never thrashes a Label's ``.scale``; per-frame work stays
+        allocation-free after the first frame.
+
+        Args:
+            text: Text to display.
+            x: Starting X coordinate.
+            y: Starting Y coordinate (the font baseline, as with ``draw_text``).
+            color: Text color as 24-bit RGB.
+            scale: Integer magnification factor (>=1).
+            font: Font to use (default font if None).
+        """
+        if not Label:
+            return
+        if font is None:
+            font = self.font
+        if font is None:
+            return
+        if scale < 1:
+            scale = 1
+
+        idx = self._scaled_idx
+        if idx < len(self._scaled_pool):
+            label = self._scaled_pool[idx]
+            if label.text != text:
+                label.text = text
+            if label.color != color:
+                label.color = color
+            if getattr(label, "scale", scale) != scale:
+                label.scale = scale
+            label.x = x
+            label.y = y
+            if hasattr(label, "hidden"):
+                label.hidden = False
+        else:
+            label = Label(font, text=text, color=color, scale=scale)
+            label.x = x
+            label.y = y
+            self._scaled_pool.append(label)
+            self._content_group.append(label)
+        self._scaled_idx += 1
+
     def _convert_color(self, color: Any) -> int:
         """Convert color to platform-appropriate format.
         

@@ -109,6 +109,11 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         # honest — it only charges a text rebuild when .text actually changes.
         self._label_pool: list = []
         self._label_idx: int = 0
+        # Parallel pool for integer-scaled labels (draw_text_scaled), mirroring
+        # UnifiedDisplay. Kept separate from _label_pool so a scaled and an
+        # unscaled draw in the same frame never thrash one Label's .scale.
+        self._scaled_pool: list = []
+        self._scaled_idx: int = 0
 
     @property
     def width(self) -> int:
@@ -171,6 +176,7 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             while len(self._content_group):
                 self._content_group.pop()
         self._label_idx = 0
+        self._scaled_idx = 0
 
         # Wipe the bounded-painter canvas so fill_rect drawings don't ghost across
         # frames (immediate-mode, like draw_text). One C bulk fill; layer stays.
@@ -396,7 +402,39 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             self._label_pool.append(label)
         self._content_group.append(label)
         self._label_idx += 1
-    
+
+    async def draw_text_scaled(self, text: str, x: int = 0, y: int = 0,
+                               color: int = 0xFFFFFF, scale: int = 2,
+                               font: Any = None) -> None:
+        """Draw integer-scaled text, reusing a pooled scaled Label.
+
+        Simulator mirror of :meth:`UnifiedDisplay.draw_text_scaled` — same scaled
+        pool discipline, re-appended to the content group each frame (which
+        clear() empties), so nothing is allocated per frame after warm-up.
+        """
+        if font is None:
+            font = self.font
+        if scale < 1:
+            scale = 1
+        idx = self._scaled_idx
+        if idx < len(self._scaled_pool):
+            label = self._scaled_pool[idx]
+            if label.text != text:
+                label.text = text
+            if label.color != color:
+                label.color = color
+            if getattr(label, "scale", scale) != scale:
+                label.scale = scale
+            label.x = x
+            label.y = y
+        else:
+            label = Label(font, text=text, color=color, scale=scale)
+            label.x = x
+            label.y = y
+            self._scaled_pool.append(label)
+        self._content_group.append(label)
+        self._scaled_idx += 1
+
     async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
         """Scroll text across display.
         
