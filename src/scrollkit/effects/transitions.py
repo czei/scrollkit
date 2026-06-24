@@ -47,7 +47,9 @@ class Transition:
         self._is_complete = False
         await self._mask.clear()
 
-    async def render(self, display):
+    async def render(self, display, content=None):
+        # content is passed by _display_process for transitions that need to
+        # re-render at a different position (e.g. DripsFromSky). Ignored here.
         if self._is_complete:
             return
         if self._frame < self.half:
@@ -702,3 +704,96 @@ GlitchBars.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                           "max_pixel_writes_per_frame": 256, "modeled_frame_ms": 5.0}
 DiagonalWipe.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                             "max_pixel_writes_per_frame": 384, "modeled_frame_ms": 6.0}
+
+
+class _YOffsetDisplay:
+    """Thin display proxy that shifts every draw_text y by a fixed delta.
+
+    Only forwards the calls that ScrollingText and StaticText actually make;
+    everything else (show, clear, fill_rect, ...) is not proxied because
+    DripsFromSky calls those directly on the real display.
+    """
+
+    def __init__(self, display, dy):
+        self._d = display
+        self._dy = dy
+        self.width = display.width
+        self.height = display.height
+
+    async def draw_text(self, text, x, y, color):
+        await self._d.draw_text(text, x, y + self._dy, color)
+
+    def measure_text(self, text):
+        return self._d.measure_text(text)
+
+
+class DripsFromSky:
+    """Content pixels enter from y=0 and fall to their natural y position.
+
+    This is NOT an OverlayMask transition — it takes over content rendering
+    entirely for the duration of the animation.
+
+    Cover phase (COVER_FRAMES): fills the display black so the old content
+    disappears cleanly.
+
+    Reveal phase (FALL_FRAMES): each frame, clears the display and re-renders
+    the content through a _YOffsetDisplay proxy whose dy starts at -content.y
+    (text top-aligned at y=0) and eases to 0 (text at its natural position).
+    The content's internal scroll position is saved and restored so horizontal
+    scrolling advances only once per frame, not twice.
+
+    Requires _display_process to pass content=content when calling render().
+    """
+
+    COVER_FRAMES = 4
+    FALL_FRAMES = 14
+
+    def __init__(self):
+        self._frame = 0
+        self._is_complete = False
+        self._w = 0
+        self._h = 0
+
+    async def start(self, display, swap_callback):
+        self._frame = 0
+        self._is_complete = False
+        self._w = display.width
+        self._h = display.height
+        # swap_callback is a no-op here — the queue advances naturally when
+        # the old content completes. We just animate the new content in.
+
+    @property
+    def is_complete(self):
+        return self._is_complete
+
+    async def render(self, display, content=None):
+        if self._is_complete:
+            return
+        total = self.COVER_FRAMES + self.FALL_FRAMES
+        if self._frame < self.COVER_FRAMES:
+            # Black out: draw over whatever content rendered this frame.
+            await display.fill_rect(0, 0, self._w, self._h, 0x000000)
+        elif content is not None:
+            reveal_f = self._frame - self.COVER_FRAMES
+            # Linear ease: 0 at reveal start, 1 at reveal end.
+            progress = reveal_f / self.FALL_FRAMES
+            content_y = getattr(content, 'y', 0)
+            # dy starts at -content_y (text pinned to top) and moves to 0.
+            dy = -int(content_y * (1.0 - progress))
+            # Erase what _display_process drew at the natural y position.
+            await display.fill_rect(0, 0, self._w, self._h, 0x000000)
+            # Save scroll state — content.render() advances _pos_q; we restore
+            # so the horizontal position advances only once this frame.
+            saved_pos_q = getattr(content, '_pos_q', None)
+            saved_complete = getattr(content, '_is_complete', False)
+            await content.render(_YOffsetDisplay(display, dy))
+            if saved_pos_q is not None:
+                content._pos_q = saved_pos_q
+            content._is_complete = saved_complete
+        self._frame += 1
+        if self._frame >= total:
+            self._is_complete = True
+
+
+DripsFromSky.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
+                             "max_pixel_writes_per_frame": 192, "modeled_frame_ms": 4.0}

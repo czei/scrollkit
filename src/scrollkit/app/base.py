@@ -176,7 +176,7 @@ class SLDKApp:
                     await content.render(self.display)
 
                     if _active_transition is not None:
-                        await _active_transition.render(self.display)
+                        await _active_transition.render(self.display, content=content)
                         if _active_transition.is_complete:
                             _active_transition = None
 
@@ -284,11 +284,13 @@ class SLDKApp:
                 CRTCollapse, LightSlitRewrite,
                 PixelDissolve, ColumnRain, GradualReveal, ScanFold,
                 HorizontalWipe, GlitchBars, DiagonalWipe,
+                DripsFromSky,
             )
             _map = {
                 "Pixel Dissolve": PixelDissolve,
                 "Column Rain": ColumnRain,
                 "Gradual Reveal": GradualReveal,
+                "Drips From Sky": DripsFromSky,
                 "Scan Fold": ScanFold,
                 "Horizontal Wipe": HorizontalWipe,
                 "Glitch Bars": GlitchBars,
