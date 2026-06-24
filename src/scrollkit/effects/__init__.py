@@ -7,6 +7,7 @@ from .base import Effect, CompositeEffect
 from .particles import ParticleEngine, Sparkle, Snow
 from .reveal_splash import show_reveal_splash, pixels_from_text
 from .drip_splash import show_drip_splash, DripReveal
+from .swarm_reveal import show_swarm_splash, SwarmReveal
 from .text_render import pixels_from_font_text, font_text_width
 
 __all__: list[str] = [
@@ -19,6 +20,8 @@ __all__: list[str] = [
     'show_reveal_splash',
     'show_drip_splash',
     'DripReveal',
+    'show_swarm_splash',
+    'SwarmReveal',
     'pixels_from_text',
     'pixels_from_font_text',
     'font_text_width',
