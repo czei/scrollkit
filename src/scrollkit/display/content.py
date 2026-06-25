@@ -313,8 +313,13 @@ class ContentQueue:
         self._current_index: int = 0
         self._current_content: Optional[Any] = None
         # Content abandoned by clear() that still needs its async stop() run by the
-        # display loop (see clear()). None when there is nothing pending.
-        self._pending_stop: Optional[Any] = None
+        # display loop (see clear()). A LIST, not a single slot: a settings change
+        # rebuilds the queue twice in quick succession (the synchronous web handler's
+        # immediate rebuild, then the scheduled data refresh's teardown), and a
+        # single slot would let the second rebuild clobber the first's pending stop —
+        # orphaning the on-screen content's overlay layer (e.g. a Swarm reveal's
+        # bird/number layers) on screen forever.
+        self._pending_stops: List[Any] = []
         # Incremented every time a content item starts (first play counts as 1;
         # each subsequent cycle increments by 1). The display loop detects
         # changes to fire transitions between plays without relying on object
@@ -347,10 +352,11 @@ class ContentQueue:
         # without stopping it would orphan such a resource forever. Deferring keeps
         # the async stop() out of this synchronous method, so every rebuild path (a
         # timed refresh and a synchronous settings handler alike) is covered with no
-        # race. If a prior clear() already queued one and the loop hasn't run yet,
-        # keep it: by then _current_content is None, so the older pending isn't lost.
-        if self._current_content is not None:
-            self._pending_stop = self._current_content
+        # race. Pending stops ACCUMULATE in a list: several rebuilds before the loop
+        # next runs (e.g. a settings handler's immediate rebuild + the scheduled
+        # refresh's teardown) each keep their overlay's stop(), so none is clobbered.
+        if self._current_content is not None and self._current_content not in self._pending_stops:
+            self._pending_stops.append(self._current_content)
         self._items.clear()
         self._current_index = 0
         self._current_content = None
@@ -373,13 +379,13 @@ class ContentQueue:
     async def get_current(self) -> Optional[Any]:
         """Get current content to display."""
         # Stop content abandoned by a clear()/rebuild before showing anything new,
-        # so it releases its overlay layer (see clear()). Cleared first so a
+        # so it releases its overlay layer (see clear()). Drain the whole list (a
+        # rapid double-rebuild can leave more than one), popping each first so a
         # concurrent clear() during stop() isn't lost; guarded so a misbehaving
         # stop() can't wedge the loop. Runs even when the queue is now empty (a
         # rebuild to no items must still detach the old overlay).
-        if self._pending_stop is not None:
-            pending = self._pending_stop
-            self._pending_stop = None
+        while self._pending_stops:
+            pending = self._pending_stops.pop(0)
             try:
                 await pending.stop()
             except Exception:
