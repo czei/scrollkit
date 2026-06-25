@@ -1,7 +1,8 @@
 name: CI
 
 # Runs the headless unit suite (including the strict hardware-feasibility gate that
-# every effect/transition must clear) and the critical-error lint on each push/PR.
+# every effect/transition must clear) and the critical-error lint on each push/PR,
+# plus a strict mkdocs build (a broken internal link or anchor fails it).
 # The suite runs against the pygame simulator with a dummy SDL driver, so no display
 # or audio device is needed on the runner.
 
@@ -47,3 +48,25 @@ jobs:
 
       - name: Unit tests (incl. strict feasibility gate)
         run: make test-unit
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install docs dependencies
+        # The docs are hand-written markdown (no mkdocstrings autodoc), so this only
+        # needs the [docs] extra (mkdocs + material) — the package isn't imported.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[docs]"
+
+      - name: Build docs (strict)
+        # --strict fails on any warning, e.g. a broken internal link or anchor.
+        run: mkdocs build --strict
