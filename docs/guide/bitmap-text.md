@@ -7,6 +7,12 @@ visibly *not just displayio*. A ScrollKit-native fixed-cell **5×7 font**
 `TileGrid`, and the animation comes from rewriting a few **palette** entries each
 frame — near-zero per-frame pixel work and **no glyph rebuild**.
 
+!!! info "Reads well static or scrolling"
+    The palette effects (`RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`,
+    `HazardStripes`) animate colour, not position, so they look good whether the
+    text is held static or scrolling (`PAIRS_WITH = ("static", "scrolling")`). See
+    [pairing effects to content](effects.md#pairing-effects-to-content).
+
 ```python
 from scrollkit.display.bitmap_text import (
     BitmapText, RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes,

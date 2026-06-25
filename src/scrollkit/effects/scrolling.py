@@ -330,3 +330,15 @@ class SplitFlap(DisplayContent):
             "seed": self.seed, "frame": self._frame,
         })
         return info
+
+
+# --- content pairing ---------------------------------------------------------
+# Which content presentation each scroller looks best as, surfaced in
+# capabilities()/docs so app authors and AI agents pick the right effect for the
+# content. Vocabulary: "static" (a held frame), "scrolling" (moving text),
+# "fullscreen" (a screen-wide transition). Class-level (CircuitPython can't tag
+# functions). Marquee and WaveRider ARE scrolling presentations; SplitFlap flips
+# characters in place, so it reads as held/static text.
+KineticMarquee.PAIRS_WITH = ("scrolling",)
+WaveRider.PAIRS_WITH = ("scrolling",)
+SplitFlap.PAIRS_WITH = ("static",)

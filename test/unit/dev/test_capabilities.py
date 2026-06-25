@@ -19,8 +19,24 @@ from scrollkit.dev.capabilities import as_text
 def test_catalog_has_expected_sections():
     cat = capabilities()
     for key in ("panel", "content_types", "priorities", "effects", "transitions",
+                "scrolling", "palette_effects",
                 "named_colors", "display_api", "hardware", "verification"):
         assert key in cat, "missing section: %s" % key
+
+
+def test_effects_advertise_content_pairing():
+    """Each visual effect says which content style it suits (PAIRS_WITH)."""
+    cat = capabilities()
+    tr = {t["name"]: t for t in cat["transitions"]}
+    assert tr["Iris Snap"]["pairs_with"] == ["fullscreen"]
+    assert "scrolling" in tr["Horizontal Wipe"]["pairs_with"]
+    sc = {e["name"]: e for e in cat["scrolling"]}
+    assert sc["KineticMarquee"]["pairs_with"] == ["scrolling"]
+    assert sc["SplitFlap"]["pairs_with"] == ["static"]
+    pe = {e["name"]: e for e in cat["palette_effects"]}
+    assert set(pe["RainbowChase"]["pairs_with"]) == {"static", "scrolling"}
+    # surfaced in the human/AI text summary
+    assert "best on" in as_text(cat)
 
 
 def test_panel_is_64x32():

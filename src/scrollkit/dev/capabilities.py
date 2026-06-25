@@ -81,18 +81,59 @@ def _effects():
 
 
 def _transitions():
-    """``[{name, doc, feasibility}]`` for the built-in content-swap transitions.
+    """``[{name, doc, feasibility, pairs_with}]`` for the built-in content-swap transitions.
 
     Enumerated via the explicit ``_TRANSITION_MAP`` (not ``Transition.__subclasses__``)
-    so the duck-typed ``DropFromSky`` is included and the user-facing names match
-    the settings UI. ``feasibility`` is each class's ``FEASIBILITY`` budget so an
-    agent can see the per-frame cost before choosing one.
+    so the duck-typed ``DropFromSky`` is included and the user-facing names match the
+    settings UI. ``feasibility`` is each class's ``FEASIBILITY`` budget and
+    ``pairs_with`` says which content style it suits (static / scrolling / fullscreen).
     """
     from ..effects.transitions import _TRANSITION_MAP
     out = []
     for name, cls in _TRANSITION_MAP.items():
         out.append({"name": name, "doc": _first_line(cls),
-                    "feasibility": getattr(cls, "FEASIBILITY", None)})
+                    "feasibility": getattr(cls, "FEASIBILITY", None),
+                    "pairs_with": list(getattr(cls, "PAIRS_WITH", ()))})
+    return out
+
+
+def _scrolling():
+    """``[{name, doc, feasibility, pairs_with}]`` for the Class-1 scrolling effects.
+
+    These ARE content presentations (DisplayContent subclasses); ``pairs_with`` says
+    which content style each suits (see PAIRS_WITH in ``effects/scrolling.py``).
+    """
+    out = []
+    try:
+        from ..effects import scrolling as _sc
+    except ImportError:
+        return out
+    for nm in ("KineticMarquee", "WaveRider", "SplitFlap"):
+        cls = getattr(_sc, nm, None)
+        if cls is not None:
+            out.append({"name": nm, "doc": _first_line(cls),
+                        "feasibility": getattr(cls, "FEASIBILITY", None),
+                        "pairs_with": list(getattr(cls, "PAIRS_WITH", ()))})
+    return out
+
+
+def _palette_effects():
+    """``[{name, doc, applies_to, pairs_with}]`` for the BitmapText palette animations.
+
+    They animate the colour palette of bitmap text (no glyph rebuild); ``pairs_with``
+    says they read well on static or scrolling text.
+    """
+    out = []
+    try:
+        from ..display import bitmap_text as _bt
+    except ImportError:
+        return out
+    for nm in ("RainbowChase", "NeonTubeCrawl", "ChromeSheen", "HazardStripes"):
+        cls = getattr(_bt, nm, None)
+        if cls is not None:
+            out.append({"name": nm, "doc": _first_line(cls),
+                        "applies_to": "BitmapText",
+                        "pairs_with": list(getattr(cls, "PAIRS_WITH", ()))})
     return out
 
 
@@ -189,6 +230,7 @@ def capabilities():
     }
     for key, fn in (("content_types", _content_types), ("priorities", _priorities),
                     ("effects", _effects), ("transitions", _transitions),
+                    ("scrolling", _scrolling), ("palette_effects", _palette_effects),
                     ("named_colors", _named_colors),
                     ("display_api", _display_api), ("hardware", _hardware),
                     ("performance", _performance)):
@@ -224,6 +266,9 @@ def as_text(cat=None):
     fx = cat.get("effects")
     if isinstance(fx, list) and fx:
         lines.append("Effects: " + ", ".join(e["name"] for e in fx))
+    def _pairs(e):
+        pw = e.get("pairs_with")
+        return " [best on: %s]" % ", ".join(pw) if pw else ""
     tr = cat.get("transitions")
     if isinstance(tr, list) and tr:
         lines.append("Transitions (transition_style setting):")
@@ -231,7 +276,17 @@ def as_text(cat=None):
             feas = t.get("feasibility") or {}
             ms = feas.get("modeled_frame_ms")
             budget = " (~%sms/frame)" % ms if ms is not None else ""
-            lines.append("  - %s%s — %s" % (t["name"], budget, t["doc"]))
+            lines.append("  - %s%s%s — %s" % (t["name"], budget, _pairs(t), t["doc"]))
+    sc = cat.get("scrolling")
+    if isinstance(sc, list) and sc:
+        lines.append("Scrolling effects:")
+        for e in sc:
+            lines.append("  - %s%s — %s" % (e["name"], _pairs(e), e["doc"]))
+    pe = cat.get("palette_effects")
+    if isinstance(pe, list) and pe:
+        lines.append("Palette effects (on BitmapText):")
+        for e in pe:
+            lines.append("  - %s%s — %s" % (e["name"], _pairs(e), e["doc"]))
     nc = cat.get("named_colors")
     if isinstance(nc, dict) and nc:
         lines.append("Named colors: " + ", ".join(sorted(nc)))

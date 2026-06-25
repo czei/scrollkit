@@ -762,6 +762,26 @@ DropFromSky.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
                             "max_pixel_writes_per_frame": 0, "modeled_frame_ms": 0.5}
 
 
+# --- content pairing ---------------------------------------------------------
+# Which content presentation each transition suits best, for app authors / AI
+# (surfaced in capabilities() + docs). "fullscreen" = a screen-covering swap between
+# content (works with any content); "static"/"scrolling" = pairs especially well
+# with held / moving text. Class-level (CircuitPython can't tag functions).
+IrisSnap.PAIRS_WITH = ("fullscreen",)
+VenetianShutters.PAIRS_WITH = ("fullscreen",)
+MosaicResolve.PAIRS_WITH = ("fullscreen",)
+CRTCollapse.PAIRS_WITH = ("fullscreen",)
+LightSlitRewrite.PAIRS_WITH = ("fullscreen",)
+PixelDissolve.PAIRS_WITH = ("fullscreen",)
+ColumnRain.PAIRS_WITH = ("fullscreen",)
+GradualReveal.PAIRS_WITH = ("fullscreen",)
+ScanFold.PAIRS_WITH = ("fullscreen",)
+HorizontalWipe.PAIRS_WITH = ("fullscreen", "scrolling")
+GlitchBars.PAIRS_WITH = ("fullscreen",)
+DiagonalWipe.PAIRS_WITH = ("fullscreen",)
+DropFromSky.PAIRS_WITH = ("static",)
+
+
 # --- transition registry -----------------------------------------------------
 # Maps the user-facing transition name (as shown in settings / the web UI) to its
 # class. Defined at the BOTTOM of the module so every class above is in scope.

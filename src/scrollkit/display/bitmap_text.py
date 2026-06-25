@@ -185,6 +185,14 @@ class HazardStripes:
             self._phase = (self._phase + 1) % 2
 
 
+# Content pairing: palette effects animate the colours of bitmap text, so they read
+# well whether the text is held static or scrolling (surfaced in capabilities()/docs).
+RainbowChase.PAIRS_WITH = ("static", "scrolling")
+NeonTubeCrawl.PAIRS_WITH = ("static", "scrolling")
+ChromeSheen.PAIRS_WITH = ("static", "scrolling")
+HazardStripes.PAIRS_WITH = ("static", "scrolling")
+
+
 class BitmapText(DisplayContent):
     """A message rendered once into an indexed bitmap, scrolled via a TileGrid,
     with an optional per-frame palette effect."""

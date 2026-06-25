@@ -7,6 +7,12 @@ allocation**, and pass the strict feasibility gate at 20 fps. Motion is driven b
 a fixed-point (1/16-px) accumulator and the [integer easing tables](effects.md),
 and text extent comes from `display.measure_text` (never `len(text) * 6`).
 
+!!! info "Best on scrolling text"
+    `KineticMarquee` and `WaveRider` *are* scrolling presentations
+    (`PAIRS_WITH = ("scrolling",)`); `SplitFlap` flips characters in place, so it
+    reads as held **static** text (`PAIRS_WITH = ("static",)`). See
+    [pairing effects to content](effects.md#pairing-effects-to-content).
+
 ```python
 from scrollkit.effects.scrolling import KineticMarquee, WaveRider, SplitFlap
 ```

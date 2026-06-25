@@ -45,6 +45,25 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
 
+## Pairing effects to content
+
+Some effects read best on **static** (held) text, some on **scrolling** text, and
+the transitions are **full-screen** swaps between content. Each effect class carries
+a `PAIRS_WITH` tag (`"static"` / `"scrolling"` / `"fullscreen"`) that
+`scrollkit.dev.capabilities()` surfaces as `pairs_with` (and `as_text()` prints as
+`[best on: …]`), so app authors and AI agents can pick the right effect for the
+content.
+
+| Best on | Effects |
+|---------|---------|
+| **Scrolling** text | `KineticMarquee`, `WaveRider` — Class 1, they *are* the scroll |
+| **Static** / held text | `SplitFlap` (flips in place); the `Drop from Sky` transition (drops text into place) |
+| **Either** static or scrolling | the `BitmapText` palette effects: `RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes` |
+| **Full screen** (swap between content) | every `Transition`: `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`, `PixelDissolve`, `ColumnRain`, `GradualReveal`, `ScanFold`, `GlitchBars`, `DiagonalWipe` — plus `HorizontalWipe`, which also suits fast-**scrolling** text |
+
+The tag is guidance, not a constraint — nothing stops you using an effect
+elsewhere; it just records what looks good.
+
 !!! tip "Memory ladder"
     Effects are the first thing to disable on a memory-starved device. Prefer the
     lighter transitions and keep splash/particle counts low when targeting the
