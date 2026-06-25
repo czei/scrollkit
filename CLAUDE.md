@@ -9,8 +9,8 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 desktop **pygame simulator**. The library lives entirely in `src/scrollkit/`.
 
 This repo is the **library only**. The ThemeParkWaits application that uses it
-lives in its own repository (`../themeparkwaits.release`) — do not add
-application code here.
+lives in its own repository (`czei/themeparkwaits`, checked out at
+`../themeparkwaits`) — do not add application code here.
 
 For *building apps with* the library (the imperative API, content types, the
 verification loop, and the device-measured performance cheat-sheet), see
