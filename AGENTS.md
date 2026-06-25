@@ -249,14 +249,36 @@ exceptions, and the hardware stutter/RAM warnings. Treat `errors` as blockers an
 ## Discovering the API
 
 ```python
-from scrollkit.dev import capabilities
+from scrollkit.dev import capabilities, as_text
 cat = capabilities()            # JSON-able dict, introspected from live code
 # cat["content_types"], cat["priorities"], cat["effects"],
+# cat["transitions"], cat["scrolling"], cat["palette_effects"],
 # cat["named_colors"], cat["display_api"], cat["hardware"]
+print(as_text(cat))             # compact human/agent-readable summary
 ```
 
 Prefer `capabilities()` over guessing class/parameter names — it reflects the
-installed library exactly.
+installed library exactly (and can't drift from prose docs).
+
+### Effects & transitions: pick by the pairing hint, then verify
+
+Each entry in `cat["transitions"]`, `cat["scrolling"]`, and `cat["palette_effects"]`
+carries a `pairs_with` tag (`"static"` / `"scrolling"` / `"fullscreen"`) and a
+`feasibility` budget; `as_text()` prints them as `[best on: …] (~Nms/frame)`. Match
+the effect to how the content is presented:
+
+- **scrolling** text → `KineticMarquee` / `WaveRider` (from `cat["scrolling"]`), or a
+  `BitmapText` palette effect.
+- **static / held** screens → a full-screen `Transition`, or `SplitFlap` /
+  `Drop from Sky`.
+- **either** → the `BitmapText` palette effects (`cat["palette_effects"]`:
+  `RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes`).
+
+Apply them via the real API: set the `transition_style` setting to a name from
+`cat["transitions"]`; add scrolling effects as content to the queue; use
+`BitmapText(text, palette_effect=…)` for palette text. Then **verify every change**
+with `run_headless(app, strict=True)` — an effect that busts the ~50 ms / 20 fps
+budget raises `FeasibilityError`. The full pairing table is in `docs/guide/effects.md`.
 
 ---
 

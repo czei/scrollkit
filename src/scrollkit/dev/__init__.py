@@ -26,13 +26,13 @@ if getattr(sys, "implementation", None) is not None \
     )
 
 from .harness import RunResult, run_headless, run_headless_async  # noqa: E402
-from .capabilities import capabilities  # noqa: E402
+from .capabilities import capabilities, as_text  # noqa: E402
 from .validation import validate, ValidationReport, Issue  # noqa: E402
 from .performance import performance_guide  # noqa: E402
 from . import metrics  # noqa: E402,F401
 
 __all__ = [
     "RunResult", "run_headless", "run_headless_async", "metrics",
-    "capabilities", "validate", "ValidationReport", "Issue",
+    "capabilities", "as_text", "validate", "ValidationReport", "Issue",
     "performance_guide",
 ]
