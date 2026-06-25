@@ -209,6 +209,67 @@ class TestContentQueue:
 
         asyncio.run(scenario())
 
+    def test_clear_drains_every_abandoned_overlay_across_rapid_rebuilds(self):
+        """Two rebuilds before the loop drains must stop BOTH abandoned overlays.
+
+        Regression: clear() deferred the stop() into a single slot, so a second
+        rebuild (the scheduled refresh's teardown right after the settings handler's
+        immediate rebuild) clobbered the first's pending stop — leaving an overlay
+        (e.g. a Swarm reveal's bird/number layers) orphaned on screen forever.
+        Pending stops now accumulate in a list and all drain.
+        """
+        import asyncio
+
+        class _OverlayContent:
+            priority = 2
+
+            def __init__(self, layers):
+                self._layers = layers
+                self.tile = object()
+                self.is_complete = False
+                self.stopped = False
+
+            async def start(self):
+                self._layers.append(self.tile)
+
+            async def stop(self):
+                self.stopped = True
+                if self.tile in self._layers:
+                    self._layers.remove(self.tile)
+
+            async def render(self, display):
+                pass
+
+        async def scenario():
+            layers = []
+            queue = ContentQueue()
+
+            first = _OverlayContent(layers)
+            queue.add(first)
+            await queue.get_current()            # `first` on screen (overlay added)
+
+            # Rebuild #1 (the synchronous settings handler): abandons `first`.
+            queue.clear()
+            second = _OverlayContent(layers)
+            queue.add(second)
+            # The render path advances to `second` (synchronous current-setter, no
+            # drain yet), so its overlay is on screen too.
+            assert queue.get_current_content() is second
+            await second.start()
+
+            # Rebuild #2 before the loop's async get_current() runs: abandons
+            # `second` too. A single pending slot would clobber `first` right here.
+            queue.clear()
+
+            # One async frame must release BOTH orphaned overlays, not just the last.
+            result = await queue.get_current()
+            assert result is None                       # rebuilt to empty
+            assert first.stopped is True, "first overlay's stop() was clobbered"
+            assert second.stopped is True, "second overlay's stop() was lost"
+            assert layers == []                         # no leaked overlay layers
+
+        asyncio.run(scenario())
+
 
 class TestContentQueueWithDurations:
     """Test content queue behavior with time-based content."""
