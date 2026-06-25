@@ -22,7 +22,13 @@ verification loop, and the device-measured performance cheat-sheet), see
   - `app/` — `ScrollKitApp` base class, the async run loop, memory helpers
   - `display/` — `UnifiedDisplay` (auto-detects hardware vs simulator), the
     `SimulatorDisplay`, `DisplayInterface`, content classes
-  - `effects/`, `network/`, `ota/`, `config/`, `utils/` — supporting subsystems
+  - `effects/` — the `Transition` content-swap system (`transitions.py`) with the
+    `OverlayMask`/easing primitives, plus standalone splash/particle/text-render
+    helpers (the old `Effect`/`EffectsEngine` systems were removed — see
+    "Effects & transitions" below)
+  - `config/` — `SettingsManager` and `transition_names.py` (the single source of
+    truth for transition names)
+  - `network/`, `ota/`, `utils/` — supporting subsystems
   - `simulator/` — desktop pygame simulator (displayio emulation, fonts, and the
     `core/` hardware-realism model)
   - `dev/` — **desktop-only** developer/AI verification toolkit (raises
@@ -46,7 +52,10 @@ The package lives under `src/`, so tests/scripts run with an env prefix.
 - `make test-coverage` — coverage report
 
 **ALWAYS run `make test-unit` and `make lint-errors` after any change; both must
-be green before considering work complete.**
+be green before considering work complete.** CI (`.github/workflows/ci.yml`) runs
+the same two on push/PR (Python 3.11 & 3.13) via `pip install -e ".[dev]"`, which
+pulls the `[simulator]` extra (pygame + numpy + Pillow) — so packaging regressions
+fail CI.
 
 ## The dev / verification toolkit (`scrollkit.dev` — desktop only)
 
@@ -55,7 +64,8 @@ This is how an app is built and checked against the simulator before flashing:
 - `run_headless(app, frames=N, screenshot=path) -> RunResult` — deterministic
   headless render with pixel metrics + a hardware feasibility report
 - `capabilities()` — JSON-able catalog (content types, priorities, effects,
-  colors, display API), introspected from live code so it can't drift
+  transitions + their feasibility budgets, colors, display API), introspected from
+  live code so it can't drift
 - `validate(app)` — structured pre-flight issues with concrete fixes
 - `performance_guide()` — per-operation costs measured on a real device
 
@@ -124,6 +134,40 @@ Performance follows the device measurements (see `AGENTS.md` for the full
 cheat-sheet): reuse `Label`s instead of allocating/rebuilding one per frame, use
 C bulk calls (`bitmap.fill`, `bitmaptools.blit`) rather than per-pixel Python
 loops, and keep `bit_depth=4` (≈3× faster refresh than 6).
+
+## Effects & transitions: one contract (post-consolidation)
+
+The effects subsystem was consolidated to a **single content-swap contract plus
+standalone helpers**. **Do not reintroduce the removed systems**: the `Effect` ABC
+/ `EffectRegistry` / `CompositeEffect`, the `SimpleEffect` / `EffectsEngine` system,
+the `EnhancedDisplayContent` family, and the `with_effect` / `add_effect`
+attachment API on `DisplayItem` / `BaseContent` (and `DisplayQueue._apply_effects`)
+are all gone.
+
+- **The one contract is `Transition`** (`effects/transitions.py`): cover →
+  swap-while-hidden → reveal. Subclasses implement `_paint_cover(progress)` /
+  `_paint_reveal(progress)` with **bounded, bulk** writes into the preallocated
+  `OverlayMask` (C `bitmaptools` ops — never a per-frame allocation or a per-pixel
+  Python loop). Each carries a `FEASIBILITY` dict **on the class** (CircuitPython
+  can't attach attributes to functions). `DropFromSky` is a duck-typed sibling, not
+  a `Transition` subclass — enumerate via `_TRANSITION_MAP`, never
+  `Transition.__subclasses__()`.
+- **Single source of truth for transition names**: the literal-only
+  `config/transition_names.TRANSITION_NAMES` feeds the settings UI, and
+  `effects/transitions._TRANSITION_MAP` / `transition_factory()` own the
+  name→class dispatch. A unit test keeps the two in lockstep (ordered) **and**
+  asserts that importing settings does not load the effects package —
+  `transition_names` imports nothing, so the device boot path never pays for
+  `effects/` (RAM). To add a selectable transition, edit those two places (same
+  order); a custom one-off can override `_get_transition()` instead.
+- **Standalone, orthogonal** (NOT the `Transition` contract): the splash animations
+  (`reveal_splash` / `drip_splash` / `swarm_reveal`), `particles`, and
+  `text_render`. Leave them as-is.
+- **The safety mechanism for any new effect is the strict gate, not a plugin
+  loader**: `run_headless(app, strict=True)` raises `FeasibilityError` if an effect
+  allocates per frame or busts the ~50 ms (20 fps) budget. The annotated reference
+  is `demos/medium/golden_transition.py`; the contributor guide is the "Adding your
+  own transition" section of `docs/guide/transitions.md`.
 
 ## Thread safety: the web server must never modify the message queue
 
