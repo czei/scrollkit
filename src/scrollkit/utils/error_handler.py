@@ -7,9 +7,11 @@ import traceback
 
 try:
     import storage
-    STORAGE_AVAILABLE = True
 except (ImportError, AttributeError):
-    STORAGE_AVAILABLE = False
+    # `storage` is a CircuitPython-only module. Bind it to None on desktop so the
+    # module attribute always exists (the detection branch below gates on
+    # `storage is not None`, and tests patch this name).
+    storage = None
 
 class ErrorHandler:
     """
@@ -51,7 +53,7 @@ class ErrorHandler:
         self.is_readonly = True
 
         # First check if we can directly detect read-only status via storage module
-        if STORAGE_AVAILABLE:
+        if storage is not None:
             try:
                 # Get mount location
                 mount_path = '/'
