@@ -34,15 +34,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        # Mirrors the project's [simulator] + [dev] extras. Installed directly (not
-        # via `pip install -e .`) so the suite runs the same way it does locally —
-        # against the in-tree package on PYTHONPATH=src, which the Makefile sets.
+        # Editable install via the [dev] extra (which pulls in [simulator]: pygame,
+        # numpy, Pillow). This exercises the real published install path, so a
+        # packaging regression fails CI here. The Makefile still sets PYTHONPATH=src;
+        # the editable install resolves to the same in-tree source.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install \
-            "pygame>=2.0" "Pillow>=9.0" "numpy>=1.21" \
-            "pytest>=7.0" "pytest-asyncio>=0.21" "pytest-cov>=4.0" \
-            "ruff>=0.1" "requests>=2.28"
+          python -m pip install -e ".[dev]"
 
       - name: Critical-error lint
         run: make lint-errors
