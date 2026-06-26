@@ -707,26 +707,36 @@ DiagonalWipe.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
 
 
 class DropFromSky:
-    """New content slides in from the top: text starts at y=0 and falls to its
-    natural y position over FALL_FRAMES frames.
+    """New content slides into place from an edge — by default from the TOP (text
+    starts above its row and falls to its natural y over FALL_FRAMES frames). Set
+    ``direction`` to "top" (default), "bottom", "left", or "right" to slide it in
+    from that edge instead.
 
     Works by hooking into _display_process *before* content.render() via
-    pre_render_hook(), which temporarily sets content.y to the animated
-    position. render() then restores y so state never drifts.
+    pre_render_hook(), which temporarily sets content.x / content.y to the animated
+    position. render() then restores it so state never drifts.
 
-    No OverlayMask, no double-rendering, no layer-order issues. The Labels
-    are positioned correctly from the first draw call each frame.
+    No OverlayMask, no double-rendering, no layer-order issues. The Labels are
+    positioned correctly from the first draw call each frame.
     """
 
     FALL_FRAMES = 10
+    _DIRECTIONS = ("top", "bottom", "left", "right")
 
-    def __init__(self):
+    def __init__(self, direction="top"):
+        self.direction = direction if direction in self._DIRECTIONS else "top"
         self._frame = 0
+        self._target_x = None
         self._target_y = None
+        self._w = 0
+        self._h = 0
         self._is_complete = False
 
     async def start(self, display, swap_callback):
+        self._w = display.width
+        self._h = display.height
         self._frame = 0
+        self._target_x = None
         self._target_y = None
         self._is_complete = False
 
@@ -735,24 +745,36 @@ class DropFromSky:
         return self._is_complete
 
     def pre_render_hook(self, content):
-        """Set content.y to the animated position BEFORE content.render()."""
+        """Set content.x/y to the animated entry position BEFORE content.render()."""
         if self._is_complete:
             return
         if self._target_y is None:
             self._target_y = getattr(content, 'y', 0)
-        # y travels from 0 (frame 0) to _target_y (frame FALL_FRAMES)
+            self._target_x = getattr(content, 'x', 0)
+        # 0 -> 1 over the slide; only the axis for `direction` moves, from an
+        # off-screen edge to the content's natural position.
         progress = min(1.0, self._frame / self.FALL_FRAMES)
-        if hasattr(content, 'y'):
-            content.y = int(self._target_y * progress)
+        d = self.direction
+        if d == "top" or d == "bottom":
+            start_y = 0 if d == "top" else self._h
+            if hasattr(content, 'y'):
+                content.y = int(start_y + (self._target_y - start_y) * progress)
+        else:  # left / right
+            start_x = -self._w if d == "left" else self._w
+            if hasattr(content, 'x'):
+                content.x = int(start_x + (self._target_x - start_x) * progress)
 
     async def render(self, display, content=None):
-        """Restore content.y after render and advance frame counter."""
+        """Restore content.x/y after render and advance the frame counter."""
         if self._is_complete:
             return
-        # Restore y so the content object always carries its natural position.
+        # Restore whichever axis we animated to its natural value.
         if content is not None and self._target_y is not None:
-            if hasattr(content, 'y'):
-                content.y = self._target_y
+            if self.direction == "top" or self.direction == "bottom":
+                if hasattr(content, 'y'):
+                    content.y = self._target_y
+            elif hasattr(content, 'x') and self._target_x is not None:
+                content.x = self._target_x
         self._frame += 1
         if self._frame > self.FALL_FRAMES:
             self._is_complete = True
