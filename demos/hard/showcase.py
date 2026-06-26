@@ -5,7 +5,8 @@ A scripted loop that ANNOUNCES each effect on a title card ("NOW SHOWING /
 
   Class 1 — characterful scrolling : KineticMarquee, WaveRider, SplitFlap
   Class 2 — theatrical transitions : IrisSnap, VenetianShutters, MosaicResolve,
-                                      CRTCollapse, LightSlitRewrite
+                                      CRTCollapse, LightSlitRewrite, ColumnRain,
+                                      DropFromSky (slides in from any edge)
   Class 3 — palette-animated text  : RainbowChase, NeonTubeCrawl, ChromeSheen,
                                       HazardStripes
 
@@ -44,6 +45,7 @@ from scrollkit.display.bitmap_text import (
 from scrollkit.effects.scrolling import KineticMarquee, WaveRider, SplitFlap
 from scrollkit.effects.transitions import (
     IrisSnap, VenetianShutters, MosaicResolve, CRTCollapse, LightSlitRewrite,
+    ColumnRain, DropFromSky,
 )
 
 
@@ -229,6 +231,64 @@ class LightSlitScene(_TransitionScene):
                                                     slit_color=0xFFFFFF))
 
 
+class ColumnRainScene(_TransitionScene):
+    LABEL = "RAIN"
+    FACTORY = staticmethod(lambda: ColumnRain(cover_color=0x102840))
+
+
+class _Pos:
+    """A minimal content stand-in (just x/y) for DropFromSky to animate in a scene."""
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class DropScene(_Scene):
+    """Announce, then slide a screen of content in from each edge with DropFromSky —
+    top, then bottom, left, right — showing the new directional entry. DropFromSky
+    is duck-typed (not an OverlayMask transition): it animates the content's own
+    x/y via pre_render_hook, so the scene draws the text at that moving position."""
+
+    CATEGORY = "TRANSITION"
+    LABEL = "DROP IN"
+    STEPS = (("TOP", 0xFFCC22, "top"),
+             ("BOTTOM", 0x66FF88, "bottom"),
+             ("LEFT", 0xFF66AA, "left"),
+             ("RIGHT", 0x66CCFF, "right"))
+    HOLD = 16                       # frames to hold each landed screen before the next
+
+    async def setup(self, display):
+        self._i = 0
+        self._hold = 0
+        self._pos = _Pos(0, CONTENT_Y)
+        self._t = DropFromSky(direction=self.STEPS[0][2])
+        await self._t.start(display, lambda: None)
+
+    async def run(self, display):
+        label, color, _dir = self.STEPS[self._i]
+        # Reset to the natural centred position, let the transition pull it to the
+        # entry edge for this frame, draw the text there, then advance/restore.
+        self._pos.x = _center_x(display, label)
+        self._pos.y = CONTENT_Y
+        self._t.pre_render_hook(self._pos)
+        await display.draw_text(label, self._pos.x, self._pos.y, color)
+        await self._t.render(display, self._pos)
+        if self._t.is_complete:
+            if self._hold < self.HOLD:
+                self._hold += 1
+            else:
+                self._hold = 0
+                self._i += 1
+                if self._i < len(self.STEPS):
+                    self._t = DropFromSky(direction=self.STEPS[self._i][2])
+                    await self._t.start(display, lambda: None)
+
+    @property
+    def _effect_done(self):
+        return self._i >= len(self.STEPS)
+
+
 # --- Class 3: palette-animated bitmap text ----------------------------------
 
 class _PaletteScene(_Scene):
@@ -281,7 +341,8 @@ class ShowcaseReel(DisplayContent):
 
     SCENES = [
         MarqueeScene, WaveScene, FlapScene,                       # Class 1
-        IrisScene, VenetianScene, MosaicScene, CRTScene, LightSlitScene,  # Class 2
+        IrisScene, VenetianScene, MosaicScene, CRTScene, LightSlitScene,
+        ColumnRainScene, DropScene,                               # Class 2
         RainbowScene, NeonScene, ChromeScene, HazardScene,        # Class 3
     ]
 

@@ -1,8 +1,8 @@
 """US7 — the showcase reel runs strict end-to-end and demos every signature effect.
 
 Loads the actual ``demos/hard/showcase.py`` reel and verifies:
-  - it visits ALL 13 announced scenes (3 scrollers + 5 transitions + 4 palette
-    effects + the easing meters), and
+  - it visits ALL 14 announced scenes (3 scrollers + 7 transitions + 4 palette
+    effects), and
   - it cleans up its effect layers between scenes (no layer leak), and
   - a full pass passes the strict feasibility gate at 20 fps end to end.
 """
@@ -35,7 +35,7 @@ DEMO = _load_demo()
 # Enough frames to complete one full pass through every scene (and wrap), measured
 # from the reel pacing — so every scene boundary (layer attach/detach + the strict
 # gate) is exercised, not just the first few.
-FULL_PASS_FRAMES = 1700
+FULL_PASS_FRAMES = 2300
 
 
 def _reel_app():
@@ -93,5 +93,6 @@ def test_reel_advertises_every_signature_effect():
     labels = [s.LABEL for s in DEMO.ShowcaseReel().SCENES]
     for expected in ["MARQUEE", "WAVERIDER", "SPLITFLAP",
                      "IRIS", "VENETIAN", "MOSAIC", "CRT FOLD", "LIGHTSLIT",
+                     "RAIN", "DROP IN",
                      "RAINBOW", "NEON TUBE", "CHROME", "HAZARD"]:
         assert expected in labels, expected
