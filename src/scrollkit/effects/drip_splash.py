@@ -1,4 +1,4 @@
-"""Drip-splash animation — blank screen, LEDs drip down each column into place.
+"""Drip-splash animation — LEDs drip in from an edge (default the top) into place.
 
 The inverse of :func:`scrollkit.effects.show_reveal_splash`.  The screen starts
 blank; every lit pixel of the target image appears at the top of its column
@@ -44,10 +44,12 @@ import asyncio
 
 
 class DripReveal:
-    """Frame-driven drip-in of a fixed set of target pixels.
+    """Frame-driven drip-in of a fixed set of target pixels from an edge.
 
-    Build it with the target ``pixels`` (e.g. from :func:`pixels_from_font_text`),
-    call :meth:`start` once with the display, then :meth:`step` once per frame.
+    Build it with the target ``pixels`` (e.g. from :func:`pixels_from_font_text`)
+    and a ``direction`` ("top" default — drops fall down; or "bottom"/"left"/"right"
+    to enter from that edge), call :meth:`start` once with the display, then
+    :meth:`step` once per frame.
     :meth:`step` renders the current frame into a transparent overlay and returns
     ``True`` when the image is fully assembled.  The overlay persists until
     :meth:`detach` is called, so a completed reveal can stay on screen as the live
@@ -55,11 +57,16 @@ class DripReveal:
     to swap in).
     """
 
-    def __init__(self, pixels, color=0xFFFF00, fall_speed=1, stagger=2):
+    _DIRECTIONS = ("top", "bottom", "left", "right")
+
+    def __init__(self, pixels, color=0xFFFF00, fall_speed=1, stagger=2, direction="top"):
         self.pixels = pixels
         self.color = color
         self.fall_speed = fall_speed if fall_speed > 1 else 1
         self.stagger = stagger if stagger > 0 else 0
+        # Edge the drops enter from: "top" (default, fall down), "bottom" (rise up),
+        # "left" (slide right), or "right" (slide left). Top keeps the original look.
+        self.direction = direction if direction in self._DIRECTIONS else "top"
         self._display = None
         self._bitmap = None
         self._tile = None
@@ -83,20 +90,28 @@ class DripReveal:
         display.add_layer(self._tile)
         self._display = display
 
-        # Group targets by column; bottom-most (largest y) launches first so a
-        # drop never has to fall past a settled one (gaps preserved, no checks).
-        columns = {}
+        # Group pixels by the FIXED axis (the column for top/bottom, the row for
+        # left/right); each drop travels along the other axis from the entry edge to
+        # its target. The pixel that travels FARTHEST in a group launches first so a
+        # drop never has to pass a settled one (gaps preserved, no collision checks).
+        vertical = self.direction in ("top", "bottom")
+        from_low = self.direction in ("top", "left")   # enters from coordinate 0
+        span = h if vertical else w
+        groups = {}
         for (x, y) in self.pixels:
             if 0 <= x < w and 0 <= y < h:
-                columns.setdefault(x, []).append(y)
+                fixed = x if vertical else y
+                target = y if vertical else x
+                groups.setdefault(fixed, []).append(target)
         drops = []
         last_frame = 0
-        for x, ys in columns.items():
-            ys.sort(reverse=True)
-            for k, ty in enumerate(ys):
+        for fixed, targets in groups.items():
+            targets.sort(reverse=from_low)             # farthest-travelling first
+            for k, t in enumerate(targets):
                 launch = k * self.stagger
-                drops.append((x, ty, launch))
-                settle = launch + (ty + self.fall_speed - 1) // self.fall_speed
+                drops.append((fixed, t, launch))
+                dist = t if from_low else (span - 1 - t)
+                settle = launch + (dist + self.fall_speed - 1) // self.fall_speed
                 if settle > last_frame:
                     last_frame = settle
         self._drops = drops
@@ -131,13 +146,23 @@ class DripReveal:
             for xx in range(self._w):
                 for yy in range(self._h):
                     b[xx, yy] = 0
-        for (x, ty, launch) in self._drops:
+        vertical = self.direction in ("top", "bottom")
+        from_low = self.direction in ("top", "left")
+        span = self._h if vertical else self._w
+        for (fixed, t, launch) in self._drops:
             if f < launch:
                 continue                     # not released yet
-            cur = (f - launch) * fs
-            if cur > ty:
-                cur = ty                     # landed; stays put
-            b[x, cur] = 1
+            moved = (f - launch) * fs
+            if from_low:
+                cur = moved if moved < t else t          # 0 -> t, then settled
+            else:
+                cur = (span - 1) - moved
+                if cur < t:
+                    cur = t                              # max -> t, then settled
+            if vertical:
+                b[fixed, cur] = 1
+            else:
+                b[cur, fixed] = 1
         self._frame += 1
         return self.is_complete
 
@@ -155,6 +180,7 @@ async def show_drip_splash(
     fall_speed=1,
     stagger=2,
     hold_seconds=2.0,
+    direction="top",
 ):
     """Play a drip-in animation on ``display`` (blocking convenience wrapper).
 
@@ -181,7 +207,8 @@ async def show_drip_splash(
         always ``True`` there.  Callers that loop the effect can stop on
         ``False``.
     """
-    reveal = DripReveal(pixels, color=color, fall_speed=fall_speed, stagger=stagger)
+    reveal = DripReveal(pixels, color=color, fall_speed=fall_speed, stagger=stagger,
+                        direction=direction)
     reveal.start(display)
     if not reveal.has_pixels:
         reveal.detach()
