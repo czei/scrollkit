@@ -826,3 +826,17 @@ def transition_factory(name):
 def supported_names():
     """The user-facing transition names this module can dispatch, in UI order."""
     return tuple(_TRANSITION_MAP)
+
+
+def transitions_for(presentation="fullscreen"):
+    """The transition NAMES suited to `presentation` — for the ``transition_style`` setting.
+
+    Transitions are full-screen swaps between content, so they're all tagged
+    "fullscreen"; the default returns every transition. Each name is a value for the
+    ``transition_style`` setting. Reads the live PAIRS_WITH tags, so it stays current
+    as transitions are added or retagged.
+
+        app.settings.set("transition_style", random.choice(transitions_for()))
+    """
+    return tuple(name for name, cls in _TRANSITION_MAP.items()
+                 if presentation in getattr(cls, "PAIRS_WITH", ()))

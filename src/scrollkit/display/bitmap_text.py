@@ -192,6 +192,22 @@ NeonTubeCrawl.PAIRS_WITH = ("static", "scrolling")
 ChromeSheen.PAIRS_WITH = ("static", "scrolling")
 HazardStripes.PAIRS_WITH = ("static", "scrolling")
 
+_PALETTE_EFFECTS = (RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes)
+
+
+def palette_effects_for(presentation):
+    """The palette-effect CLASSES suited to `presentation` ('static' | 'scrolling').
+
+    Each returned class is used as ``BitmapText(text, palette_effect=cls())``. These
+    animate colour over bitmap text and read well static or scrolling. Reads the live
+    PAIRS_WITH tags, so it stays current as palette effects are added or retagged.
+
+        cls = random.choice(palette_effects_for("scrolling"))
+        app.content_queue.add(BitmapText("OPEN", palette_effect=cls()))
+    """
+    return tuple(cls for cls in _PALETTE_EFFECTS
+                 if presentation in getattr(cls, "PAIRS_WITH", ()))
+
 
 class BitmapText(DisplayContent):
     """A message rendered once into an indexed bitmap, scrolled via a TileGrid,

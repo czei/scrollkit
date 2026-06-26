@@ -342,3 +342,19 @@ class SplitFlap(DisplayContent):
 KineticMarquee.PAIRS_WITH = ("scrolling",)
 WaveRider.PAIRS_WITH = ("scrolling",)
 SplitFlap.PAIRS_WITH = ("static",)
+
+_SCROLLERS = (KineticMarquee, WaveRider, SplitFlap)
+
+
+def scrollers_for(presentation):
+    """The Class-1 scroller CLASSES suited to `presentation` ('static' | 'scrolling').
+
+    Each returned class is a ``DisplayContent`` you add to the content queue. For
+    scrolling text use ``scrollers_for("scrolling")``. Reads the live PAIRS_WITH
+    tags, so it stays current as scrollers are added or retagged.
+
+        cls = random.choice(scrollers_for("scrolling"))
+        app.content_queue.add(cls("Space Mountain  45 min", y=12))
+    """
+    return tuple(cls for cls in _SCROLLERS
+                 if presentation in getattr(cls, "PAIRS_WITH", ()))

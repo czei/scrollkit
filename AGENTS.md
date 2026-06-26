@@ -260,25 +260,41 @@ print(as_text(cat))             # compact human/agent-readable summary
 Prefer `capabilities()` over guessing class/parameter names — it reflects the
 installed library exactly (and can't drift from prose docs).
 
-### Effects & transitions: pick by the pairing hint, then verify
+### Effects & transitions: one call per category, then verify
 
-Each entry in `cat["transitions"]`, `cat["scrolling"]`, and `cat["palette_effects"]`
-carries a `pairs_with` tag (`"static"` / `"scrolling"` / `"fullscreen"`) and a
-`feasibility` budget; `as_text()` prints them as `[best on: …] (~Nms/frame)`. Match
-the effect to how the content is presented:
+There are three SEPARATE categories, applied three different ways — keep them
+separate. Call **one function per category** to get what's available (each reads the
+live tags, so a new effect added to the library appears automatically):
 
-- **scrolling** text → `KineticMarquee` / `WaveRider` (from `cat["scrolling"]`), or a
-  `BitmapText` palette effect.
-- **static / held** screens → a full-screen `Transition`, or `SplitFlap` /
-  `Drop from Sky`.
-- **either** → the `BitmapText` palette effects (`cat["palette_effects"]`:
-  `RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes`).
+```python
+from scrollkit.effects.transitions import transitions_for
+from scrollkit.effects.scrolling import scrollers_for
+from scrollkit.display.bitmap_text import palette_effects_for, BitmapText
 
-Apply them via the real API: set the `transition_style` setting to a name from
-`cat["transitions"]`; add scrolling effects as content to the queue; use
-`BitmapText(text, palette_effect=…)` for palette text. Then **verify every change**
-with `run_headless(app, strict=True)` — an effect that busts the ~50 ms / 20 fps
-budget raises `FeasibilityError`. The full pairing table is in `docs/guide/effects.md`.
+transitions_for()                 # transition NAMES (all full-screen swaps between screens)
+scrollers_for("scrolling")        # scroller CLASSES for scrolling text (KineticMarquee, WaveRider)
+palette_effects_for("scrolling")  # palette-effect CLASSES (Rainbow/Neon/Chrome/Hazard) for BitmapText
+```
+
+Pass `"scrolling"` or `"static"` to pick by how the content is presented. Apply each
+by its category — they are NOT interchangeable:
+
+```python
+import random
+# a transition fires BETWEEN screens — it's a setting:
+app.settings.set("transition_style", random.choice(transitions_for()))
+# a scroller IS the content — add the class to the queue:
+cls = random.choice(scrollers_for("scrolling"))
+app.content_queue.add(cls("Space Mountain  45 min", y=12))
+# a palette effect goes ON bitmap text:
+pe = random.choice(palette_effects_for("scrolling"))
+app.content_queue.add(BitmapText("OPEN", palette_effect=pe()))
+```
+
+Then **verify every change** with `run_headless(app, strict=True)` — an effect that
+busts the ~50 ms / 20 fps budget raises `FeasibilityError`. (The raw tags are also in
+`cat["transitions"]` / `cat["scrolling"]` / `cat["palette_effects"]` as `pairs_with`;
+the full pairing table is in `docs/guide/effects.md`.)
 
 ---
 
