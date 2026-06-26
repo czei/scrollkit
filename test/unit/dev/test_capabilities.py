@@ -28,8 +28,9 @@ def test_effects_advertise_content_pairing():
     """Each visual effect says which content style it suits (PAIRS_WITH)."""
     cat = capabilities()
     tr = {t["name"]: t for t in cat["transitions"]}
-    assert tr["Iris Snap"]["pairs_with"] == ["fullscreen"]
-    assert "scrolling" in tr["Horizontal Wipe"]["pairs_with"]
+    # transitions are all full-screen swaps; the static/scrolling distinction lives
+    # on the content effects (scrollers + palette), never on a transition.
+    assert all(t["pairs_with"] == ["fullscreen"] for t in cat["transitions"])
     sc = {e["name"]: e for e in cat["scrolling"]}
     assert sc["KineticMarquee"]["pairs_with"] == ["scrolling"]
     assert sc["SplitFlap"]["pairs_with"] == ["static"]

@@ -57,9 +57,9 @@ content.
 | Best on | Effects |
 |---------|---------|
 | **Scrolling** text | `KineticMarquee`, `WaveRider` — Class 1, they *are* the scroll |
-| **Static** / held text | `SplitFlap` (flips in place); the `Drop from Sky` transition (drops text into place) |
+| **Static** / held text | `SplitFlap` (flips characters in place) |
 | **Either** static or scrolling | the `BitmapText` palette effects: `RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes` |
-| **Full screen** (swap between content) | every `Transition`: `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`, `PixelDissolve`, `ColumnRain`, `GradualReveal`, `ScanFold`, `GlitchBars`, `DiagonalWipe` — plus `HorizontalWipe`, which also suits fast-**scrolling** text |
+| **Full screen** (swap between content) | every `Transition` — they all work over any content: `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`, `PixelDissolve`, `ColumnRain`, `GradualReveal`, `ScanFold`, `HorizontalWipe`, `GlitchBars`, `DiagonalWipe`, `DropFromSky` |
 
 The tag is guidance, not a constraint — nothing stops you using an effect
 elsewhere; it just records what looks good.

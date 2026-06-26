@@ -763,10 +763,12 @@ DropFromSky.FEASIBILITY = {"hardware_safe": True, "allocates_per_frame": False,
 
 
 # --- content pairing ---------------------------------------------------------
-# Which content presentation each transition suits best, for app authors / AI
-# (surfaced in capabilities() + docs). "fullscreen" = a screen-covering swap between
-# content (works with any content); "static"/"scrolling" = pairs especially well
-# with held / moving text. Class-level (CircuitPython can't tag functions).
+# Transitions are full-screen swaps BETWEEN content, so they are ALL tagged
+# "fullscreen" — they work over any content (static or scrolling alike). The
+# static/scrolling distinction lives on the content effects that render the text
+# (the scrollers in effects/scrolling.py and the palette effects in bitmap_text.py),
+# NOT on transitions. Surfaced in capabilities() + docs; class-level (CircuitPython
+# can't tag functions).
 IrisSnap.PAIRS_WITH = ("fullscreen",)
 VenetianShutters.PAIRS_WITH = ("fullscreen",)
 MosaicResolve.PAIRS_WITH = ("fullscreen",)
@@ -776,10 +778,10 @@ PixelDissolve.PAIRS_WITH = ("fullscreen",)
 ColumnRain.PAIRS_WITH = ("fullscreen",)
 GradualReveal.PAIRS_WITH = ("fullscreen",)
 ScanFold.PAIRS_WITH = ("fullscreen",)
-HorizontalWipe.PAIRS_WITH = ("fullscreen", "scrolling")
+HorizontalWipe.PAIRS_WITH = ("fullscreen",)
 GlitchBars.PAIRS_WITH = ("fullscreen",)
 DiagonalWipe.PAIRS_WITH = ("fullscreen",)
-DropFromSky.PAIRS_WITH = ("static",)
+DropFromSky.PAIRS_WITH = ("fullscreen",)
 
 
 # --- transition registry -----------------------------------------------------

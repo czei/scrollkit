@@ -7,12 +7,12 @@ built on the preallocated `OverlayMask`. Every transition follows the same
 triggers lands on a covered frame), then the new content is revealed. They are the
 proper replacement for the removed wipe/slide effects.
 
-!!! info "Full-screen swaps (with two exceptions)"
-    Transitions cover the whole screen between content items, so they pair with any
-    content (`PAIRS_WITH = ("fullscreen",)`). Two are tuned for specific text:
-    `HorizontalWipe` also suits fast-**scrolling** text, and `DropFromSky` drops new
-    text into a held **static** position. See
-    [pairing effects to content](effects.md#pairing-effects-to-content).
+!!! info "Full-screen swaps"
+    Transitions cover the whole screen between content items, so they **all** pair
+    with any content (`PAIRS_WITH = ("fullscreen",)`) — static or scrolling alike.
+    The static-vs-scrolling distinction lives on the content effects that render the
+    text (the scrollers and the bitmap-text palette effects), not on transitions.
+    See [pairing effects to content](effects.md#pairing-effects-to-content).
 
 Each writes only a **bounded** set of mask spans/blocks per frame through the C
 bulk painter (`bitmaptools.fill_region`) — never a full-2048-pixel Python loop —
