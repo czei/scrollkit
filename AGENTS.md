@@ -276,8 +276,10 @@ scrollers_for("scrolling")        # scroller CLASSES for scrolling text (Kinetic
 palette_effects_for("scrolling")  # palette CLASSES (Rainbow/Mono/Neon/Chrome/Hazard) for BitmapText; most take a base color=
 ```
 
-Pass `"scrolling"` or `"static"` to pick by how the content is presented. Apply each
-by its category — they are NOT interchangeable:
+Pass `"scrolling"` or `"static"` to `scrollers_for` / `palette_effects_for` to pick by
+how the content is presented. (`transitions_for` takes `presentation="fullscreen"`, its
+default — transitions are all full-screen swaps, so it returns every one.) Apply each by
+its category — they are NOT interchangeable:
 
 ```python
 import random

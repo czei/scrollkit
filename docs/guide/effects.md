@@ -11,8 +11,10 @@ all built to respect the device's memory and frame budget.
     built on the zero-allocation overlay-mask/painter/easing primitives:
 
     - **[Characterful scrolling](scrolling.md)** — kinetic marquee, wave-rider, split-flap
-    - **[Theatrical transitions](transitions.md)** — iris, venetian, mosaic, CRT, light-slit
-    - **[Palette-animated bitmap text](bitmap-text.md)** — rainbow, neon, chrome, hazard
+    - **[Theatrical transitions](transitions.md)** — 13 transitions: iris, venetian,
+      mosaic, CRT, light-slit, pixel-dissolve, column-rain, gradual-reveal, scan-fold,
+      horizontal/diagonal wipes, glitch-bars, drop-from-sky
+    - **[Palette-animated bitmap text](bitmap-text.md)** — rainbow, mono, neon, chrome, hazard
 
     See `demos/hard/showcase.py` for a reel that announces and demonstrates every
     one of them.
@@ -58,11 +60,44 @@ content.
 |---------|---------|
 | **Scrolling** text | `KineticMarquee`, `WaveRider` — Class 1, they *are* the scroll |
 | **Static** / held text | `SplitFlap` (flips characters in place) |
-| **Either** static or scrolling | the `BitmapText` palette effects: `RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes` |
+| **Either** static or scrolling | the `BitmapText` palette effects: `RainbowChase`, `MonoChase`, `NeonTubeCrawl`, `ChromeSheen`, `HazardStripes` |
 | **Full screen** (swap between content) | every `Transition` — they all work over any content: `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`, `PixelDissolve`, `ColumnRain`, `GradualReveal`, `ScanFold`, `HorizontalWipe`, `GlitchBars`, `DiagonalWipe`, `DropFromSky` |
 
 The tag is guidance, not a constraint — nothing stops you using an effect
 elsewhere; it just records what looks good.
+
+### One call per category
+
+You rarely need the tags by hand. Each category exposes **one selector function** that
+reads the live `PAIRS_WITH` tags and returns what's available for a given presentation,
+so a newly-added effect shows up automatically — no list to keep in sync:
+
+```python
+from scrollkit.effects.transitions import transitions_for
+from scrollkit.effects.scrolling import scrollers_for
+from scrollkit.display.bitmap_text import palette_effects_for, BitmapText
+import random
+
+transitions_for()                 # transition NAMES (all full-screen; for transition_style)
+scrollers_for("scrolling")        # scroller CLASSES suited to scrolling text
+palette_effects_for("scrolling")  # palette-effect CLASSES for BitmapText
+```
+
+Pass `"scrolling"` or `"static"` to `scrollers_for` / `palette_effects_for` to pick by
+how the content is presented. `transitions_for` takes `presentation="fullscreen"`
+(its default) — transitions are all full-screen swaps, so it returns every transition.
+Apply each by its category — they are **not** interchangeable:
+
+```python
+# a transition fires BETWEEN screens — it's a setting:
+app.settings.set("transition_style", random.choice(transitions_for()))
+# a scroller IS the content — add the class to the queue:
+cls = random.choice(scrollers_for("scrolling"))
+app.content_queue.add(cls("Space Mountain  45 min", y=12))
+# a palette effect goes ON bitmap text:
+pe = random.choice(palette_effects_for("scrolling"))
+app.content_queue.add(BitmapText("OPEN", palette_effect=pe()))
+```
 
 !!! tip "Memory ladder"
     Effects are the first thing to disable on a memory-starved device. Prefer the
@@ -84,8 +119,8 @@ and the simulator, and is budgeted against the calibrated MatrixPortal S3 model
 | `display.gfx` + `add_layer` / `remove_layer` | Platform-resolved `Bitmap`/`Palette`/`TileGrid`/`bitmaptools`, plus a content/layer group split | Cached once per display; persistent effect layers keep a stable z-order across the per-frame clear |
 | `scrollkit.effects.overlay.OverlayMask` | One preallocated indexed mask (transparent index 0) composited above content | Allocate once; transitions write only dirty spans |
 | `scrollkit.effects.scrolling` | [Characterful scrolling](scrolling.md): `KineticMarquee`, `WaveRider`, `SplitFlap` | One / a few small Labels repositioned per frame; bounded rebuilds |
-| `scrollkit.effects.transitions` | [Theatrical transitions](transitions.md): `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite` | Bounded mask spans per frame; swaps content while fully covered |
-| `scrollkit.display.bitmap_text` | [Palette-animated bitmap text](bitmap-text.md): `BitmapText` + `RainbowChase`/`NeonTubeCrawl`/`ChromeSheen`/`HazardStripes` | Animation is a few palette writes per frame — zero per-frame pixel work, no glyph rebuild |
+| `scrollkit.effects.transitions` | [Theatrical transitions](transitions.md): 13 in all — `IrisSnap`, `VenetianShutters`, `MosaicResolve`, `CRTCollapse`, `LightSlitRewrite`, `PixelDissolve`, `ColumnRain`, `GradualReveal`, `ScanFold`, `HorizontalWipe`, `GlitchBars`, `DiagonalWipe`, `DropFromSky` | Bounded mask spans per frame; swaps content while fully covered |
+| `scrollkit.display.bitmap_text` | [Palette-animated bitmap text](bitmap-text.md): `BitmapText` + `RainbowChase`/`MonoChase`/`NeonTubeCrawl`/`ChromeSheen`/`HazardStripes` | Animation is a few palette writes per frame — zero per-frame pixel work, no glyph rebuild |
 
 Every showcase effect carries an advertised `FEASIBILITY` dict (`hardware_safe`,
 `allocates_per_frame`, `max_pixel_writes_per_frame`, `modeled_frame_ms`); see the

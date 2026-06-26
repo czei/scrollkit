@@ -184,9 +184,10 @@ async def show_drip_splash(
 ):
     """Play a drip-in animation on ``display`` (blocking convenience wrapper).
 
-    Every pixel in ``pixels`` drips down from the top of its column and settles
-    at its target row; the assembled image then holds for ``hold_seconds``
-    before the overlay is removed.  Built on :class:`DripReveal`.
+    Every pixel in ``pixels`` enters from one edge (the top by default — drops fall
+    down their column) and settles at its target position; the assembled image then
+    holds for ``hold_seconds`` before the overlay is removed.  Built on
+    :class:`DripReveal`.
 
     Args:
         display:      A ScrollKit display (``UnifiedDisplay``/``SimulatorDisplay``).
@@ -199,6 +200,9 @@ async def show_drip_splash(
                       column (>=0).  Higher = a sparser, more deliberate drip;
                       0 launches a whole column at once.
         hold_seconds: Seconds to hold the finished image before finishing.
+        direction:    Edge the drops enter from — ``"top"`` (default, fall down),
+                      ``"bottom"`` (rise up), ``"left"`` (slide right), or ``"right"``
+                      (slide left).
 
     Returns:
         ``True`` when the animation finished normally; ``False`` if it was cut

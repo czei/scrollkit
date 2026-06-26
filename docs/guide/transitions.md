@@ -33,13 +33,57 @@ if t.is_complete:
 
 ## The pack
 
-| Transition | Motion |
-|------------|--------|
-| `IrisSnap` | A chunky diamond aperture grows to hide the screen, then a diamond hole opens to reveal it (per-row span table). |
-| `VenetianShutters` | Coarse horizontal bands (default 8) close then open like blinds, slightly staggered. |
-| `MosaicResolve` | Blocks (default 8×4) cover then reveal in a fixed pseudo-random order — only the newly-changed blocks are written each frame. Deterministic given `seed`. |
-| `CRTCollapse` | A CRT power-off: the picture collapses to a center scanline, then blooms back open from that line. |
-| `LightSlitRewrite` | A bright vertical scanner (default 3 px) sweeps across, covering on the way out and revealing the new content on the way back. |
+There are **thirteen** built-in transitions. The **setting name** is the value the
+`transition_style` setting takes (and what [`transitions_for()`](#choosing-a-transition)
+returns); the **class** is what you import. The order below is the UI/dropdown order.
+
+| Setting name | Class | Motion |
+|--------------|-------|--------|
+| `Drop from Sky` | `DropFromSky` | New content **slides into place from an edge** — default top, or set `direction` to `"bottom"`/`"left"`/`"right"`. A slide-in *sibling*, not the cover→reveal contract (see the note below). |
+| `Pixel Dissolve` | `PixelDissolve` | Text crumbles away as random 4×4 blocks cover the screen, then the new content dissolves back in block-by-block — like film grain burning through. Works naturally over moving text. |
+| `Column Rain` | `ColumnRain` | Sixteen thin 4 px drops fall from the top in shuffled order, so ~4 are mid-fall at any moment — reads as actual rainfall, not a directional wipe. |
+| `Gradual Reveal` | `GradualReveal` | Staggered vertical bands (default 8) wipe in left-to-right, then peel back right-to-left. Clean and architectural — not rain. |
+| `Scan Fold` | `ScanFold` | Top and bottom scanlines fold toward the horizontal centre until covered, then unfold outward. Two bars per frame — very fast; good on scrolling text. |
+| `Horizontal Wipe` | `HorizontalWipe` | A crisp vertical edge sweeps left-to-right to cover, then back to reveal. One rect per frame; pairs well with fast-scrolling text. |
+| `Glitch Bars` | `GlitchBars` | Random-height horizontal bars (1–4 rows) flash on in shuffled order — like a corrupted video signal — then clear in reverse. Looks alive over moving text. |
+| `Diagonal Wipe` | `DiagonalWipe` | A diagonal boundary sweeps top-left → bottom-right to cover, then bottom-right → top-left to reveal. One delta span per row per frame. |
+| `Iris Snap` | `IrisSnap` | A chunky diamond aperture grows to hide the screen, then a diamond hole opens to reveal it (per-row span table). |
+| `Venetian Shutters` | `VenetianShutters` | Coarse horizontal bands (default 8) close then open like blinds, slightly staggered. |
+| `Mosaic Resolve` | `MosaicResolve` | Blocks (default 8×4) cover then reveal in a fixed pseudo-random order — only the newly-changed blocks are written each frame. Deterministic given `seed`. |
+| `CRT Collapse` | `CRTCollapse` | A CRT power-off: the picture collapses to a center scanline, then blooms back open from that line. |
+| `Light Slit` | `LightSlitRewrite` | A bright vertical scanner (default 3 px) sweeps across, covering on the way out and revealing the new content on the way back. |
+
+!!! note "`DropFromSky` is a duck-typed sibling, not a `Transition` subclass"
+    It slides the *new* content in from an edge via a `pre_render_hook` instead of
+    running the cover → swap → reveal mask lifecycle (there is nothing to hide — the
+    incoming Labels are simply positioned off-screen and animated to their natural
+    spot). It still exposes the same `start` / `render` / `is_complete` surface, so it
+    is interchangeable everywhere the others are, and it is enumerated as a normal
+    selectable transition. Pass `direction="top"` (default), `"bottom"`, `"left"`, or
+    `"right"` to choose the entry edge.
+
+## Choosing a transition
+
+A transition fires **between** screens, so it is a *setting*, not content you queue.
+Rather than hard-coding a class, ask the library which transitions exist and let the
+setting drive dispatch — new built-ins then appear automatically:
+
+```python
+import random
+from scrollkit.effects.transitions import transitions_for
+
+# transitions_for() returns the user-facing NAMES (all transitions are full-screen
+# swaps, so they all pair with "fullscreen"); pick one for the transition_style setting:
+app.settings.set("transition_style", random.choice(transitions_for()))
+```
+
+`transitions_for(presentation="fullscreen")` reads the live `PAIRS_WITH` tags, so it
+stays correct as transitions are added or retagged. The name → class dispatch is
+`transition_factory(name)` (returns a fresh instance, or `None` for an unknown name);
+`transitions_for()` / `TRANSITION_NAMES` and `_TRANSITION_MAP` are the single source of
+truth, kept in lockstep by `test_transition_registry.py`. See
+[pairing effects to content](effects.md#pairing-effects-to-content) for the companion
+`scrollers_for()` / `palette_effects_for()` selectors.
 
 ## Using a transition between content items
 
@@ -66,9 +110,19 @@ Each class exposes a `FEASIBILITY` dict. A full-screen cover on the 64×32 panel
 | `MosaicResolve` | ~512 (a dozen blocks) | ~6 |
 | `CRTCollapse` | 2048 (bulk) | ~8 |
 | `LightSlitRewrite` | 2048 (bulk) | ~8 |
+| `PixelDissolve` | ~512 (block scatter) | ~6 |
+| `ColumnRain` | ~256 (a few 4 px drops) | ~4 |
+| `GradualReveal` | ~256 (a few bands) | ~4 |
+| `ScanFold` | ~256 (two bars) | ~4 |
+| `HorizontalWipe` | ~192 (one edge rect) | ~3 |
+| `GlitchBars` | ~256 (a few bars) | ~5 |
+| `DiagonalWipe` | ~384 (per-row delta spans) | ~6 |
+| `DropFromSky` | 0 (repositions Labels, no mask writes) | ~0.5 |
 
 All are `hardware_safe = True`, `allocates_per_frame = False`, and stay well under
-the ~50 ms (20 fps) `bit_depth=4` device budget.
+the ~50 ms (20 fps) `bit_depth=4` device budget. `DropFromSky` writes no mask pixels
+at all — it only nudges the incoming Labels' positions — so it is the cheapest of the
+set.
 
 ## Adding your own transition
 
