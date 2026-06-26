@@ -75,3 +75,6 @@ venv/
 
 # Runtime settings (created by the web UI; must never land in source control)
 settings.json
+
+# Phase-0 spike generated output (test/claude/spike_out): rendered PNG/PPM frames
+test/claude/spike_out/
