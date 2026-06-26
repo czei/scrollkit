@@ -104,6 +104,21 @@ def _glyph(ch):
     return FONT_5x7.get(ch.upper())
 
 
+def _scale(color, factor):
+    """Scale a 0xRRGGBB colour's brightness by ``factor`` (0.0-1.0).
+
+    Integer-only (CircuitPython-safe). Effects call this once at construction to
+    derive their shades/ramp from a single base colour, so there is no per-frame cost.
+    """
+    if factor <= 0.0:
+        return 0
+    f = 256 if factor >= 1.0 else int(factor * 256)
+    r = (((color >> 16) & 0xFF) * f) >> 8
+    g = (((color >> 8) & 0xFF) * f) >> 8
+    b = ((color & 0xFF) * f) >> 8
+    return (r << 16) | (g << 8) | b
+
+
 class RainbowChase:
     """Palette effect: rotate the colour ramp so a rainbow travels through the
     letters. Pure palette rewrites — no glyph rebuild. ``period`` advances the
@@ -125,13 +140,14 @@ class RainbowChase:
 
 
 class NeonTubeCrawl:
-    """A bright pulse crawls along an otherwise-dim neon tube: one ramp slot glows
-    while the rest hold a dim base colour. Pure palette rewrites — no glyph rebuild.
-    ``period`` advances the pulse every N frames."""
+    """A bright pulse crawls along an otherwise-dim neon tube of one colour: one ramp
+    slot glows at full ``color`` while the rest hold a dimmed version of it. Pass
+    ``glow``/``base`` to set the two shades directly instead. Pure palette rewrites —
+    no glyph rebuild. ``period`` advances the pulse every N frames."""
 
-    def __init__(self, base=0x004433, glow=0x66FFCC, period=2):
-        self.base = base
-        self.glow = glow
+    def __init__(self, color=0x66FFCC, glow=None, base=None, period=2):
+        self.glow = glow if glow is not None else color
+        self.base = base if base is not None else _scale(color, 0.18)
         self.period = period if period > 1 else 1
         self._phase = 0
         self._tick = 0
@@ -146,19 +162,23 @@ class NeonTubeCrawl:
 
 
 class ChromeSheen:
-    """A metallic sheen: a dark→light grey ramp with a highlight band that sweeps
-    across the letters as the ramp rotates. Pure palette rewrites — no glyph rebuild."""
+    """A metallic sheen: a dark→bright ramp of ``color`` (default silver/white) with a
+    highlight band that sweeps across the letters as the ramp rotates. Pure palette
+    rewrites — no glyph rebuild."""
 
-    _GRAYS = (0x202028, 0x404050, 0x707080, 0xA0A0B0, 0xD0D0E0, 0xFFFFFF)
+    # brightness profile, dark -> full; the highlight sits at the bright end.
+    _PROFILE = (0.12, 0.25, 0.45, 0.65, 0.85, 1.0)
 
-    def __init__(self, period=1):
+    def __init__(self, color=0xFFFFFF, period=1):
+        self.color = color
         self.period = period if period > 1 else 1
+        self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
         self._phase = 0
         self._tick = 0
 
     def apply(self, palette):
         for i in range(RAMP):
-            palette[1 + i] = self._GRAYS[(i + self._phase) % RAMP]
+            palette[1 + i] = self._ramp[(i + self._phase) % RAMP]
         self._tick += 1
         if self._tick >= self.period:
             self._tick = 0
@@ -166,12 +186,13 @@ class ChromeSheen:
 
 
 class HazardStripes:
-    """Marching hazard stripes: alternating warning colours that shift one slot each
-    step. Pure palette rewrites — no glyph rebuild."""
+    """Marching hazard stripes: an accent ``color`` alternating with a ``dark`` ground,
+    shifting one slot each step. Pass ``a``/``b`` to set the two colours directly.
+    Pure palette rewrites — no glyph rebuild."""
 
-    def __init__(self, a=0xFFCC00, b=0x101010, period=2):
-        self.a = a
-        self.b = b
+    def __init__(self, color=0xFFCC00, dark=0x101010, a=None, b=None, period=2):
+        self.a = a if a is not None else color
+        self.b = b if b is not None else dark
         self.period = period if period > 1 else 1
         self._phase = 0
         self._tick = 0
@@ -185,14 +206,39 @@ class HazardStripes:
             self._phase = (self._phase + 1) % 2
 
 
+class MonoChase:
+    """A single bright band of one ``color`` chases through the letters — RainbowChase,
+    but monochrome (one hue at varying brightness). Pure palette rewrites — no glyph
+    rebuild. ``period`` advances the chase every N frames."""
+
+    # a brightness peak (dim -> bright -> dim) that sweeps around the ramp.
+    _PROFILE = (0.12, 0.35, 0.7, 1.0, 0.55, 0.25)
+
+    def __init__(self, color=0xFFFFFF, period=1):
+        self.color = color
+        self.period = period if period > 1 else 1
+        self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
+        self._phase = 0
+        self._tick = 0
+
+    def apply(self, palette):
+        for i in range(RAMP):
+            palette[1 + i] = self._ramp[(i + self._phase) % RAMP]
+        self._tick += 1
+        if self._tick >= self.period:
+            self._tick = 0
+            self._phase = (self._phase + 1) % RAMP
+
+
 # Content pairing: palette effects animate the colours of bitmap text, so they read
 # well whether the text is held static or scrolling (surfaced in capabilities()/docs).
 RainbowChase.PAIRS_WITH = ("static", "scrolling")
 NeonTubeCrawl.PAIRS_WITH = ("static", "scrolling")
 ChromeSheen.PAIRS_WITH = ("static", "scrolling")
 HazardStripes.PAIRS_WITH = ("static", "scrolling")
+MonoChase.PAIRS_WITH = ("static", "scrolling")
 
-_PALETTE_EFFECTS = (RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes)
+_PALETTE_EFFECTS = (RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes, MonoChase)
 
 
 def palette_effects_for(presentation):

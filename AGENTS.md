@@ -273,7 +273,7 @@ from scrollkit.display.bitmap_text import palette_effects_for, BitmapText
 
 transitions_for()                 # transition NAMES (all full-screen swaps between screens)
 scrollers_for("scrolling")        # scroller CLASSES for scrolling text (KineticMarquee, WaveRider)
-palette_effects_for("scrolling")  # palette-effect CLASSES (Rainbow/Neon/Chrome/Hazard) for BitmapText
+palette_effects_for("scrolling")  # palette CLASSES (Rainbow/Mono/Neon/Chrome/Hazard) for BitmapText; most take a base color=
 ```
 
 Pass `"scrolling"` or `"static"` to pick by how the content is presented. Apply each

@@ -8,14 +8,14 @@ visibly *not just displayio*. A ScrollKit-native fixed-cell **5×7 font**
 frame — near-zero per-frame pixel work and **no glyph rebuild**.
 
 !!! info "Reads well static or scrolling"
-    The palette effects (`RainbowChase`, `NeonTubeCrawl`, `ChromeSheen`,
+    The palette effects (`RainbowChase`, `MonoChase`, `NeonTubeCrawl`, `ChromeSheen`,
     `HazardStripes`) animate colour, not position, so they look good whether the
     text is held static or scrolling (`PAIRS_WITH = ("static", "scrolling")`). See
     [pairing effects to content](effects.md#pairing-effects-to-content).
 
 ```python
 from scrollkit.display.bitmap_text import (
-    BitmapText, RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes,
+    BitmapText, RainbowChase, MonoChase, NeonTubeCrawl, ChromeSheen, HazardStripes,
 )
 
 text = BitmapText("SCROLLKIT  ", y=12, palette_effect=RainbowChase(period=3),
@@ -34,15 +34,18 @@ A `palette_effect` rewrites a few `palette[i] = color` entries per frame to anim
 the same rendered glyphs. They are plain strategy objects with an
 `apply(palette)` method:
 
-| Effect | Animation |
-|--------|-----------|
-| `RainbowChase` | Rotates a 6-colour rainbow ramp so a rainbow travels through the letters. |
-| `NeonTubeCrawl` | A bright pulse crawls along an otherwise-dim neon tube (one glowing ramp slot moves). |
-| `ChromeSheen` | A dark→light grey ramp with a highlight band that sweeps across — a metallic sheen. |
-| `HazardStripes` | Alternating warning colours that march one slot per step. |
+| Effect | Animation | Colour |
+|--------|-----------|--------|
+| `RainbowChase` | Rotates a 6-hue rainbow ramp so a rainbow travels through the letters. | multi-hue (the rainbow) |
+| `MonoChase` | A single bright band of one colour chases through the letters — RainbowChase, but monochrome. | `color` (default white) |
+| `NeonTubeCrawl` | A bright pulse crawls along an otherwise-dim neon tube — one glowing slot moving. | `color` (or set `glow`/`base`) |
+| `ChromeSheen` | A dark→bright ramp of one colour with a highlight band that sweeps across — a metallic sheen. | `color` (default silver) |
+| `HazardStripes` | An accent colour alternating with a dark ground, marching one slot per step. | `color` + `dark` (or set `a`/`b`) |
 
-Each takes a `period` (advance every N frames) for calmer or faster motion. Write
-your own by providing an object with `apply(palette)`.
+All except `RainbowChase` take a base **`color`** and derive their shades from it
+(e.g. `ChromeSheen(0x3060FF)`, `MonoChase(0xFF4060)`), computed once so there's no
+per-frame cost. Each also takes a `period` (advance every N frames) for calmer or
+faster motion. Write your own by providing an object with an `apply(palette)` method.
 
 ## Font
 

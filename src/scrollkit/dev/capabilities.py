@@ -128,7 +128,8 @@ def _palette_effects():
         from ..display import bitmap_text as _bt
     except ImportError:
         return out
-    for nm in ("RainbowChase", "NeonTubeCrawl", "ChromeSheen", "HazardStripes"):
+    for nm in ("RainbowChase", "NeonTubeCrawl", "ChromeSheen", "HazardStripes",
+               "MonoChase"):
         cls = getattr(_bt, nm, None)
         if cls is not None:
             out.append({"name": nm, "doc": _first_line(cls),
