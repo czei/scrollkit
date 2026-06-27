@@ -48,15 +48,34 @@ class SLDKApp:
     3. Web server process - Optional, runs if memory allows
     """
     
-    def __init__(self, enable_web: bool = True, update_interval: int = 300) -> None:
+    # Skip a data refresh below this much free heap (the synchronous JSON parse
+    # spikes memory; starting one with too little headroom OOM-crashes the device
+    # to black). Skipping a cycle shows last-good data instead — far better than a
+    # crash. The old 20KB guard was below realistic parse headroom. Tunable; the
+    # app can lower it or use the free_mem_before_parse breadcrumb to calibrate.
+    MIN_FREE_FOR_UPDATE = 50000
+
+    def __init__(self, enable_web: bool = True, update_interval: int = 300,
+                 enable_watchdog: bool = False, watchdog_timeout: int = 15) -> None:
         """Initialize SLDK application.
-        
+
         Args:
             enable_web: Whether to enable web server (if memory allows)
             update_interval: Data update interval in seconds
+            enable_watchdog: Arm a hardware watchdog (CircuitPython only) that
+                resets the board if the display loop stops feeding it — recovers
+                from a true freeze (e.g. a hung synchronous socket). Default False
+                so existing apps are unaffected; opt in per app.
+            watchdog_timeout: Watchdog timeout in seconds. MUST exceed the longest
+                expected gap between display-loop iterations (a blocking fetch
+                pauses feeding), so keep HTTP timeouts comfortably below it and
+                feed it during any long blocking work. Default 15s.
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
+        self.enable_watchdog = enable_watchdog
+        self.watchdog_timeout = watchdog_timeout
+        self._watchdog = None  # set by _arm_watchdog() on hardware when enabled
         self.running: bool = False
         self.display: Optional[DisplayInterface] = None
         self.content_queue = ContentQueue()
@@ -147,6 +166,11 @@ class SLDKApp:
 
         while self.running:
             try:
+                # The display loop is the device's liveness heartbeat: feeding the
+                # watchdog here means a wedged loop (e.g. a hung synchronous fetch
+                # that froze the whole event loop) stops feeding and triggers a
+                # self-healing reset. A caught render error just continues + refeeds.
+                self._feed_watchdog()
                 content = await self.prepare_display_content()
                 self._current_content = content
 
@@ -235,11 +259,13 @@ class SLDKApp:
                 gc.collect()
                 free_mem = free_memory()
 
-                if free_mem > 20000:  # Need 20KB free
+                if free_mem > self.MIN_FREE_FOR_UPDATE:
                     # Show a loading frame before the (possibly blocking) fetch.
                     await self._render_loading()
                     await self.update_data()
                 else:
+                    # Too little headroom for the parse: skip this cycle and keep
+                    # last-good data rather than risk an OOM crash to black.
                     print(f"Skipping data update - low memory: {free_mem}")
                     
             except Exception as e:
@@ -405,7 +431,11 @@ class SLDKApp:
 
             # Run setup
             await self.setup()
-            
+
+            # Arm the watchdog AFTER the (possibly long, blocking) boot sequence so
+            # boot's network calls can't trip it; the display loop feeds it from here on.
+            self._arm_watchdog()
+
             # Create tasks based on available memory
             tasks = []
             
@@ -465,7 +495,49 @@ class SLDKApp:
             print("Install simulator with 'pip install sldk[simulator]' for desktop development")
         except DisplayError as e:
             print(f"Display initialization failed: {e}")
-    
+
+    def _arm_watchdog(self) -> None:
+        """Arm the hardware watchdog (CircuitPython only) if enabled.
+
+        Fed from the display loop (the device's liveness heartbeat): if anything
+        wedges that loop — most importantly a hung synchronous HTTP call — feeding
+        stops and the board resets, self-recovering instead of sitting frozen/black
+        until someone power-cycles it. No-op on desktop, when disabled, or while a
+        USB serial console is attached (so the watchdog doesn't reboot during
+        interactive debugging)."""
+        if not self.enable_watchdog or self._watchdog is not None:
+            return
+        try:
+            import sys
+            if not (hasattr(sys, "implementation")
+                    and sys.implementation.name == "circuitpython"):
+                return
+            try:
+                import supervisor
+                if getattr(supervisor.runtime, "serial_connected", False):
+                    print("Watchdog NOT armed: USB serial connected (debugging)")
+                    return
+            except Exception:
+                pass
+            import microcontroller
+            from watchdog import WatchDogMode
+            wdt = microcontroller.watchdog
+            wdt.timeout = self.watchdog_timeout
+            wdt.mode = WatchDogMode.RESET
+            self._watchdog = wdt
+            print(f"Watchdog armed: {self.watchdog_timeout}s (RESET)")
+        except Exception as e:
+            print(f"Watchdog unavailable: {e}")
+
+    def _feed_watchdog(self) -> None:
+        """Pet the watchdog so it doesn't reset the board. Safe when disarmed."""
+        wdt = self._watchdog
+        if wdt is not None:
+            try:
+                wdt.feed()
+            except Exception:
+                pass
+
     def stop(self) -> None:
         """Stop the application."""
         self.running = False

@@ -84,7 +84,7 @@ class HttpClient:
     for development without network access.
     """
 
-    def __init__(self, session=None, mock_provider=None):
+    def __init__(self, session=None, mock_provider=None, timeout=10):
         """
         Initialize the HTTP client.
 
@@ -92,10 +92,17 @@ class HttpClient:
             session: The underlying session (adafruit_requests.Session or None)
             mock_provider: Optional callable(url) -> MockResponse or None.
                            Called when no session is available and use_live_data is False.
+            timeout: Per-request timeout in seconds. ``adafruit_requests`` is
+                     synchronous, so without a timeout a hung socket blocks the
+                     whole asyncio event loop forever (the display freezes). This
+                     bounds connect/read so a flaky network raises instead of
+                     wedging. Default 10s; keep it BELOW any hardware watchdog
+                     timeout so a slow request doesn't trip a false reboot.
         """
         self.session = session
         self.use_live_data = True
         self.mock_provider = mock_provider
+        self.timeout = timeout
 
         # Platform detection
         try:
@@ -177,7 +184,7 @@ class HttpClient:
             out_of_retries = OutOfRetries
 
         try:
-            resp = self.session.get(url, headers=headers)
+            resp = self.session.get(url, headers=headers, timeout=self.timeout)
             return resp
         except out_of_retries:
             logger.error(None, f"Socket failures (attempt {retry_count+1})")
@@ -202,7 +209,7 @@ class HttpClient:
         request = self.urllib.Request(url)
         for key, value in headers.items():
             request.add_header(key, value)
-        with self.urllib.urlopen(request) as response:
+        with self.urllib.urlopen(request, timeout=self.timeout) as response:
             return UrllibResponse(response)
 
     async def post(self, url, data, headers=None):
@@ -252,7 +259,7 @@ class HttpClient:
                     resp = None
                     try:
                         logger.debug(f"Sync GET: {url}")
-                        resp = self.session.get(url, headers=headers)
+                        resp = self.session.get(url, headers=headers, timeout=self.timeout)
                         return resp
                     except Exception:
                         if resp:
@@ -265,7 +272,7 @@ class HttpClient:
                     request = self.urllib.Request(url)
                     for key, value in headers.items():
                         request.add_header(key, value)
-                    with self.urllib.urlopen(request) as response:
+                    with self.urllib.urlopen(request, timeout=self.timeout) as response:
                         return UrllibResponse(response)
                 else:
                     return MockResponse(status_code=500, text="No HTTP client available")

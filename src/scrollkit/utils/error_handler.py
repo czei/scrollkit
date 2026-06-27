@@ -27,6 +27,13 @@ class ErrorHandler:
     PRODUCTION = "production"
     _mode = PRODUCTION  # Default to production mode
 
+    # Cap each log generation so logging can never fill the device's tiny flash
+    # (the field failure: unbounded append eventually fills storage and the app
+    # can't write settings/cache and goes dark). When the file reaches this size
+    # it is rotated to "<file>.old" (one generation kept), bounding total log
+    # storage to ~2x this value while preserving recent history.
+    MAX_LOG_BYTES = 16384
+
     def __init__(self, file_name, mode=None):
         """
         Initialize the error handler with read-only filesystem detection
@@ -80,22 +87,26 @@ class ErrorHandler:
                 # Continue with write test if storage check fails
                 print("Storage module check failed, will try write test")
 
-        # Try to delete the error log file at startup (only if it exists and is writable)
-        try:
-            if self.file_exists(file_name):
-                print(f"Deleting existing log file: {file_name}")
-                os.remove(file_name)
-        except OSError:
-            # Can't delete, assume readonly
-            self.is_readonly = True
-            print(f"Failed to delete existing log file: {file_name}")
+        # Preserve crash evidence across reboots. The old code deleted the log here
+        # AND truncated it with a 'w' write-test below, so a crash -> reboot erased
+        # exactly the log that would explain the crash (why field failures were
+        # undiagnosable). Only DEVELOPMENT starts each run with a fresh log.
+        if self.mode == ErrorHandler.DEVELOPMENT:
+            try:
+                if self.file_exists(file_name):
+                    print(f"Deleting existing log file: {file_name}")
+                    os.remove(file_name)
+            except OSError:
+                # Can't delete, assume readonly
+                self.is_readonly = True
+                print(f"Failed to delete existing log file: {file_name}")
 
-        # Regardless of storage module results, always verify by attempting to write
-        # This is the most reliable test
+        # Verify writability WITHOUT truncating: append-open creates the file if it
+        # is missing and leaves any existing contents intact (so PRODUCTION keeps
+        # the prior session's log for post-mortem).
         try:
-            # Try to create the file
-            with open(self.fileName, 'w') as file:
-                file.write('')  # Try to create an empty file
+            with open(self.fileName, 'a'):
+                pass
             self.is_readonly = False
         except OSError as e:
             # If any error occurs during write/create, filesystem is read-only
@@ -199,8 +210,11 @@ class ErrorHandler:
         if st_str:
             print(filtered_st_str)
 
-        # Only attempt to write to file if filesystem is writable
+        # Only attempt to write to file if filesystem is writable. Errors ARE
+        # persisted in both modes (they're the post-mortem); rotation keeps the
+        # file bounded so even an error storm can't fill flash.
         if not self.is_readonly:
+            self._rotate_if_needed()
             try:
                 with open(self.fileName, 'a') as file:
                     file.write(filtered_except_str + "\n")
@@ -224,10 +238,37 @@ class ErrorHandler:
         if self.mode == ErrorHandler.DEVELOPMENT:
             self.write_to_file(message)
 
+    def _rotate_if_needed(self):
+        """Rotate the log to '<file>.old' once it reaches MAX_LOG_BYTES, so logging
+        can never fill flash. Keeps one prior generation; on any failure falls back
+        to truncating the current file rather than letting it grow unbounded."""
+        if self.is_readonly:
+            return
+        try:
+            size = os.stat(self.fileName)[6]   # st_size
+        except OSError:
+            return
+        if size < self.MAX_LOG_BYTES:
+            return
+        backup = self.fileName + ".old"
+        try:
+            try:
+                os.remove(backup)              # drop the older generation
+            except OSError:
+                pass
+            os.rename(self.fileName, backup)
+        except OSError:
+            # rename unavailable: bound growth by truncating rather than filling flash
+            try:
+                with open(self.fileName, 'w') as f:
+                    f.write("[log truncated]\n")
+            except OSError:
+                self.is_readonly = True
+
     def write_to_file(self, message):
         """
         Write a message to the log file
-        
+
         Args:
             message: The message to write
         """
@@ -236,11 +277,12 @@ class ErrorHandler:
             # In read-only mode, we'll just print to console without error messages
             # We don't print "Error writing to log file" as that confuses users
             return
-            
+
+        self._rotate_if_needed()
         try:
             # Filter out non-ASCII characters to prevent UnicodeEncodeError
             filtered_message = self.filter_non_ascii(message)
-            
+
             with open(self.fileName, 'a') as file:
                 file.write(filtered_message + "\n")
         except OSError:
@@ -257,5 +299,9 @@ class ErrorHandler:
             message: The informational message to log
         """
         print(message)
-        # Info messages are always written to file (in both development and production modes)
-        self.write_to_file(message)
+        # Info is high-frequency (every fetch attempt/success). Persisting it to
+        # flash on every refresh fills the device's tiny storage over days, so write
+        # it only in DEVELOPMENT; PRODUCTION keeps info on the console. Errors are
+        # still persisted in both modes (see error()).
+        if self.mode == ErrorHandler.DEVELOPMENT:
+            self.write_to_file(message)
