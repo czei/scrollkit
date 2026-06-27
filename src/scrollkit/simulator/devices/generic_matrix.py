@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Generic LED matrix device for custom configurations."""
 
 from .base_device import BaseDevice

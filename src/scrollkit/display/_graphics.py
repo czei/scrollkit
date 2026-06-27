@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Shared display-graphics primitives (mixed into Simulator + Unified displays).
 
 One code path, both platforms. Provides:

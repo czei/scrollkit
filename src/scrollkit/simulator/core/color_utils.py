@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Color manipulation utilities for LED simulation."""
 
 def rgb565_to_rgb888(color565):

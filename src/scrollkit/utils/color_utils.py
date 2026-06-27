@@ -1,6 +1,6 @@
 """
 Color utilities for handling color conversions and manipulations.
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 
 

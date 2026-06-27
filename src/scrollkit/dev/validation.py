@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Pre-flight validation for a ScrollKit app — structured issues with fixes.
 
 ``validate(app)`` runs the app headless once and combines *static* checks on its

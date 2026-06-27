@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Headless verification harness — the AI agent's primary tool.
 
 ``run_headless(app, frames=N)`` drives a ``ScrollKitApp``'s display loop

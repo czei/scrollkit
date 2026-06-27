@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """SLDK exception hierarchy.
 
 All exceptions are plain Exception subclasses for CircuitPython compatibility.

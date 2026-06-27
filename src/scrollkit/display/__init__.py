@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """SLDK Display module.
 
 Kept lean on purpose: importing this package must not drag in the heavier

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Core simulator components."""
 
 from .led_matrix import LEDMatrix

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Preallocated overlay-mask layer (Phase 3 primitive; substrate for transitions).
 
 One reusable indexed Bitmap (transparent index 0) + Palette + TileGrid, added as a

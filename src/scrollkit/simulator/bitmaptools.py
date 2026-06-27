@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Desktop emulation of CircuitPython's ``bitmaptools`` C module.
 
 ScrollKit's span/rect painters, overlay-mask, and bitmap-text all express bounded

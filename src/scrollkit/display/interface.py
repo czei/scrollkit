@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Display interface for SLDK.
 
 This provides the abstract interface that all display implementations must follow.

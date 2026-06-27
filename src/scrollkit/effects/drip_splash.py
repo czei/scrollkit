@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Drip-splash animation — LEDs drip in from an edge (default the top) into place.
 
 The inverse of :func:`scrollkit.effects.show_reveal_splash`.  The screen starts

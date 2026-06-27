@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Machine-readable catalog of what a ScrollKit app can use — for AI authoring.
 
 ``capabilities()`` returns a JSON-able dict describing the building blocks an

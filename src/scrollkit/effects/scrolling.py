@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Class 1 — characterful scrolling (built on the easing engine + fixed-point scroll).
 
 Three scrolling content types that feel alive instead of a constant 1 px/frame crawl:

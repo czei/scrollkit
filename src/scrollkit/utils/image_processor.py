@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 class Pixel:
     def __init__(self, x, y, value):
         self.x = x

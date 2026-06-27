@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Particle effects for SLDK.
 
 Simple particle systems optimized for ESP32 memory constraints.

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """SLDK LED Matrix Simulator."""
 
 # Make simulator modules available at package level

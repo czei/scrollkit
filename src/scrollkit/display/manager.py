@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Display manager for SLDK.
 
 Provides the core orchestrator that coordinates display queue processing,

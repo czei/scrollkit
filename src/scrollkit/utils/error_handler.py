@@ -1,6 +1,6 @@
 """
 Error handling utility for logging errors and debug information.
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import os
 import traceback

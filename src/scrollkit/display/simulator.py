@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Simulator display implementation for SLDK.
 
 Provides display interface using the LED simulator for desktop development.

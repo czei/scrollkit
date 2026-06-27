@@ -1,7 +1,7 @@
 """
 HTTP client for making API requests.
 Supports both adafruit_requests (CircuitPython) and urllib (standard Python).
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import json
 import gc

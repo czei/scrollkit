@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """CircuitPython displayio.Palette equivalent."""
 
 from ..core.color_utils import rgb565_to_rgb888, rgb888_to_rgb565

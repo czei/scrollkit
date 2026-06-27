@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Minimal LED App - Simplified API for SLDK applications.
 
 Provides convenience functions for quick LED matrix programming.

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """SLDK Effects Module.
 
 Standalone visual systems: the particle engine, splash/reveal animations, and

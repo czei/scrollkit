@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Reveal-splash animation — all LEDs on, wink off non-text pixels to reveal art.
 
 Drop-in library version of the ThemeParkWaits reveal animation.  The caller

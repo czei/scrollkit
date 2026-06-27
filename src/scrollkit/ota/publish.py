@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """OTA release publishing — desktop / CI only.
 
 This is the *producer* side of OTA, the mirror image of ``scrollkit.ota.client``.

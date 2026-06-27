@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Font/scale-aware text → lit-pixel composition (single source of truth).
 
 ``pixels_from_font_text`` renders a string with *any* loaded font at an integer

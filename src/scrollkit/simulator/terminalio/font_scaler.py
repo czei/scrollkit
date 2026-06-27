@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Font scaling system for PyLEDSimulator.
 
 This module provides different fonts for different scale factors.

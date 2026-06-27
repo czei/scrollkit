@@ -1,6 +1,6 @@
 """
 Settings manager for handling user configuration.
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import json
 

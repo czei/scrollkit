@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Content module for SLDK.
 
 Re-exports content classes from display.content for convenience.

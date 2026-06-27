@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Main OTA updater class for SLDK applications.
 
 Provides easy-to-use OTA update functionality.

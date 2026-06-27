@@ -16,7 +16,7 @@ Routes:
     POST /save  — apply + persist settings, call ``app.on_settings_changed()``,
                   redirect 303 to /
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 

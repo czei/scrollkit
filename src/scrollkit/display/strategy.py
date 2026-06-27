@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Display strategy system for SLDK.
 
 Provides the foundation for extensible display strategies following the 

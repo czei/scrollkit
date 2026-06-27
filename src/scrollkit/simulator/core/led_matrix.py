@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Core LED matrix simulation with pixel-level control."""
 
 import os

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Pixel buffer management for LED matrix simulation."""
 
 import numpy as np

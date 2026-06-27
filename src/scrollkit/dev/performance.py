@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Measured performance trade-offs for the MatrixPortal S3 — for AI authoring.
 
 Turns the raw microbenchmark table (``simulator/core/device_benchmarks.json``,

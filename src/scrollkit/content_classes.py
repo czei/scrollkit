@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Content system for SLDK.
 
 Provides content classes that work with the display strategy system. These

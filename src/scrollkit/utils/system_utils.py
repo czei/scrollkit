@@ -1,6 +1,6 @@
 """
 System utilities for hardware and system operations.
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 
 Time-setting is deliberately resilient rather than precise: for these displays
 "close enough" is fine, but the clock must get set even on hostile networks.

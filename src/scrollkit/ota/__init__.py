@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """ScrollKit OTA (over-the-air update) package.
 
 Kept import-light on purpose: import the concrete classes from their submodules

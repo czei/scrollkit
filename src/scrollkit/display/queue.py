@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Display queue management for SLDK.
 
 Implements a priority-based queue system for managing display items.
