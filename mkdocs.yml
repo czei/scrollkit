@@ -1,8 +1,8 @@
 site_name: ScrollKit
 site_description: LED Matrix Display Framework for CircuitPython and Desktop
 site_author: 3DUPFitters LLC
-repo_url: https://github.com/Czeiszperger/scrollkit
-repo_name: Czeiszperger/scrollkit
+repo_url: https://github.com/czei/scrollkit
+repo_name: czei/scrollkit
 
 theme:
   name: material

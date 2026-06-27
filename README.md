@@ -16,12 +16,17 @@ pip install scrollkit[simulator]
 ## Quick Start
 
 ```python
-from scrollkit import GenericDisplay
+from scrollkit.app.minimal import MinimalLEDApp
 
-display = GenericDisplay()
-display.initialize()
-display.show_scroll_message("Hello, LED Matrix!")
+app = MinimalLEDApp()                       # auto-detects MatrixPortal hardware vs desktop simulator
+app.scroll_text("Hello, LED Matrix!", color="cyan")
 ```
+
+> The top-level `scrollkit` package deliberately performs **no** imports (every
+> import costs RAM on CircuitPython), so you always import from submodules — e.g.
+> `from scrollkit.app.minimal import MinimalLEDApp`. See the
+> [getting-started guide](https://github.com/czei/scrollkit/blob/master/docs/getting-started.md)
+> for the full `ScrollKitApp` / `UnifiedDisplay` API.
 
 ## Package Structure
 
