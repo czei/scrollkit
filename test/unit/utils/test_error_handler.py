@@ -138,7 +138,8 @@ class TestErrorHandler:
             mock_print.assert_any_call("Test debug message")
     
     def test_development_production_modes(self):
-        """Test that debug messages are only written to file in development mode"""
+        """PRODUCTION persists only errors to the log file (info/debug go to the
+        console); DEVELOPMENT writes info, debug, and errors to the file."""
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             file_path = temp_file.name
@@ -159,9 +160,9 @@ class TestErrorHandler:
 
                 with open(file_path, 'r') as f:
                     content = f.read()
-                    assert "Production info message" in content
-                    assert "Production debug message" not in content  # Debug not written in production
-                    assert "Production error message" in content
+                    assert "Production info message" not in content   # info -> console only in production
+                    assert "Production debug message" not in content  # debug not written in production
+                    assert "Production error message" in content      # only errors are persisted
 
                 # Clear the file
                 with open(file_path, 'w') as f:
