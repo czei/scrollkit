@@ -8,7 +8,9 @@ content types, and the priority queue.
 `scrollkit.display.unified.UnifiedDisplay` implements `DisplayInterface` and
 auto-selects its backend:
 
-- **CircuitPython** → real `displayio` hardware (MatrixPortal S3, 64×32).
+- **CircuitPython** → real `displayio` hardware, auto-detecting the board (the
+  Adafruit MatrixPortal S3 or the Pimoroni Interstate 75 W). Pass `board="..."`
+  to force one. See [Adding New Hardware](hardware.md).
 - **Desktop** → the [pygame simulator](simulator.md).
 
 Your app talks to one interface — `set_pixel`, `fill`, `draw_text`, `show`,

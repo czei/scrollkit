@@ -40,14 +40,15 @@ except ImportError:
 
 from .interface import DisplayInterface
 from ._graphics import GraphicsMixin
+from .boards import resolve_board
 
 
 class SimulatorDisplay(GraphicsMixin, DisplayInterface):
     """Simulator display implementation for desktop development."""
-    
+
     def __init__(self, width: int = 64, height: int = 32, scale: int = 10,
                  *, hardware_timing: bool = False, throttle: bool = False,
-                 strict: bool = False):
+                 strict: bool = False, board=None):
         """Initialize simulator display.
 
         Args:
@@ -64,7 +65,13 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
                 FeasibilityError instead of just warning. Implies hardware_timing
                 (you can't gate a model you aren't running). Also enabled by
                 SCROLLKIT_HW_STRICT=1. Off by default.
+            board: Which board's performance profile to model for hardware
+                timing/feasibility (e.g. ``"pimoroni_interstate75_w"``). ``None``
+                honors ``SCROLLKIT_HW_BOARD`` and defaults to the MatrixPortal S3.
+                The simulated panel geometry is board-agnostic; only the modeled
+                timing differs by board.
         """
+        self._board_id: str = resolve_board(board).board_id
         self._width: int = width
         self._height: int = height
         self._scale: int = scale
@@ -297,10 +304,10 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         want_timing = self._hardware_timing or env_sim or want_throttle or want_strict
         if not want_timing:
             return
-        from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
+        from scrollkit.simulator.core.hardware_profile import profile_for
         from scrollkit.simulator.core.performance_manager import (
             PerformanceManager, set_active)
-        self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
+        self._perf = PerformanceManager(profile_for(self._board_id), enabled=True,
                                         throttle=want_throttle, strict=want_strict)
         self.device.performance_manager = self._perf   # read by LEDMatrix
         set_active(self._perf)                          # read by the Label rebuild hook

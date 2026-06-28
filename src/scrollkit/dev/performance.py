@@ -13,33 +13,55 @@ Desktop-only (imported via ``scrollkit.dev``).
 import json
 import os
 
-_BENCH_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "simulator", "core", "device_benchmarks.json")
+_BENCH_DIR = os.path.join(os.path.dirname(__file__), "..", "simulator", "core")
+_DEFAULT_BOARD_ID = "adafruit_matrixportal_s3"
+# The S3 benchmark file keeps its historical name; others follow the canonical-id
+# convention (matching test/claude/device_benchmarks.py --board output).
+_BENCH_FILENAMES = {
+    "adafruit_matrixportal_s3": "device_benchmarks.json",
+    "pimoroni_interstate75_w": "pimoroni_interstate75_w_benchmarks.json",
+}
 
 
-def _load_rows():
-    with open(os.path.abspath(_BENCH_PATH)) as f:
-        return json.load(f).get("benchmarks", [])
+def _bench_path(board_id):
+    filename = _BENCH_FILENAMES.get(board_id, "%s_benchmarks.json" % board_id)
+    return os.path.join(_BENCH_DIR, filename)
+
+
+def _load_doc(board_id):
+    with open(os.path.abspath(_bench_path(board_id))) as f:
+        return json.load(f)
 
 
 def _by_name(rows):
     return {r["name"]: r for r in rows}
 
 
-def performance_guide():
-    """Return a JSON-able, device-measured performance guide.
+def performance_guide(board_id=None):
+    """Return a JSON-able, device-measured performance guide for ``board_id``.
 
     Sections: ``pixel_write`` (the C-vs-interpreted spread), ``refresh`` (the
     bit_depth ladder + FPS ceiling), ``allocation``, ``compute``, ``gc``, and
-    ``rules`` (the actionable cardinal rules). Falls back to an empty/quiet guide
-    if the benchmark file is missing.
+    ``rules`` (the actionable cardinal rules). ``board_id`` defaults to the
+    MatrixPortal S3. Falls back to an empty/quiet guide if that board has no
+    captured benchmark file yet (e.g. a board wired in code but not yet
+    calibrated).
     """
+    if board_id is None:
+        board_id = _DEFAULT_BOARD_ID
     try:
-        rows = _load_rows()
+        doc = _load_doc(board_id)
     except Exception:
-        return {"available": False,
-                "note": "no device benchmark data; run test/claude/device_benchmarks.py"}
+        return {"available": False, "board": board_id,
+                "note": "no device benchmark data for %s; run "
+                        "test/claude/device_benchmarks.py --board %s"
+                        % (board_id, board_id)}
+    rows = doc.get("benchmarks", [])
     b = _by_name(rows)
+    src_board = doc.get("board", board_id)
+    src_cp = doc.get("cp")
+    source = ("measured on %s, CircuitPython %s" % (src_board, src_cp)
+              if src_cp else "measured on %s" % src_board)
 
     def val(name):
         r = b.get(name)
@@ -64,7 +86,8 @@ def performance_guide():
 
     guide = {
         "available": True,
-        "source": "measured on adafruit_matrixportal_s3, CircuitPython 9.1.0",
+        "board": src_board,
+        "source": source,
         "pixel_write_ns_per_px": {
             "interpreted_setpixel": _r(set_px),
             "c_bitmaptools_blit": _r(blit_px),
@@ -134,7 +157,7 @@ def as_text(guide=None):
     guide = guide or performance_guide()
     if not guide.get("available"):
         return "Performance guide unavailable (no device benchmark data)."
-    lines = ["=== MatrixPortal S3 performance (measured) ==="]
+    lines = ["=== %s performance (measured) ===" % guide.get("board", "device")]
     pw = guide["pixel_write_ns_per_px"]
     lines.append("Pixel write ns/px: interpreted=%s | C blit=%s | C fill=%s"
                  % (pw["interpreted_setpixel"], pw["c_bitmaptools_blit"],

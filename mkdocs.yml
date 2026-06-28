@@ -56,5 +56,6 @@ nav:
       - Networking: guide/networking.md
       - Configuration: guide/config.md
       - Simulator: guide/simulator.md
+      - Adding New Hardware: guide/hardware.md
       - Utilities: guide/utils.md
   - API Reference: reference.md

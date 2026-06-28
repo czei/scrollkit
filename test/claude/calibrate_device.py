@@ -15,9 +15,10 @@ calibration is apples-to-apples:
   - base_app_ram_bytes     : RAM consumed bringing the display up
   - bytes_per_label_px     : RAM per pixel of a 2-color bitmap
 
-Run:  PYTHONSAFEPATH=1 python test/claude/calibrate_device.py
+Run:  PYTHONSAFEPATH=1 python test/claude/calibrate_device.py [--board <id>]
 """
 
+import argparse
 import json
 import os
 import sys
@@ -25,28 +26,59 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from cpy_repl import run_on_device  # noqa: E402
 
-# Ship the baseline inside the package so the simulator/capabilities use it by
-# default (matrixportal_s3_profile() loads this path).
-FIXTURE = os.path.join(os.path.dirname(__file__), "..", "..", "src", "scrollkit",
-                       "simulator", "core", "matrixportal_s3_baseline.json")
+# Ship baselines inside the package so the simulator/capabilities use them by
+# default (hardware_profile.profile_for() loads these paths). One file per board;
+# the S3 keeps its historical filename.
+CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "src", "scrollkit",
+                        "simulator", "core")
+BASELINE_FILENAMES = {
+    "adafruit_matrixportal_s3": "matrixportal_s3_baseline.json",
+    "pimoroni_interstate75_w": "pimoroni_interstate75_w_baseline.json",
+}
+BOARD_NAMES = {
+    "adafruit_matrixportal_s3": "Adafruit MatrixPortal S3 (64x32)",
+    "pimoroni_interstate75_w": "Pimoroni Interstate 75 W (64x32)",
+}
 
-# This block runs ON the device (CircuitPython 9.x, MatrixPortal S3).
+# Per-board on-device RGBMatrix constructor (injected into DEVICE_CODE as ``_mk``).
+# It must define ``def _mk(bd): return rgbmatrix.RGBMatrix(...)`` for a 64x32 panel.
+MK_FUNCS = {
+    "adafruit_matrixportal_s3": r"""
+def _mk(bd):
+    return rgbmatrix.RGBMatrix(
+        width=64, height=32, bit_depth=bd,
+        rgb_pins=[board.MTX_R1, board.MTX_G1, board.MTX_B1,
+                  board.MTX_R2, board.MTX_G2, board.MTX_B2],
+        addr_pins=[board.MTX_ADDRA, board.MTX_ADDRB, board.MTX_ADDRC, board.MTX_ADDRD],
+        clock_pin=board.MTX_CLK, latch_pin=board.MTX_LAT, output_enable_pin=board.MTX_OE)
+""",
+    "pimoroni_interstate75_w": r"""
+def _mk(bd):
+    _common = getattr(board, "MTX_COMMON", None)
+    _addr = getattr(board, "MTX_ADDRESS", None)
+    if _common is not None and _addr is not None:
+        return rgbmatrix.RGBMatrix(width=64, height=32, bit_depth=bd,
+                                   addr_pins=_addr[:4], **_common)
+    return rgbmatrix.RGBMatrix(
+        width=64, height=32, bit_depth=bd,
+        rgb_pins=[board.R0, board.G0, board.B0, board.R1, board.G1, board.B1],
+        addr_pins=[board.ROW_A, board.ROW_B, board.ROW_C, board.ROW_D],
+        clock_pin=board.CLK, latch_pin=board.LAT, output_enable_pin=board.OE)
+""",
+}
+
+# This block runs ON the device (CircuitPython 9.x). ``___MK_DEF___`` is replaced
+# with the selected board's ``_mk`` constructor before upload.
 DEVICE_CODE = r"""
 import gc, time, json, board, displayio, rgbmatrix, framebufferio
-
+___MK_DEF___
 displayio.release_displays()
 gc.collect()
 mem_boot = gc.mem_free()
 
 # Match the library's on-hardware default: 64x32, bit_depth=4 (the speed/quality
 # sweet spot; UnifiedDisplay defaults here).
-matrix = rgbmatrix.RGBMatrix(
-    width=64, height=32, bit_depth=4,
-    rgb_pins=[board.MTX_R1, board.MTX_G1, board.MTX_B1,
-              board.MTX_R2, board.MTX_G2, board.MTX_B2],
-    addr_pins=[board.MTX_ADDRA, board.MTX_ADDRB, board.MTX_ADDRC, board.MTX_ADDRD],
-    clock_pin=board.MTX_CLK, latch_pin=board.MTX_LAT,
-    output_enable_pin=board.MTX_OE)
+matrix = _mk(4)
 display = framebufferio.FramebufferDisplay(matrix, auto_refresh=False)
 g = displayio.Group()
 display.root_group = g
@@ -131,24 +163,34 @@ displayio.release_displays()
 
 
 def main():
-    out = run_on_device(DEVICE_CODE)
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--board", default="adafruit_matrixportal_s3",
+                    choices=sorted(BASELINE_FILENAMES),
+                    help="which board is connected (default: %(default)s)")
+    ap.add_argument("--cp", default="unknown",
+                    help="CircuitPython version string for the source label")
+    args = ap.parse_args()
+
+    device_code = DEVICE_CODE.replace("___MK_DEF___", MK_FUNCS[args.board])
+    out = run_on_device(device_code)
     line = next((ln for ln in out.splitlines() if ln.startswith("CALIB_JSON ")), None)
     if line is None:
         raise SystemExit("no CALIB_JSON in device output:\n" + out)
     data = json.loads(line[len("CALIB_JSON "):])
 
-    data["name"] = "Adafruit MatrixPortal S3 (64x32)"
-    data["source"] = "measured on adafruit_matrixportal_s3, CircuitPython 9.1.0"
+    data["name"] = BOARD_NAMES[args.board]
+    data["source"] = "measured on %s, CircuitPython %s" % (args.board, args.cp)
 
-    os.makedirs(os.path.dirname(FIXTURE), exist_ok=True)
-    with open(os.path.abspath(FIXTURE), "w") as f:
+    fixture = os.path.join(CORE_DIR, BASELINE_FILENAMES[args.board])
+    os.makedirs(os.path.dirname(os.path.abspath(fixture)), exist_ok=True)
+    with open(os.path.abspath(fixture), "w") as f:
         json.dump(data, f, indent=2, sort_keys=True)
         f.write("\n")
 
-    print("Measured:")
+    print("Measured (%s):" % args.board)
     for k in sorted(data):
         print("  %-26s %s" % (k, data[k]))
-    print("\nWrote %s" % os.path.abspath(FIXTURE))
+    print("\nWrote %s" % os.path.abspath(fixture))
 
 
 if __name__ == "__main__":

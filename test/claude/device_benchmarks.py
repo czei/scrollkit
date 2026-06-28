@@ -11,9 +11,10 @@ warms up, times an explicit loop with ``time.monotonic_ns()``, and subtracts the
 empty-loop overhead so the number is the marginal cost of the op. Results are
 printed as one JSON line and saved to test/fixtures/device_benchmarks.json.
 
-Run:  PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py
+Run:  PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py [--board <id>]
 """
 
+import argparse
 import json
 import os
 import sys
@@ -21,10 +22,41 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from cpy_repl import run_on_device  # noqa: E402
 
-# Ship the measured table inside the package so dev.performance_guide() can load
-# it (single source of truth, alongside the calibration baseline).
-OUT = os.path.join(os.path.dirname(__file__), "..", "..", "src", "scrollkit",
-                   "simulator", "core", "device_benchmarks.json")
+# Ship the measured tables inside the package so dev.performance_guide() can load
+# them (single source of truth, alongside the calibration baselines). One file per
+# board; the S3 keeps its historical filename.
+CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "src", "scrollkit",
+                        "simulator", "core")
+BENCH_FILENAMES = {
+    "adafruit_matrixportal_s3": "device_benchmarks.json",
+    "pimoroni_interstate75_w": "pimoroni_interstate75_w_benchmarks.json",
+}
+
+# Per-board on-device RGBMatrix constructor (injected into DEVICE_CODE as ``_mk``).
+MK_FUNCS = {
+    "adafruit_matrixportal_s3": r"""
+def _mk(bd):
+    return rgbmatrix.RGBMatrix(
+        width=64, height=32, bit_depth=bd,
+        rgb_pins=[board.MTX_R1, board.MTX_G1, board.MTX_B1,
+                  board.MTX_R2, board.MTX_G2, board.MTX_B2],
+        addr_pins=[board.MTX_ADDRA, board.MTX_ADDRB, board.MTX_ADDRC, board.MTX_ADDRD],
+        clock_pin=board.MTX_CLK, latch_pin=board.MTX_LAT, output_enable_pin=board.MTX_OE)
+""",
+    "pimoroni_interstate75_w": r"""
+def _mk(bd):
+    _common = getattr(board, "MTX_COMMON", None)
+    _addr = getattr(board, "MTX_ADDRESS", None)
+    if _common is not None and _addr is not None:
+        return rgbmatrix.RGBMatrix(width=64, height=32, bit_depth=bd,
+                                   addr_pins=_addr[:4], **_common)
+    return rgbmatrix.RGBMatrix(
+        width=64, height=32, bit_depth=bd,
+        rgb_pins=[board.R0, board.G0, board.B0, board.R1, board.G1, board.B1],
+        addr_pins=[board.ROW_A, board.ROW_B, board.ROW_C, board.ROW_D],
+        clock_pin=board.CLK, latch_pin=board.LAT, output_enable_pin=board.OE)
+""",
+}
 
 DEVICE_CODE = r'''
 import time, gc, json, displayio, board, rgbmatrix, framebufferio
@@ -32,6 +64,7 @@ try:
     import bitmaptools
 except ImportError:
     bitmaptools = None
+___MK_DEF___
 
 res = []
 def rec(name, cat, per_ns, iters, unit="ns/op", note=""):
@@ -224,12 +257,7 @@ t1 = time.monotonic_ns(); net("monotonic_ns_call", "io", t1 - t0, N)
 # ---- display.refresh() at each bit depth ----
 for bd in (1, 2, 4, 6):
     displayio.release_displays()
-    mm = rgbmatrix.RGBMatrix(
-        width=64, height=32, bit_depth=bd,
-        rgb_pins=[board.MTX_R1, board.MTX_G1, board.MTX_B1,
-                  board.MTX_R2, board.MTX_G2, board.MTX_B2],
-        addr_pins=[board.MTX_ADDRA, board.MTX_ADDRB, board.MTX_ADDRC, board.MTX_ADDRD],
-        clock_pin=board.MTX_CLK, latch_pin=board.MTX_LAT, output_enable_pin=board.MTX_OE)
+    mm = _mk(bd)
     dd = framebufferio.FramebufferDisplay(mm, auto_refresh=False)
     gg = displayio.Group(); dd.root_group = gg
     # empty refresh
@@ -262,15 +290,25 @@ print("BENCH_JSON " + json.dumps(res))
 
 
 def main():
-    out = run_on_device(DEVICE_CODE, exec_timeout=180.0)
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--board", default="adafruit_matrixportal_s3",
+                    choices=sorted(BENCH_FILENAMES),
+                    help="which board is connected (default: %(default)s)")
+    ap.add_argument("--cp", default="unknown",
+                    help="CircuitPython version string for the table label")
+    args = ap.parse_args()
+
+    device_code = DEVICE_CODE.replace("___MK_DEF___", MK_FUNCS[args.board])
+    out = run_on_device(device_code, exec_timeout=180.0)
     line = next((ln for ln in out.splitlines() if ln.startswith("BENCH_JSON ")), None)
     if line is None:
         raise SystemExit("no BENCH_JSON in device output:\n" + out)
     rows = json.loads(line[len("BENCH_JSON "):])
 
-    os.makedirs(os.path.dirname(os.path.abspath(OUT)), exist_ok=True)
-    with open(os.path.abspath(OUT), "w") as f:
-        json.dump({"board": "adafruit_matrixportal_s3", "cp": "9.1.0",
+    out_path = os.path.join(CORE_DIR, BENCH_FILENAMES[args.board])
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    with open(os.path.abspath(out_path), "w") as f:
+        json.dump({"board": args.board, "cp": args.cp,
                    "benchmarks": rows}, f, indent=2)
         f.write("\n")
 
@@ -288,7 +326,7 @@ def main():
             note = ("  # " + r["note"]) if r["note"] else ""
             print("%-28s %-12s %12s  %-7s%s"
                   % (r["name"], r["category"], val, r["unit"], note))
-    print("\nSaved %s" % os.path.abspath(OUT))
+    print("\nSaved %s" % os.path.abspath(out_path))
 
 
 if __name__ == "__main__":

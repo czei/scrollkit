@@ -21,7 +21,9 @@ exist.
     MatrixPortal S3 (CircuitPython 9.1.0). `scrollkit.dev.performance_guide()`
     returns the live table; `device_benchmarks.json` and
     `matrixportal_s3_baseline.json` hold the raw captures. They can't drift from
-    the prose, because they aren't prose.
+    the prose, because they aren't prose. Other supported boards carry their own
+    profile; an uncalibrated board uses a labeled estimate until a baseline is
+    captured (see [Adding New Hardware](hardware.md)).
 
 ## The frame budget
 
@@ -188,5 +190,7 @@ SimulatorDisplay(width=64, height=32, throttle=True)   # implies hardware timing
   scroller internals.
 - [The Simulator](simulator.md) documents hardware-timing mode and how the device
   model is calibrated.
+- [Adding New Hardware](hardware.md) covers running ScrollKit on other boards and
+  capturing a per-board performance baseline.
 - `AGENTS.md` at the repo root is the condensed version of this page for an AI agent
   building apps, with the same measured numbers.

@@ -57,25 +57,35 @@ else:
 
 from .interface import DisplayInterface
 from ._graphics import GraphicsMixin
+from .boards import resolve_board
 
 
 class UnifiedDisplay(GraphicsMixin, DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
     
-    def __init__(self, width: int = 64, height: int = 32, bit_depth: int = 4):
+    def __init__(self, width=None, height=None, bit_depth: int = 4, board=None):
         """Initialize unified display.
 
         Args:
-            width: Display width in pixels
-            height: Display height in pixels
+            width: Display width in pixels. ``None`` uses the board's default
+                (64 on both supported boards).
+            height: Display height in pixels. ``None`` uses the board's default
+                (32 on both supported boards).
             bit_depth: Color bits per channel on hardware (1-6). Measured on a
                 MatrixPortal S3, a full refresh costs ~4.5 ms at bit_depth<=4 but
                 ~13.7 ms at bit_depth 6 (~3x) — so 4 is the speed/quality sweet
                 spot for scrolling/data displays. Raise to 6 only if you need
                 smooth color gradients and can afford the lower frame rate.
+            board: Canonical board id (e.g. ``"adafruit_matrixportal_s3"`` or
+                ``"pimoroni_interstate75_w"``). ``None`` auto-detects on hardware
+                via ``board.board_id``, honors ``SCROLLKIT_HW_BOARD``, and falls
+                back to the MatrixPortal S3 (see ``display/boards.py``).
         """
-        self._width: int = width
-        self._height: int = height
+        spec = resolve_board(board)
+        self._board_id: str = spec.board_id
+        self._board_spec = spec
+        self._width: int = spec.default_width if width is None else width
+        self._height: int = spec.default_height if height is None else height
         self._bit_depth: int = bit_depth
         self._brightness: float = 0.3
 
@@ -155,17 +165,17 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
     def _initialize_hardware(self) -> None:
         """Initialize the display hardware/simulator."""
         if IS_CIRCUITPYTHON:
-            # Create the RGB matrix. Pass bit_depth explicitly (4 by default)
-            # rather than relying on the library default — it's the single biggest
-            # refresh-cost lever on this board (~3x between bit_depth 4 and 6).
+            # Build the RGB matrix via the resolved board's constructor. bit_depth
+            # is passed explicitly (4 by default) rather than relying on a library
+            # default — it's the single biggest refresh-cost lever (~3x between
+            # bit_depth 4 and 6). Per-board pin wiring lives in display/boards.py.
             try:
-                from adafruit_matrixportal.matrix import Matrix
-                self.hardware = Matrix(width=self._width, height=self._height,
-                                       bit_depth=self._bit_depth)
-                self.display = self.hardware.display
-                self.matrix = self.hardware
+                self.hardware, self.display, self.matrix = (
+                    self._board_spec.make_matrix(
+                        self._width, self._height, self._bit_depth))
             except ImportError:
-                raise ImportError("No compatible hardware found")
+                raise ImportError(
+                    "No compatible hardware found for board %r" % self._board_id)
         else:
             if not LED_SIMULATOR_AVAILABLE:
                 raise ImportError(
@@ -206,12 +216,12 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         if not (env_sim or env_throttle or env_strict):
             return
         try:
-            from scrollkit.simulator.core.hardware_profile import matrixportal_s3_profile
+            from scrollkit.simulator.core.hardware_profile import profile_for
             from scrollkit.simulator.core.performance_manager import (
                 PerformanceManager, set_active)
         except ImportError:
             return
-        self._perf = PerformanceManager(matrixportal_s3_profile(), enabled=True,
+        self._perf = PerformanceManager(profile_for(self._board_id), enabled=True,
                                         throttle=env_throttle, strict=env_strict)
         self.device.performance_manager = self._perf   # read by LEDMatrix
         set_active(self._perf)                          # read by the Label rebuild hook
