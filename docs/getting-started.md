@@ -33,8 +33,9 @@ from scrollkit.app.minimal import MinimalLEDApp
 MinimalLEDApp().scroll_text("Hello, World!", color=(0, 255, 128))
 ```
 
-On desktop this opens a window showing the simulated 64×32 matrix. On a
-MatrixPortal S3 the identical code drives the physical panel.
+On desktop this opens a window showing the simulated 64×32 matrix. On a supported
+CircuitPython board (the MatrixPortal S3 or the Interstate 75 W) the identical
+code drives the physical panel.
 
 ## Two ways to write an app
 
@@ -75,12 +76,14 @@ MatrixPortal S3 the identical code drives the physical panel.
 
 ## Deploying to hardware
 
-1. Connect the MatrixPortal S3 over USB (it mounts as `CIRCUITPY`).
+1. Connect a supported board (MatrixPortal S3 or Interstate 75 W) over USB (it
+   mounts as `CIRCUITPY`).
 2. Copy `src/` to the device, or run `make copy_to_circuitpy`.
 3. Set WiFi credentials in `settings.json`.
 
-The same app code runs unchanged — `UnifiedDisplay` auto-selects the hardware
-backend on CircuitPython.
+The same app code runs unchanged: `UnifiedDisplay` auto-selects the hardware
+backend on CircuitPython and auto-detects which board it's on (pass `board="..."`
+to force one). See [Adding New Hardware](guide/hardware.md).
 
 ### CircuitPython dependencies (circup)
 
@@ -95,7 +98,8 @@ circup install adafruit_requests adafruit_httpserver adafruit_display_text adafr
 
 ### Saving RAM with .mpy (optional)
 
-The MatrixPortal S3 is memory-constrained. Cross-compiling the library to `.mpy`
+These boards are memory-constrained (the RP2350 Interstate 75 W especially, with
+no PSRAM). Cross-compiling the library to `.mpy`
 loads faster and uses less RAM than shipping raw `.py`. With `mpy-cross` installed
 (matching your CircuitPython version):
 

@@ -2,7 +2,7 @@
 
 LED Matrix Display Framework for CircuitPython and Desktop.
 
-Build applications that run on both MatrixPortal S3 hardware and a desktop simulator — write once, test everywhere.
+Build applications that run on CircuitPython HUB75 boards (the Adafruit MatrixPortal S3 and the Pimoroni Interstate 75 W) and a desktop simulator — write once, test everywhere.
 
 ## Installation
 
@@ -136,9 +136,10 @@ color = ColorUtils.scale_color(0xff0000, 0.5)  # Dim red to 50%
 
 | Platform | Backend | Status |
 |---|---|---|
-| MatrixPortal S3 | CircuitPython + displayio | ✅ |
+| Adafruit MatrixPortal S3 | CircuitPython + displayio | ✅ Calibrated from device |
+| Pimoroni Interstate 75 W (RP2350) | CircuitPython + rgbmatrix | ✅ Supported (perf profile uncalibrated) |
 | Desktop (macOS/Linux/Windows) | SLDK Simulator | ✅ |
-| Custom CircuitPython boards | displayio | 🔌 Extensible |
+| Custom CircuitPython boards | displayio / rgbmatrix | 🔌 Extensible (see docs: Adding New Hardware) |
 
 ## License
 
