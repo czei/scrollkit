@@ -79,11 +79,10 @@ class SLDKApp:
                 expected gap between display-loop iterations (a blocking fetch
                 pauses feeding), so keep HTTP timeouts comfortably below it and
                 feed it during any long blocking work. Default 8s — short enough for
-                quick freeze recovery. (Hardware note: the assumption that the
-                ESP32-S3 rejects timeouts over ~8.3s with ValueError was NOT
-                reproduced on CP 9.2.7 — it accepts AND honors 16s, accepts 30s. The
-                step-down in _arm_watchdog is kept as defensive insurance for a
-                board/version that does cap lower; verify on your target CircuitPython.)
+                quick freeze recovery. (Hardware note: the ESP32-S3 accepts AND
+                honors any value on both CP 9.2.7 and the target CP 10.2.1 — the
+                once-assumed ~8.3s ValueError cap does not exist; see
+                test/claude/RELIABILITY_TESTING.md.)
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
@@ -545,31 +544,15 @@ class SLDKApp:
             import microcontroller
             from watchdog import WatchDogMode
             wdt = microcontroller.watchdog
-            # Defensive step-down: try the requested timeout, then fall back to the
-            # largest value the board accepts. NOTE: the assumption that the ESP32-S3
-            # rejects timeouts over ~8.3s with ValueError was NOT reproduced on real
-            # hardware — CP 9.2.7 accepts and honors 16s and accepts 30s — so there
-            # this loop just applies the requested value and never falls back. It is
-            # kept as cheap insurance for any board/CP version that DOES cap lower
-            # (unverified — possibly CP 10.x); without it the broad except below would
-            # swallow such a ValueError and leave the watchdog silently unarmed.
-            applied = None
-            for candidate in (self.watchdog_timeout, 8, 6, 4):
-                if not candidate or candidate <= 0:
-                    continue
-                try:
-                    wdt.timeout = candidate
-                    applied = candidate
-                    break
-                except ValueError:
-                    continue
-            if applied is None:
-                print("Watchdog NOT armed: board rejected every candidate timeout")
-                return
+            # The ESP32-S3 accepts and honors any timeout we set on both CP 9.2.7 and
+            # the target CP 10.2.1 — hardware-verified; the once-assumed ~8.3s
+            # ValueError cap does not exist (see test/claude/RELIABILITY_TESTING.md).
+            # So set it directly. If some future board/version did reject the value,
+            # the broad `except` below logs it and leaves the watchdog disarmed.
+            wdt.timeout = self.watchdog_timeout
             wdt.mode = WatchDogMode.RESET
-            self.watchdog_timeout = applied   # reflect what actually took effect
             self._watchdog = wdt
-            print(f"Watchdog armed: {applied}s (RESET)")
+            print(f"Watchdog armed: {self.watchdog_timeout}s (RESET)")
         except Exception as e:
             print(f"Watchdog unavailable: {e}")
 

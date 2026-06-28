@@ -1,59 +1,64 @@
-"""On-device reliability harness — host-orchestrated over USB (v1: watchdog + HTTP).
+"""On-device reliability harness — host-orchestrated over USB (6 phases).
 
-Validates the field-reliability fixes that the desktop simulator physically cannot
-reproduce, by driving a real MatrixPortal S3 (ESP32-S3, CircuitPython) over the raw
-REPL and *deliberately* inducing the failure modes the fixes recover from:
+Validates the field-reliability fixes (base.py watchdog/memory, http_client timeout,
+error_handler rotation/singleton) against a REAL MatrixPortal S3, by deliberately
+inducing the failure modes the simulator physically cannot reproduce. Each phase
+maps to a fix and tests the genuinely hardware/CircuitPython-specific part of it
+(the pure logic is already covered by the desktop unit suite).
 
-  Phase A  watchdog premise + step-down   (non-destructive)
-           - the board rejects a >8.3s timeout with ValueError (the premise behind
-             base.ScrollKitApp._arm_watchdog stepping 8->6->4), and arms at the
-             largest accepted value.
-  Phase B  watchdog actually resets        (REBOOTS THE BOARD)
-           - arm at 8s, then stop feeding for ~12s (a stand-in for a hung
-             synchronous fetch). The board must hard-reset; after reboot
-             microcontroller.cpu.reset_reason must read WATCHDOG.
-  Phase C  HTTP timeout < watchdog window  (positive is safe; negative REBOOTS)
-           - positive: HttpClient(timeout=6).get(slow, max_retries=1) blocks ~6s
-             (one attempt) while the 8s watchdog is armed, then returns a 500 ->
-             NO reset (6 < 8). Proves fix #3's invariant. (get() swallows the
-             timeout and returns a MockResponse rather than raising.)
-           - negative control: timeout=20 > 8s watchdog -> the single synchronous
-             attempt blocks the loop past the watchdog window -> a *false* reset
-             (WATCHDOG). Proves the invariant matters — this is what fix #3 lowered
-             the default to 6 to avoid.
-           NOTE: max_retries=1 isolates one request. get() retries 3x by default,
-           but the `await asyncio.sleep` backoff between retries yields, so in the
-           real app the concurrent display loop feeds the watchdog between attempts;
-           a single synchronous attempt is the longest unfed window, which is why
-           "per-request timeout < watchdog" is the invariant that matters.
+  A  watchdog timeout premise   (non-destructive)  — fix #1
+       Probe which timeouts microcontroller.watchdog accepts. On the ESP32-S3
+       (CP 9.2.7 AND 10.2.1) every value up to 30s is accepted — the once-assumed
+       ~8.3s ValueError cap does not exist. PASS = the default 8s is accepted (so
+       the watchdog can arm); the cap finding is reported as info.
+  B  watchdog actually resets    (REBOOTS)          — fix #1
+       Arm 8s, stop feeding ~15s (a stand-in for a hung synchronous fetch). The
+       board must hard-reset; after reboot microcontroller.cpu.reset_reason must
+       read WATCHDOG.
+  C  HTTP timeout < watchdog      (neg REBOOTS)      — fix #3
+       A single synchronous adafruit_requests GET to a black-hole. timeout=6 blocks
+       ~6s < the 8s watchdog -> NO reset (positive). The negative control timeout=20
+       blocks past the window -> a false WATCHDOG reset. (Tests the real socket-
+       timeout-vs-watchdog interaction; HttpClient passing the timeout to session.get
+       is separately unit-verified by test_get_request_adafruit.)
+  D  log tail-trim primitive      (non-destructive)  — fix #4
+       The rotation fallback rewrites the log keeping its last N bytes via a binary
+       end-relative seek. Confirm `seek(-8192, 2)` works on the device filesystem and
+       that the trim shrinks the file while preserving the most recent line.
+  E  singleton identity           (non-destructive)  — fix #5
+       Confirm a __new__-based singleton + _initialized guard returns one shared
+       instance with shared state on CircuitPython (the pattern ErrorHandler uses;
+       __new__ on CircuitPython was a long-standing open compat question).
+  F  memory floor + force logic   (non-destructive)  — fix #2
+       Report the device's real free heap (is the 25000 floor reachable?) and verify
+       the "force a refresh after N consecutive low-memory skips" counter logic.
 
 WHY HOST-ORCHESTRATED CAN TEST THE WATCHDOG AT ALL
 --------------------------------------------------
-base.ScrollKitApp._arm_watchdog deliberately SKIPS arming while
-`supervisor.runtime.serial_connected` (so it never reboots you mid-debug). Because
-this harness is attached over USB, that guard would always fire — so the phases arm
-`microcontroller.watchdog` DIRECTLY (bypassing the guard) to exercise the hardware
-reset path. The *hardware* watchdog resets regardless of USB. Consequence: this
-runner validates the hardware behaviour + the timeout invariant; the library's full
-`_arm_watchdog` method (including the serial guard) is only exercised end-to-end by
-running the harness headless (no USB console). That gap is intentional and noted.
+ScrollKitApp._arm_watchdog skips arming while supervisor.runtime.serial_connected
+(so it never reboots you mid-debug). Because this harness is attached over USB, that
+guard would always fire — so the phases arm microcontroller.watchdog DIRECTLY. The
+hardware watchdog resets regardless of USB. Consequence: this validates the hardware
+behaviour + the timeout invariant; the library's full _arm_watchdog path (with the
+serial guard) is only exercised when the app runs headless.
 
 PREREQUISITES
 -------------
-  * A MatrixPortal S3 on USB serial. Set PORT below (or pass as argv[1]).
-  * The UPDATED scrollkit (with the six reliability fixes) copied to the board's
-    /lib — Phase C imports scrollkit.network.http_client.HttpClient.
-  * The board idling at the REPL is ideal. If a code.py auto-runs an app, the
-    runner's Ctrl-C will interrupt it, but remove/rename code.py for a clean run.
-  * Phase C needs WiFi + outbound network. CircuitPython auto-connects at boot when
-    settings.toml has CIRCUITPY_WIFI_SSID / CIRCUITPY_WIFI_PASSWORD; the phase skips
-    itself (not fail) if the radio can't connect. SLOW_URL must be a host that
-    accepts the connection but doesn't answer within the timeout.
+  * A MatrixPortal S3 on USB serial. Set PORT below or pass it as argv[1]. Find it
+    with: ls /dev/cu.usbmodem*    (macOS) — the default matches cpy_repl.py.
+  * Ideally the board idles at the REPL. If a code.py auto-runs an app, the runner's
+    Ctrl-C interrupts it each phase; results are unaffected, but a clean board is
+    tidier. (No scrollkit install is required — the phases are self-contained.)
+  * Phase C needs WiFi + outbound network: it reads CIRCUITPY_WIFI_SSID/PASSWORD,
+    falling back to secrets.py keys ssid/password; it self-skips if neither connects.
+    adafruit_requests must be importable — it auto-adds /src/lib to sys.path (where
+    ThemeParkWaits keeps it); adjust if your board stores it elsewhere.
+  * SLOW_URL must accept the connection but not answer within the timeout. The
+    default TEST-NET-1 address is unrouted, so the connect hangs until the timeout.
 
-THIS DELIBERATELY REBOOTS THE BOARD. It is a dev diagnostic, never shipped.
-
-NOTE: written against the hardware contract but NOT executed here (no board on this
-host). Tuning points are flagged inline; PORT and SLOW_URL are the usual ones.
+THIS DELIBERATELY REBOOTS THE BOARD (phases B and C-negative). Dev diagnostic only,
+never shipped. Full background, findings and repeat instructions:
+test/claude/RELIABILITY_TESTING.md
 
     python test/claude/reliability_harness.py [/dev/cu.usbmodemXXXX]
 """
@@ -65,50 +70,42 @@ import serial
 
 from cpy_repl import run_on_device, _read_until, PORT, BAUD
 
-# A routable-but-unanswering target keeps Phase C's clock dominated by the socket
-# timeout (no DNS / no TLS handshake to inflate it): TEST-NET-1 (RFC 5737) is not
-# routed on the public internet, so the connect hangs until the timeout fires. If
-# your network returns ICMP-unreachable quickly instead, switch to a slow responder
-# such as "http://<host>/delay" that holds the connection open past the timeout.
-SLOW_URL = "http://192.0.2.1/"
-
-WATCHDOG_ARM_S = 8          # real default after fix #1
-HTTP_OK_TIMEOUT = 6         # fix #3 default: below the watchdog
-HTTP_BAD_TIMEOUT = 20       # negative control: above the watchdog
+SLOW_URL = "http://192.0.2.1/"   # TEST-NET-1 (RFC 5737): unrouted -> connect hangs
+WATCHDOG_ARM_S = 8               # honored on CP 9.2.7 and 10.2.1
+HTTP_OK_TIMEOUT = 6              # fix #3 default: below the watchdog
+HTTP_BAD_TIMEOUT = 20            # negative control: above the watchdog
 
 
 # --------------------------------------------------------------------------- #
-# Low-level reset-aware orchestration (run_on_device can't survive a reboot)   #
+# Reset-aware orchestration (run_on_device can't survive a reboot)            #
 # --------------------------------------------------------------------------- #
-def run_until_reset(code, port, baud=BAUD, settle=18.0):
-    """Send `code` via raw REPL and watch for the board to reset.
+def run_until_reset(code, port, baud=BAUD, settle=20.0):
+    """Send `code` via raw REPL and watch for a reset. Returns (reset, output).
 
-    Returns (reset: bool, output: str). A reset is detected when the native-USB
-    serial drops (the board re-enumerates on reset) or the CircuitPython boot
-    banner reappears. `settle` bounds how long we wait for the expected reset.
+    A reset is detected when the native-USB serial drops (the board re-enumerates on
+    reset) or the CircuitPython boot banner reappears.
     """
     out = bytearray()
     try:
         with serial.Serial(port, baud, timeout=1) as ser:
-            ser.write(b"\r\x03\x03")          # interrupt anything running
+            ser.write(b"\r\x03\x03")
             time.sleep(0.3)
             ser.reset_input_buffer()
-            ser.write(b"\r\x01")              # enter raw REPL
+            ser.write(b"\r\x01")
             _read_until(ser, b"raw REPL; CTRL-B to exit\r\n>", timeout=5)
             ser.write(code.encode("utf-8"))
-            ser.write(b"\x04")                # execute
+            ser.write(b"\x04")
             deadline = time.monotonic() + settle
             while time.monotonic() < deadline:
                 try:
-                    chunk = ser.read(256)
+                    chunk = ser.read(128)
                 except (serial.SerialException, OSError):
-                    return True, out.decode("utf-8", "replace")   # port dropped == reset
+                    return True, out.decode("utf-8", "replace")
                 if chunk:
                     out.extend(chunk)
-                    # A hard (watchdog) reset reprints the full CircuitPython banner.
                     if b"Adafruit CircuitPython" in out:
                         return True, out.decode("utf-8", "replace")
-            return False, out.decode("utf-8", "replace")          # no reset in window
+            return False, out.decode("utf-8", "replace")
     except (serial.SerialException, OSError):
         return True, out.decode("utf-8", "replace")
 
@@ -125,208 +122,241 @@ def wait_for_board(port, baud=BAUD, timeout=40.0):
     return False
 
 
-_RESET_REASON = """
-import microcontroller as m
-print("RESET_REASON", str(m.cpu.reset_reason))
-"""
-
-
 def read_reset_reason(port):
-    """Return the microcontroller reset-reason name (e.g. 'WATCHDOG'), or '?'.
-
-    Safe to call from a fresh connection: run_on_device enters raw REPL without a
-    soft reboot, so it does not clobber the reason set by the last hard reset.
-    """
-    out = run_on_device(_RESET_REASON, port=port)
+    """Return the reset-reason name (e.g. 'WATCHDOG'). run_on_device enters raw REPL
+    without a soft reboot, so it does not clobber the last hard reset's reason."""
+    out = run_on_device("import microcontroller as m\nprint('RR', str(m.cpu.reset_reason))\n",
+                        port=port, exec_timeout=15)
     for line in out.splitlines():
-        if line.startswith("RESET_REASON"):
-            return line.split(None, 1)[1].strip() if len(line.split(None, 1)) > 1 else "?"
+        if line.startswith("RR"):
+            return line[3:].strip()
     return "?"
 
 
+def reboot_and_check_reason(port, want="WATCHDOG"):
+    """After a phase that reset the board: wait for re-enumeration, read the reason."""
+    if not wait_for_board(port):
+        return False, "board did not re-enumerate after reset"
+    time.sleep(2.0)
+    reason = read_reset_reason(port)
+    return (want in reason), "reset_reason=%s (want %s)" % (reason, want)
+
+
 # --------------------------------------------------------------------------- #
-# Device-side snippets                                                         #
+# Device-side snippets                                                        #
 # --------------------------------------------------------------------------- #
 _PHASE_A = """
 import microcontroller
 wdt = microcontroller.watchdog
-res = {}
-# Premise behind fix #1: the ESP32-S3 rejects timeouts over ~8.3s.
-try:
-    wdt.timeout = 30
-    res["rejects_30"] = False
-except ValueError:
-    res["rejects_30"] = True
-# Step-down mirrors _arm_watchdog: the largest accepted of (8, 6, 4). Setting only
-# .timeout (never .mode) does NOT arm the watchdog, so this phase can't reboot us.
-applied = None
-for c in (8, 6, 4):
+maxacc = None; rejected = []
+for t in (30, 20, 16, 12, 10, 9, 8.5, 8.3, 8, 6, 4):
     try:
-        wdt.timeout = c
-        applied = c
-        break
+        wdt.timeout = t
+        if maxacc is None: maxacc = t
     except ValueError:
-        continue
-res["applied"] = applied
-print("PHASE_A", res)
+        rejected.append(t)
+print("A maxaccepted=%s rejected=%s accepts8=%s" % (maxacc, rejected, 8 not in rejected))
 """
 
 _PHASE_B = """
 import time, microcontroller
 from watchdog import WatchDogMode
 wdt = microcontroller.watchdog
-wdt.timeout = 8                       # real default; arm DIRECTLY (bypass serial guard)
+wdt.timeout = 8
 wdt.mode = WatchDogMode.RESET
-print("PHASE_B armed=8 wedging")      # board should hard-reset at ~8s, never reaching below
-time.sleep(12)                        # stand-in for a hung synchronous fetch: never feeds
-print("PHASE_B ERROR survived")       # must never reach the host
+wdt.feed()
+print("B_ARMED")
+time.sleep(15)
+print("B_SURVIVED_ERROR")
 """
 
-# Phase C positive: ONE request whose timeout (6s) is below the 8s watchdog. We pass
-# max_retries=1 to isolate a single request: get() retries up to 3x by default, and
-# in the real app the display loop feeds the watchdog during the `await asyncio.sleep`
-# backoff *between* retries (the backoff yields; the synchronous session.get does not).
-# This harness runs get() with nothing else feeding, so only a single attempt isolates
-# the per-request invariant. get() swallows the timeout and RETURNS a 500 MockResponse
-# (it does not raise), so we judge by elapsed time + "we got here, no reset".
-_PHASE_C_POS = """
-import time, microcontroller, os
+# Shared WiFi/imports prefix for phase C. Tries CIRCUITPY_WIFI_*, then secrets.py.
+_WIFI = """
+import sys
+if "/src/lib" not in sys.path: sys.path.append("/src/lib")
+import time, os, microcontroller, wifi, socketpool, ssl, adafruit_requests
 from watchdog import WatchDogMode
-try:
-    import wifi, socketpool, ssl, asyncio, adafruit_requests
-    if not wifi.radio.connected:
-        wifi.radio.connect(os.getenv("CIRCUITPY_WIFI_SSID"), os.getenv("CIRCUITPY_WIFI_PASSWORD"))
-    pool = socketpool.SocketPool(wifi.radio)
-    session = adafruit_requests.Session(pool, ssl.create_default_context())
-    from scrollkit.network.http_client import HttpClient
-    client = HttpClient(session=session, timeout=%d)
-    client.using_adafruit = True
-    wdt = microcontroller.watchdog
-    wdt.timeout = 8
-    wdt.mode = WatchDogMode.RESET
-    wdt.feed()
-    t0 = time.monotonic()
-    resp = asyncio.run(client.get("%s", max_retries=1))   # returns; does not raise
-    dt = time.monotonic() - t0
+ssid = os.getenv("CIRCUITPY_WIFI_SSID"); pw = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+if not ssid:
     try:
-        wdt.mode = WatchDogMode.NONE                       # disarm before reporting
-    except Exception:
-        pass
-    print("PHASE_C_POS dt=%%.1f status=%%s" %% (dt, getattr(resp, "status_code", "?")))
-except Exception as e:
-    print("PHASE_C_SKIP", type(e).__name__, str(e)[:60])
-""" % (HTTP_OK_TIMEOUT, SLOW_URL)
+        from secrets import secrets
+        ssid = secrets.get("ssid"); pw = secrets.get("password")
+    except Exception: pass
+if not wifi.radio.connected and ssid:
+    try: wifi.radio.connect(ssid, pw); time.sleep(1)
+    except Exception as e: print("WIFI_ERR", e)
+if not wifi.radio.connected:
+    print("C_SKIP no_wifi")
+"""
 
-# Phase C negative control: ONE request whose timeout (20s) exceeds the 8s watchdog,
-# so the single synchronous attempt blocks the loop past the window -> a false WATCHDOG
-# reset. This is exactly what fix #3 lowered the default to 6 to avoid.
-_PHASE_C_NEG = """
-import time, microcontroller, os
-from watchdog import WatchDogMode
-try:
-    import wifi, socketpool, ssl, asyncio, adafruit_requests
-    if not wifi.radio.connected:
-        wifi.radio.connect(os.getenv("CIRCUITPY_WIFI_SSID"), os.getenv("CIRCUITPY_WIFI_PASSWORD"))
+_PHASE_C_POS = _WIFI + """
+if wifi.radio.connected:
     pool = socketpool.SocketPool(wifi.radio)
     session = adafruit_requests.Session(pool, ssl.create_default_context())
-    from scrollkit.network.http_client import HttpClient
-    client = HttpClient(session=session, timeout=%d)
-    client.using_adafruit = True
     wdt = microcontroller.watchdog
-    wdt.timeout = 8
-    wdt.mode = WatchDogMode.RESET
-    wdt.feed()
-    print("PHASE_C_NEG blocking")               # board should reset before this returns
-    asyncio.run(client.get("%s", max_retries=1))
-    print("PHASE_C_NEG ERROR survived")
-except Exception as e:
-    print("PHASE_C_NEG_SKIP", type(e).__name__, str(e)[:60])
-""" % (HTTP_BAD_TIMEOUT, SLOW_URL)
+    wdt.timeout = 8; wdt.mode = WatchDogMode.RESET; wdt.feed()
+    t0 = time.monotonic(); err = "none"
+    try:
+        r = session.get("%s", timeout=%d); err = "got_%%s" %% r.status_code
+    except Exception as e:
+        err = type(e).__name__
+    dt = time.monotonic() - t0
+    try: wdt.mode = WatchDogMode.NONE
+    except Exception: pass
+    print("C_POS dt=%%.1f err=%%s" %% (dt, err))
+""" % (SLOW_URL, HTTP_OK_TIMEOUT)
+
+_PHASE_C_NEG = _WIFI + """
+if wifi.radio.connected:
+    pool = socketpool.SocketPool(wifi.radio)
+    session = adafruit_requests.Session(pool, ssl.create_default_context())
+    wdt = microcontroller.watchdog
+    wdt.timeout = 8; wdt.mode = WatchDogMode.RESET; wdt.feed()
+    print("C_NEG_BLOCK")
+    session.get("%s", timeout=%d)
+    print("C_NEG_SURVIVED_ERROR")
+""" % (SLOW_URL, HTTP_BAD_TIMEOUT)
+
+_PHASE_D = r"""
+import storage, os
+try: storage.remount("/", readonly=False)   # device-writable for the file test
+except Exception: pass
+p = "/reliability_d.txt"
+with open(p, "w") as f:
+    for i in range(600): f.write("line %04d ..............................\n" % i)
+size0 = os.stat(p)[6]; keep = 8192; seekok = True
+with open(p, "rb") as f:
+    try: f.seek(-keep, 2)                     # last `keep` bytes (whence 2 = end)
+    except (OSError, ValueError): f.seek(0); seekok = False
+    tail = f.read()
+with open(p, "wb") as f:
+    f.write(b"[trim]\n"); f.write(tail)
+size1 = os.stat(p)[6]
+with open(p, "rb") as f: data = f.read()
+os.remove(p)
+print("D seek_from_end=%s size0=%d size1=%d shrank=%s recent=%s"
+      % (seekok, size0, size1, size1 < size0, b"line 0599" in data))
+"""
+
+_PHASE_E = """
+class _S:
+    _inst = {}
+    def __new__(cls, k):
+        i = cls._inst.get(k)
+        if i is None:
+            i = super().__new__(cls); cls._inst[k] = i
+        return i
+    def __init__(self, k):
+        if getattr(self, "_init", False): return
+        self._init = True; self.k = k; self.flag = False
+a = _S("x"); b = _S("x"); a.flag = True; c = _S("y")
+print("E same=%s shared=%s distinct=%s" % (a is b, b.flag, a is not c))
+"""
+
+_PHASE_F = """
+import gc
+gc.collect(); free = gc.mem_free()
+MAX = 5; skips = 0; forced = []
+for i in range(8):
+    force = skips >= MAX
+    if (20000 > 25000) or force:    # 20000 < the 25000 floor -> only 'force' lets it through
+        forced.append(i); skips = 0
+    else:
+        skips += 1
+print("F free=%d floor=25000 reachable=%s forced_at=%s" % (free, free > 25000, forced))
+"""
 
 
 # --------------------------------------------------------------------------- #
-# Phases                                                                       #
+# Phases                                                                      #
 # --------------------------------------------------------------------------- #
 def phase_a(port):
-    print("\n[A] watchdog premise + step-down (non-destructive)")
-    out = run_on_device(_PHASE_A, port=port)
-    line = next((l for l in out.splitlines() if l.startswith("PHASE_A")), "")
-    rejects = "'rejects_30': True" in line
-    applied8 = "'applied': 8" in line
-    print("    device:", line or out.strip())
-    if rejects and applied8:
-        return _verdict("A", True, "board rejects >8.3s and arms at 8s (fix #1 premise holds)")
-    if not rejects:
-        return _verdict("A", False, "board did NOT reject 30s — fix #1's premise is wrong; revisit the step-down")
-    return _verdict("A", False, "did not settle at 8s: %s" % line)
+    print("\n[A] watchdog timeout premise (non-destructive)")
+    out = run_on_device(_PHASE_A, port=port, exec_timeout=20)
+    line = next((l for l in out.splitlines() if l.startswith("A ")), out.strip())
+    print("    device:", line)
+    accepts8 = "accepts8=True" in line
+    capped = "rejected=[]" not in line
+    if not accepts8:
+        return _v("A", False, "board rejected the default 8s timeout: %s" % line)
+    note = "a cap EXISTS (premise true here)" if capped else "no cap — accepts all (premise false; matches CP 9.2.7/10.2.1)"
+    return _v("A", True, "8s accepted; %s" % note)
 
 
 def phase_b(port):
-    print("\n[B] watchdog resets a wedged loop (REBOOTS THE BOARD)")
+    print("\n[B] watchdog resets a wedged loop (REBOOTS)")
     reset, out = run_until_reset(_PHASE_B, port)
-    if "PHASE_B ERROR survived" in out:
-        return _verdict("B", False, "loop survived 12s unfed — watchdog never reset the board")
+    if "B_SURVIVED_ERROR" in out:
+        return _v("B", False, "loop survived 15s unfed — watchdog never reset")
     if not reset:
-        return _verdict("B", False, "no reset detected within the window (did the watchdog arm?)")
+        return _v("B", False, "no reset detected (did the watchdog arm?)")
     print("    reset detected; waiting for re-enumeration...")
-    if not wait_for_board(port):
-        return _verdict("B", False, "board did not re-enumerate after reset")
-    time.sleep(2.0)
-    reason = read_reset_reason(port)
-    print("    reset_reason:", reason)
-    return _verdict("B", "WATCHDOG" in reason,
-                    "reset_reason=%s (want WATCHDOG)" % reason)
+    ok, detail = reboot_and_check_reason(port)
+    return _v("B", ok, detail)
 
 
 def phase_c(port):
-    print("\n[C] HTTP timeout vs watchdog window (positive safe; negative REBOOTS)")
-    # Positive: one request times out (~6s) below the 8s watchdog -> no reset. The
-    # board returning to the REPL at all (run_on_device completes) means it didn't
-    # reset; get() returns a 500 MockResponse on timeout.
-    out = run_on_device(_PHASE_C_POS, port=port, exec_timeout=45.0)
-    pos_line = next((l for l in out.splitlines() if l.startswith("PHASE_C")), out.strip())
-    print("    positive:", pos_line)
-    if "PHASE_C_SKIP" in out:
-        return _verdict("C", None, "skipped — no WiFi/network (%s)" % pos_line)
-    if "PHASE_C_POS dt=" not in out:
-        return _verdict("C", False, "positive case produced no result: %s" % pos_line)
-    dt = _parse_dt(pos_line)
+    print("\n[C] HTTP timeout vs watchdog (positive safe; negative REBOOTS)")
+    out = run_on_device(_PHASE_C_POS, port=port, exec_timeout=45)
+    pos = next((l for l in out.splitlines() if l.startswith("C_")), out.strip())
+    print("    positive:", pos)
+    if "C_SKIP" in out:
+        return _v("C", None, "skipped — WiFi unavailable")
+    if "C_POS dt=" not in out:
+        return _v("C", False, "positive produced no result: %s" % pos)
+    dt = _dt(pos)
     if dt is not None and dt >= WATCHDOG_ARM_S:
-        return _verdict("C", False,
-                        "request blocked %.1fs >= watchdog %ds (would reset in situ)" % (dt, WATCHDOG_ARM_S))
+        return _v("C", False, "request blocked %.1fs >= watchdog %ds" % (dt, WATCHDOG_ARM_S))
     if dt is not None and dt < 3.0:
-        return _verdict("C", None,
-                        "inconclusive — endpoint answered/refused in %.1fs (didn't hang); point SLOW_URL at a black-hole" % dt)
-
-    # Negative control: timeout above the watchdog -> expect a false reset.
-    print("    negative control (timeout=%ds > watchdog=%ds): expecting a reset..."
+        return _v("C", None, "inconclusive — endpoint didn't hang (%.1fs); set SLOW_URL to a black-hole" % dt)
+    print("    negative control (timeout=%ds > watchdog=%ds): expecting reset..."
           % (HTTP_BAD_TIMEOUT, WATCHDOG_ARM_S))
-    reset, nout = run_until_reset(_PHASE_C_NEG, port, settle=15.0)
-    if "PHASE_C_NEG_SKIP" in nout:
-        return _verdict("C", None, "positive PASS (~%.1fs); negative skipped — no network" % (dt or -1))
+    reset, nout = run_until_reset(_PHASE_C_NEG, port, settle=18.0)
+    if "C_SKIP" in nout:
+        return _v("C", None, "positive PASS (~%.1fs); negative skipped — no WiFi" % (dt or -1))
     if not reset:
-        return _verdict("C", False,
-                        "positive PASS but negative did NOT reset — invariant unproven")
-    if not wait_for_board(port):
-        return _verdict("C", False, "board did not re-enumerate after negative control")
-    time.sleep(2.0)
-    reason = read_reset_reason(port)
-    print("    negative reset_reason:", reason)
-    if "WATCHDOG" in reason:
-        return _verdict("C", True,
-                        "timeout fired at ~%.1fs (no reset); over-long timeout caused WATCHDOG reset"
-                        % (dt if dt is not None else -1))
-    return _verdict("C", False, "negative control reset for the wrong reason: %s" % reason)
+        return _v("C", False, "positive PASS but negative did NOT reset — invariant unproven")
+    ok, detail = reboot_and_check_reason(port)
+    if ok:
+        return _v("C", True, "timeout fired ~%.1fs (no reset); over-long timeout -> WATCHDOG reset" % (dt or -1))
+    return _v("C", False, "negative reset for the wrong reason: %s" % detail)
+
+
+def phase_d(port):
+    print("\n[D] log tail-trim primitive — binary end-relative seek (non-destructive)")
+    out = run_on_device(_PHASE_D, port=port, exec_timeout=25)
+    line = next((l for l in out.splitlines() if l.startswith("D ")), out.strip())
+    print("    device:", line)
+    ok = "shrank=True" in line and "recent=True" in line
+    return _v("D", ok, line.replace("D ", "") or "no result")
+
+
+def phase_e(port):
+    print("\n[E] singleton identity — __new__ + _initialized guard (non-destructive)")
+    out = run_on_device(_PHASE_E, port=port, exec_timeout=15)
+    line = next((l for l in out.splitlines() if l.startswith("E ")), out.strip())
+    print("    device:", line)
+    ok = "same=True" in line and "shared=True" in line and "distinct=True" in line
+    return _v("E", ok, line.replace("E ", "") or "no result")
+
+
+def phase_f(port):
+    print("\n[F] memory floor + force-after-N logic (non-destructive)")
+    out = run_on_device(_PHASE_F, port=port, exec_timeout=15)
+    line = next((l for l in out.splitlines() if l.startswith("F ")), out.strip())
+    print("    device:", line)
+    ok = "forced_at=[5]" in line   # the counter must force on the 6th consecutive skip
+    return _v("F", ok, line.replace("F ", "") or "no result")
 
 
 # --------------------------------------------------------------------------- #
 # Helpers + main                                                              #
 # --------------------------------------------------------------------------- #
-def _verdict(name, ok, detail):
+def _v(name, ok, detail):
     return {"phase": name, "ok": ok, "detail": detail}
 
 
-def _parse_dt(line):
+def _dt(line):
     try:
         return float(line.split("dt=")[1].split()[0])
     except (IndexError, ValueError):
@@ -335,18 +365,25 @@ def _parse_dt(line):
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else PORT
-    print("ScrollKit reliability harness (watchdog + HTTP) on", port)
+    print("ScrollKit reliability harness (6 phases) on", port)
     print("WARNING: phases B and C-negative deliberately reboot the board.\n")
 
+    phases = [phase_a, phase_b, phase_c, phase_d, phase_e, phase_f]
     results = []
     try:
-        results.append(phase_a(port))
-        results.append(phase_b(port))
-        results.append(phase_c(port))
+        for ph in phases:
+            results.append(ph(port))
     except KeyboardInterrupt:
         print("\ninterrupted")
-    except Exception as e:           # surface transport errors without a bare crash
+    except Exception as e:
         print("\nharness error:", type(e).__name__, e)
+
+    # Leave the board running its app again.
+    try:
+        with serial.Serial(port, BAUD, timeout=1) as ser:
+            ser.write(b"\r\x03\x03"); time.sleep(0.3); ser.write(b"\x04")
+    except (serial.SerialException, OSError):
+        pass
 
     print("\n==================== RELIABILITY SUMMARY ====================")
     worst = 0
