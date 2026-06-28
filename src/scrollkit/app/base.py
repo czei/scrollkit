@@ -52,12 +52,20 @@ class SLDKApp:
     # Skip a data refresh below this much free heap (the synchronous JSON parse
     # spikes memory; starting one with too little headroom OOM-crashes the device
     # to black). Skipping a cycle shows last-good data instead — far better than a
-    # crash. The old 20KB guard was below realistic parse headroom. Tunable; the
-    # app can lower it or use the free_mem_before_parse breadcrumb to calibrate.
-    MIN_FREE_FOR_UPDATE = 50000
+    # crash. On a ~160 KB device running the web server + display, a 50 KB floor is
+    # unreachable, so refreshes would be skipped forever (permanently stale); 25 KB
+    # is reachable while still leaving parse headroom (a too-low parse now fails
+    # gracefully rather than OOMing, so a high floor isn't needed). Tunable; the app
+    # can lower it or use the free_mem_before_parse breadcrumb to calibrate.
+    MIN_FREE_FOR_UPDATE = 25000
+
+    # Force a refresh attempt after this many consecutive low-memory skips, so a
+    # device that never quite clears MIN_FREE_FOR_UPDATE can't serve stale data
+    # forever. The forced parse fails gracefully if there genuinely isn't room.
+    MAX_LOW_MEM_SKIPS = 5
 
     def __init__(self, enable_web: bool = True, update_interval: int = 300,
-                 enable_watchdog: bool = False, watchdog_timeout: int = 15) -> None:
+                 enable_watchdog: bool = False, watchdog_timeout: int = 8) -> None:
         """Initialize SLDK application.
 
         Args:
@@ -70,7 +78,10 @@ class SLDKApp:
             watchdog_timeout: Watchdog timeout in seconds. MUST exceed the longest
                 expected gap between display-loop iterations (a blocking fetch
                 pauses feeding), so keep HTTP timeouts comfortably below it and
-                feed it during any long blocking work. Default 15s.
+                feed it during any long blocking work. Default 8s — the ESP32-S3
+                hardware watchdog rejects values over ~8.3s, so a larger default
+                would silently fail to arm; _arm_watchdog() also steps the value
+                down to whatever the board accepts.
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
@@ -251,6 +262,7 @@ class SLDKApp:
         except Exception as e:
             print(f"Initial data update error: {e}")
 
+        low_mem_skips = 0
         while self.running:
             try:
                 # Wait for update interval
@@ -260,13 +272,21 @@ class SLDKApp:
                 gc.collect()
                 free_mem = free_memory()
 
-                if free_mem > self.MIN_FREE_FOR_UPDATE:
+                # After too many consecutive low-memory skips, force one attempt so a
+                # device that never quite clears the floor can't lock onto stale data
+                # forever (the forced parse fails gracefully if there's truly no room).
+                force = low_mem_skips >= self.MAX_LOW_MEM_SKIPS
+                if free_mem > self.MIN_FREE_FOR_UPDATE or force:
+                    if force:
+                        print(f"Forcing data update after {low_mem_skips} low-memory skips: {free_mem}")
+                    low_mem_skips = 0
                     # Show a loading frame before the (possibly blocking) fetch.
                     await self._render_loading()
                     await self.update_data()
                 else:
                     # Too little headroom for the parse: skip this cycle and keep
                     # last-good data rather than risk an OOM crash to black.
+                    low_mem_skips += 1
                     print(f"Skipping data update - low memory: {free_mem}")
                     
             except Exception as e:
@@ -523,10 +543,28 @@ class SLDKApp:
             import microcontroller
             from watchdog import WatchDogMode
             wdt = microcontroller.watchdog
-            wdt.timeout = self.watchdog_timeout
+            # The ESP32-S3 hardware watchdog rejects timeouts over ~8.3s with a
+            # ValueError. Try the requested value, then step down to the largest
+            # value the board accepts — so a too-large request still arms the
+            # watchdog at a usable value instead of silently never arming (the
+            # broad except below used to swallow that ValueError entirely).
+            applied = None
+            for candidate in (self.watchdog_timeout, 8, 6, 4):
+                if not candidate or candidate <= 0:
+                    continue
+                try:
+                    wdt.timeout = candidate
+                    applied = candidate
+                    break
+                except ValueError:
+                    continue
+            if applied is None:
+                print("Watchdog NOT armed: board rejected every candidate timeout")
+                return
             wdt.mode = WatchDogMode.RESET
+            self.watchdog_timeout = applied   # reflect what actually took effect
             self._watchdog = wdt
-            print(f"Watchdog armed: {self.watchdog_timeout}s (RESET)")
+            print(f"Watchdog armed: {applied}s (RESET)")
         except Exception as e:
             print(f"Watchdog unavailable: {e}")
 

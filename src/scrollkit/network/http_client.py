@@ -84,7 +84,7 @@ class HttpClient:
     for development without network access.
     """
 
-    def __init__(self, session=None, mock_provider=None, timeout=10):
+    def __init__(self, session=None, mock_provider=None, timeout=6):
         """
         Initialize the HTTP client.
 
@@ -96,8 +96,13 @@ class HttpClient:
                      synchronous, so without a timeout a hung socket blocks the
                      whole asyncio event loop forever (the display freezes). This
                      bounds connect/read so a flaky network raises instead of
-                     wedging. Default 10s; keep it BELOW any hardware watchdog
-                     timeout so a slow request doesn't trip a false reboot.
+                     wedging.
+
+                     INVARIANT: HTTP timeout < watchdog timeout. A fetch that runs
+                     the full timeout blocks the loop (and thus watchdog feeding)
+                     for that long, so it must finish inside the watchdog window or
+                     it triggers a false reset. Default 6s sits below the ESP32-S3
+                     ~8s watchdog (see ScrollKitApp.watchdog_timeout).
         """
         self.session = session
         self.use_live_data = True

@@ -34,6 +34,22 @@ class ErrorHandler:
     # storage to ~2x this value while preserving recent history.
     MAX_LOG_BYTES = 16384
 
+    def __new__(cls, file_name, mode=None):
+        """Return one shared instance per log file.
+
+        The previous code faked a singleton inside __init__ by copying fields out of
+        the cached instance into a *newly allocated* object and returning that — so
+        every ``ErrorHandler("error_log")`` was a distinct object. When one detected
+        a read-only filesystem and set is_readonly=True, the others never saw it and
+        kept thrashing the filesystem on every write; mode/state diverged silently.
+        Holding identity in __new__ makes all callers share a single object.
+        """
+        inst = cls._instances.get(file_name)
+        if inst is None:
+            inst = super().__new__(cls)
+            cls._instances[file_name] = inst
+        return inst
+
     def __init__(self, file_name, mode=None):
         """
         Initialize the error handler with read-only filesystem detection
@@ -42,14 +58,14 @@ class ErrorHandler:
             file_name: The name of the log file
             mode: Either 'development' or 'production' (optional, uses class default if not specified)
         """
-        # Return existing instance if already initialized for this file
-        if file_name in ErrorHandler._instances:
-            # Copy properties from existing instance
-            existing = ErrorHandler._instances[file_name]
-            self.fileName = existing.fileName
-            self.is_readonly = existing.is_readonly
-            self.mode = existing.mode
+        # Shared singleton: run setup exactly once per file. A later construction may
+        # still update the mode when the caller passes one explicitly (an explicit
+        # override wins); otherwise first-construction state stands.
+        if getattr(self, "_initialized", False):
+            if mode is not None:
+                self.mode = mode
             return
+        self._initialized = True
 
         # Continue with normal initialization for new instance
         self.fileName = file_name
@@ -80,8 +96,6 @@ class ErrorHandler:
                 if self.is_readonly:
                     print("Filesystem is read-only according to storage module")
                     print("ErrorHandler initialized - read-only filesystem")  # Exact match for test
-                    # Register this instance before returning
-                    ErrorHandler._instances[file_name] = self
                     return
             except (AttributeError, OSError):
                 # Continue with write test if storage check fails
@@ -118,9 +132,6 @@ class ErrorHandler:
             print("ErrorHandler initialized - read-only filesystem")
         else:
             print("ErrorHandler initialized - writable filesystem")
-
-        # Register this instance
-        ErrorHandler._instances[file_name] = self
 
     @classmethod
     def set_mode(cls, mode):
@@ -207,7 +218,7 @@ class ErrorHandler:
 
         # Always print errors to console for visibility
         print(filtered_except_str)
-        if st_str:
+        if filtered_st_str:
             print(filtered_st_str)
 
         # Only attempt to write to file if filesystem is writable. Errors ARE
@@ -218,7 +229,7 @@ class ErrorHandler:
             try:
                 with open(self.fileName, 'a') as file:
                     file.write(filtered_except_str + "\n")
-                    if st_str:
+                    if filtered_st_str:
                         file.write(filtered_st_str + "\n")
             except OSError:
                 # If write fails unexpectedly, update readonly state
@@ -240,8 +251,7 @@ class ErrorHandler:
 
     def _rotate_if_needed(self):
         """Rotate the log to '<file>.old' once it reaches MAX_LOG_BYTES, so logging
-        can never fill flash. Keeps one prior generation; on any failure falls back
-        to truncating the current file rather than letting it grow unbounded."""
+        can never fill flash. Keeps one prior generation."""
         if self.is_readonly:
             return
         try:
@@ -258,12 +268,40 @@ class ErrorHandler:
                 pass
             os.rename(self.fileName, backup)
         except OSError:
-            # rename unavailable: bound growth by truncating rather than filling flash
-            try:
-                with open(self.fileName, 'w') as f:
-                    f.write("[log truncated]\n")
-            except OSError:
-                self.is_readonly = True
+            # Rename failed (transient FS hiccup). Do NOT blind-truncate here: the
+            # old code did `open(file, 'w')`, destroying exactly the recent crash
+            # evidence this log exists to preserve. Prefer a tail-preserving trim
+            # that keeps the most recent bytes; if even that fails, skip rotation
+            # this cycle (keep appending, accept temporary oversize) and leave a
+            # one-line marker. rename is retried next cycle and usually succeeds.
+            if not self._tail_trim():
+                try:
+                    with open(self.fileName, 'a') as f:
+                        f.write("[log rotation failed; not truncated]\n")
+                except OSError:
+                    self.is_readonly = True
+
+    def _tail_trim(self):
+        """Rewrite the log keeping only its most recent bytes — the fallback for when
+        rename-based rotation is unavailable, preserving recent crash evidence while
+        still bounding size. Returns True on success, False if seek/read/rewrite is
+        not reliable on this filesystem (the caller then leaves the file intact
+        rather than destroying it). Binary mode so end-relative seeks work on both
+        CPython and CircuitPython."""
+        keep = self.MAX_LOG_BYTES // 2
+        try:
+            with open(self.fileName, 'rb') as f:
+                try:
+                    f.seek(-keep, 2)           # last `keep` bytes (whence 2 = end)
+                except (OSError, ValueError):
+                    f.seek(0)                  # file smaller than keep / no end-seek
+                tail = f.read()
+            with open(self.fileName, 'wb') as f:
+                f.write(b"[log trimmed to recent history]\n")
+                f.write(tail)
+            return True
+        except (OSError, ValueError):
+            return False
 
     def write_to_file(self, message):
         """

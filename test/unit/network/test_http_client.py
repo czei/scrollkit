@@ -25,12 +25,12 @@ class TestHttpClient:
         
         response = await client.get("https://example.com/api/test")
         
-        # Verify the request was made correctly. A per-request timeout (default
-        # 10s) is passed so a hung socket can't block the synchronous
-        # adafruit_requests call and freeze the asyncio display loop.
+        # Verify the request was made correctly. A per-request timeout (default 6s,
+        # below the ~8s watchdog) is passed so a hung socket can't block the
+        # synchronous adafruit_requests call and freeze the asyncio display loop.
         mock_session.get.assert_called_once_with("https://example.com/api/test",
                                                 headers={"User-Agent": "Mozilla/5.0 (CircuitPython)"},
-                                                timeout=10)
+                                                timeout=6)
         
         # Verify response handling - since we're returning native response
         assert response.status_code == 200
