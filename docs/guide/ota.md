@@ -130,12 +130,39 @@ version is also kept as a backup so a validated-but-bad update can be restored.
     library must never write a `boot.py` supervisor of its own — the existing
     frozen one *is* the supervisor.
 
+## On-device install UI
+
+`OTAClient` is headless — it reports progress through callbacks but knows nothing
+about a display. `scrollkit.ota.display_progress.OTAProgressDisplay` wraps an
+already-configured client to add the on-panel UX and the staged-install flow, so the
+client stays decoupled from the display and the update *source* stays your concern:
+
+```python
+from scrollkit.ota.client import OTAClient
+from scrollkit.ota.display_progress import OTAProgressDisplay
+
+client = OTAClient.for_github("owner", "repo", branch="live", current_version="1.0.0")
+ota = OTAProgressDisplay(client, display=app.display)
+
+# On boot, before the display loop owns the screen: apply anything staged.
+await ota.install_pending()        # shows "Installing… DO NOT UNPLUG!", applies, reboots
+
+# From a web "update" route (synchronous, safe off the display loop):
+if ota.schedule_update():          # checks + downloads to the staging dir
+    ...                            # then reboot; install_pending() applies it next boot
+```
+
+Status frames are stacked short lines (a 64px panel clips a long single line), and
+every method swallows display/client errors rather than propagating them into the
+boot/OTA flow.
+
 ## Pieces
 
 | Module | Role |
 |--------|------|
 | `ota.client` | `OTAClient` — check / download / apply / rollback (device) |
 | `ota.manifest` | `UpdateManifest` — version, file list, checksums, requirements |
+| `ota.display_progress` | `OTAProgressDisplay` — display-progress + staged-install UI over a client (device) |
 | `ota.publish` | `build_manifest` / `publish_to_branch` — produce + publish a release (**desktop / CI only**) |
 | `ota.server` | `OTAServer` — host manifests/packages (desktop / CI) |
 | `ota.updater` | thin orchestration over the client |

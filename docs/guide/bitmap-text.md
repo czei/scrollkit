@@ -55,6 +55,25 @@ upper-case; unknown characters render blank. `max_width_px` bounds the rendered
 bitmap (the whole message is rendered into one bitmap — Option A; a ring-buffer
 viewport variant is deferred).
 
+## Using BitmapText in a ContentQueue
+
+By default a `BitmapText` is a **persistent banner**: `is_complete` is always `False`,
+so it scrolls forever and a `ContentQueue` never advances past it. Pass
+`complete_after_passes=N` to make it complete after the text has fully scrolled across
+`N` times, so the queue moves on:
+
+```python
+queue.add(BitmapText("NOW SHOWING", palette_effect=RainbowChase(),
+                     complete_after_passes=1))
+```
+
+Completion is keyed on **scroll position**, not wall-clock. That matters: if it were
+time-based, a heavy concurrent effect that drops the frame rate would fire the timer
+while the text was only half-scrolled and cut it off mid-word. Position-based
+completion is frame-rate-independent. `start()` also rebuilds the layer, so a banner
+that cycles back through the queue re-appears correctly (rather than going invisible
+after its TileGrid was detached on `stop()`).
+
 ## Hardware budget
 
 `BitmapText.FEASIBILITY` advertises the cost:

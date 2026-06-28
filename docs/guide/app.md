@@ -51,3 +51,46 @@ the display always keeps running — graceful degradation rather than a crash.
 !!! note "Naming"
     `ScrollKitApp` is the public name; `SLDKApp` remains as a backward-compatible
     alias.
+
+## Pausing the display during a blocking update
+
+`update_data()` often paints an off-queue status frame ("Updating…") and then makes
+a blocking fetch. Because the synchronous fetch freezes the loop, the *previous*
+queue item can ghost over the status frame. Suspend rendering for that window — the
+queue keeps its items, so a **failed** fetch resumes the last-good content instead
+of going black:
+
+```python
+async def update_data(self):
+    with self.suspended_render():          # always resumes, even on exception
+        await self._teardown_active_content()
+        await self.paint_status_frame("Updating")
+        ok = await self.fetch()            # loop frozen anyway → no ghosting
+```
+
+`suspend_render()` / `resume_render()` and the `render_suspended` property are also
+available if you can't use the context manager. While suspended the base
+`prepare_display_content()` returns `None`, so you no longer override it just to gate
+rendering. Default is **not** suspended.
+
+## Reliability: watchdog + NVM diagnostics
+
+Pair the hardware watchdog (`enable_watchdog=True`) with
+[`scrollkit.utils.diagnostics`](../reference.md#network--config--utils) for a device
+that self-heals and can explain itself:
+
+```python
+from scrollkit.utils import diagnostics
+
+diag = diagnostics.open()                       # NVM on device, no-op on desktop
+diag.record_boot(diagnostics.read_reset_reason())
+if diag.safe_mode:                              # too many fault-reboots in a row
+    ...                                         # skip the fetch; keep the config UI up
+diag.note_fetch_result(ok=True)                 # on a healthy refresh
+```
+
+The record lives in `microcontroller.nvm`, so it survives both soft resets and power
+loss (unlike a flash log a crash can wipe). After `RAPID_BOOT_LIMIT` fault-reboots
+with no clean run it trips **safe mode** — break a deterministic boot loop instead of
+resetting forever — and it keeps the last reset reason + exception text for a config
+page post-mortem.

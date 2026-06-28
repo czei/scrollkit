@@ -42,15 +42,18 @@ scrollkit/
 ├── network/          # Networking utilities
 │   ├── http_client.py           # Dual-implementation HTTP client
 │   ├── wifi_manager.py          # WiFi configuration and management
+│   ├── mdns.py                  # <hostname>.local advertising (CircuitPython; no-op on desktop)
 │   ├── server_adapters.py       # Platform-specific HTTP servers
 │   ├── async_http_request.py    # Low-level async HTTP
 │   └── http_response_patch.py   # Connection error handling
 ├── config/           # Configuration management
 │   └── settings_manager.py      # JSON-based persistent settings
 ├── ota/              # Over-the-air updates
-│   └── ota_updater.py           # GitHub release-based OTA
+│   ├── ota_updater.py           # GitHub release-based OTA
+│   └── display_progress.py      # Display-progress + staged-install adapter over OTAClient
 └── utils/            # Utilities
     ├── error_handler.py         # Logging and error handling
+    ├── diagnostics.py           # NVM boot/crash record + reboot-loop safe-mode breaker
     ├── color_utils.py           # Color conversion and manipulation
     ├── timer.py                 # Simple elapsed-time timer
     ├── system_utils.py          # NTP clock synchronization

@@ -261,13 +261,25 @@ class BitmapText(DisplayContent):
     with an optional per-frame palette effect."""
 
     def __init__(self, text, y=0, palette_effect=None, scroll_speed=30,
-                 max_width_px=192, priority=2):
+                 max_width_px=192, priority=2, complete_after_passes=None):
+        """Args (beyond the obvious):
+
+            complete_after_passes: if set (e.g. 1), ``is_complete`` becomes True
+                after the text has fully scrolled across that many times, so the
+                banner can advance a ContentQueue instead of looping forever.
+                Default None keeps the persistent-banner behaviour (never
+                completes on its own). Completion is keyed on SCROLL POSITION, not
+                wall-clock, so a heavy concurrent effect that drops the frame rate
+                can't end a pass early (cutting the text off mid-scroll).
+        """
         super().__init__(duration=None, priority=priority)
         self.text = text
         self.y = y
         self.palette_effect = palette_effect if palette_effect is not None else RainbowChase()
         self.scroll_speed = scroll_speed
         self.max_width_px = max_width_px
+        self.complete_after_passes = complete_after_passes
+        self._passes = 0         # full scroll passes completed (frame-based)
         self._built = False
         self._display = None
         self._bitmap = None
@@ -313,8 +325,22 @@ class BitmapText(DisplayContent):
         self._pos_q = display.width << 4
         self._built = True
 
+    async def start(self):
+        """Reset so the layer is rebuilt and pass-completion replays when this
+        content cycles back through a ContentQueue.
+
+        The library's previous BitmapText never reset ``_built``, so a banner that
+        was ``stop()``-ed (which detaches its TileGrid) would not re-add the layer
+        when shown again — it went invisible on the second cycle. Rebuilding on
+        each start() makes it queue-safe.
+        """
+        await super().start()
+        self._built = False
+        self._passes = 0
+
     async def render(self, display):
         self._display = display                  # remembered so stop() can detach
+        was_built = self._built
         if not self._built:
             self._build(display)                 # one-time (frame 0)
         # Animate by rewriting palette entries — NO glyph rebuild, ~zero pixel work.
@@ -325,9 +351,18 @@ class BitmapText(DisplayContent):
         self._tile.x = self._pos_q >> 4
         if (self._pos_q >> 4) < -self._width:
             self._pos_q = display.width << 4     # loop the scroll
+            # The wrap (position jumping back to the right edge) marks one full
+            # pass. Counted from scroll POSITION (frame-based), not wall-clock, so
+            # a low frame rate never ends a pass early. Skip the build frame.
+            if was_built:
+                self._passes += 1
 
     @property
     def is_complete(self):
+        if self._is_complete:
+            return True
+        if self.complete_after_passes is not None:
+            return self._passes >= self.complete_after_passes
         return False
 
     async def stop(self):

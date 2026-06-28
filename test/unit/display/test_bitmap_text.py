@@ -17,7 +17,7 @@ from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import DisplayContent
 from scrollkit.dev import run_headless
 from scrollkit.display.bitmap_text import (
-    BitmapText, RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes,
+    BitmapText, RainbowChase, NeonTubeCrawl, ChromeSheen, HazardStripes, MonoChase,
     FONT_5x7, GLYPH_W, GLYPH_H, RAMP,
 )
 
@@ -122,3 +122,74 @@ def test_palette_effect_passes_strict_at_20fps(effect_cls):
     assert result.errors == [], (effect_cls.__name__, result.errors)
     assert result.ok is True
     assert result.advanced is True
+
+
+# --- queue-safe completion (complete_after_passes) --------------------------
+
+@pytest.mark.asyncio
+async def test_default_banner_never_completes():
+    """Default (complete_after_passes=None) keeps the persistent-banner behaviour."""
+    d = await _make_display()
+    bt = BitmapText("HI", y=12, scroll_speed=30)
+    for _ in range(200):
+        await bt.render(d)
+        assert bt.is_complete is False
+
+
+@pytest.mark.asyncio
+async def test_completes_after_one_full_scroll_pass():
+    """complete_after_passes=1 -> completes once the text has fully scrolled off,
+    and only AFTER it could actually have scrolled across (not instantly)."""
+    d = await _make_display()
+    bt = BitmapText("SPACE MOUNTAIN", y=12, scroll_speed=30, complete_after_passes=1)
+    await bt.start()
+    frame = None
+    for f in range(600):
+        await bt.render(d)
+        if bt.is_complete:
+            frame = f
+            break
+    assert frame is not None, "never completed"
+    assert frame > 30, "completed before it could have scrolled across the panel"
+
+
+@pytest.mark.asyncio
+async def test_completion_is_frame_based_not_wallclock():
+    """Regression: completion must NOT depend on wall-clock. Starving the clock
+    (what a low frame rate accumulates) must not end the pass early — otherwise a
+    heavy concurrent effect would cut the text off mid-scroll."""
+    async def frames_to_complete(starve_clock):
+        d = await _make_display()
+        bt = BitmapText("SPACE MOUNTAIN", y=12, palette_effect=MonoChase(0x00AAFF),
+                        scroll_speed=30, complete_after_passes=1)
+        await bt.start()
+        for f in range(600):
+            if starve_clock:
+                bt._start_time -= 9999      # pretend huge wall-clock elapsed
+            await d.clear()
+            await bt.render(d)
+            await d.show()
+            if bt.is_complete:
+                return f
+        return None
+
+    normal = await frames_to_complete(starve_clock=False)
+    starved = await frames_to_complete(starve_clock=True)
+    assert normal is not None
+    assert normal == starved, "completion depends on wall-clock (the cut-off regression)"
+
+
+@pytest.mark.asyncio
+async def test_start_rebuilds_layer_for_queue_safety():
+    """start() resets _built so a re-shown banner re-adds its TileGrid (otherwise it
+    would be invisible on the second cycle after stop() detached the layer)."""
+    d = await _make_display()
+    bt = BitmapText("HI", y=12, scroll_speed=30, complete_after_passes=1)
+    await bt.render(d)                       # first build
+    assert bt._built is True
+    await bt.stop()                          # detaches the tile
+    await bt.start()                         # queue cycles it back
+    assert bt._built is False                # will rebuild on next render
+    assert bt._passes == 0
+    await bt.render(d)
+    assert bt._built is True

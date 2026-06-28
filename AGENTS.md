@@ -293,12 +293,61 @@ pe = random.choice(palette_effects_for("scrolling"))
 app.content_queue.add(BitmapText("OPEN", palette_effect=pe()))
 ```
 
+> **Queueing `BitmapText`:** by default it's a *persistent banner* (`is_complete`
+> is always False), so a `ContentQueue` never advances past it. Pass
+> `complete_after_passes=N` to make it finish after the text has fully scrolled
+> across `N` times: `BitmapText("NOW OPEN", complete_after_passes=1)`. Completion is
+> keyed on scroll **position**, not wall-clock, so a slow frame rate can't cut the
+> text off mid-scroll. (See `docs/guide/bitmap-text.md`.)
+
 Then **verify every change** with `run_headless(app, strict=True)` — an effect that
 busts the ~50 ms / 20 fps budget raises `FeasibilityError`. (The raw tags are also in
 `cat["transitions"]` / `cat["scrolling"]` / `cat["palette_effects"]` as `pairs_with`;
 the full pairing table is in `docs/guide/effects.md`.)
 
 ---
+
+## Reliability & device lifecycle (on the real board)
+
+The simulator can't exercise these — they only do something on hardware — but a
+shipping app wants them. All are opt-in and degrade to no-ops on desktop.
+
+- **Watchdog + crash diagnostics.** Construct with `ScrollKitApp(enable_watchdog=True)`
+  so a wedged display loop self-resets, and pair it with NVM diagnostics to survive
+  and explain a crash:
+
+  ```python
+  from scrollkit.utils import diagnostics
+  diag = diagnostics.open()                          # NVM on device, no-op on desktop
+  diag.record_boot(diagnostics.read_reset_reason())
+  if diag.safe_mode:                                 # too many fault-reboots in a row
+      ...                                            # skip the fetch; keep the config UI up
+  diag.note_fetch_result(ok=True)                    # on a healthy refresh
+  ```
+
+  The record lives in `microcontroller.nvm` (survives power loss, unlike a flash log
+  a crash can wipe); after a few fault-reboots with no clean run it trips *safe mode*
+  to break a deterministic boot loop. See `docs/guide/app.md`.
+
+- **Pause rendering during a blocking update.** A synchronous fetch freezes the loop,
+  so paint a status frame and suspend the queue (it's preserved — a failed fetch
+  resumes the last-good content, never a black panel):
+
+  ```python
+  async def update_data(self):
+      with self.suspended_render():       # always resumes, even on exception
+          await self.paint_status_frame("Updating")
+          ok = await self.fetch()
+  ```
+
+- **mDNS** — reach the device by name: `mdns.advertise("myhost")` (returns the
+  server, which you MUST keep a reference to). `from scrollkit.network import mdns`.
+
+- **OTA install UI** — wrap a headless `OTAClient` to get progress frames + the
+  staged-install flow: `OTAProgressDisplay(client, display)` →
+  `await ota.install_pending()`. `from scrollkit.ota.display_progress import OTAProgressDisplay`.
+
+(Full signatures: `docs/reference.md`; rationale + caveats: the `docs/guide/` pages.)
 
 ## CircuitPython gotchas (for the app you ship)
 

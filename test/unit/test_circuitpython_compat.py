@@ -334,5 +334,37 @@ class TestSLDKCircuitPythonUsage:
         except OSError:
             # Might fail in test environment
             pass
-        
+
         # Document that complex file operations should be avoided
+
+
+class TestInfraModuleImportSafety:
+    """The infrastructure modules migrated up from apps (diagnostics, mdns, OTA
+    display-progress) must import on desktop WITHOUT pulling CircuitPython-only
+    hardware modules at module scope — their hardware imports are function-local.
+    A regression here works in the simulator/tests but ImportErrors on device."""
+
+    HARDWARE = ("microcontroller", "wifi", "mdns", "watchdog")
+    MODULES = (
+        "scrollkit.utils.diagnostics",
+        "scrollkit.network.mdns",
+        "scrollkit.ota.display_progress",
+    )
+
+    def test_modules_import_without_pulling_hardware(self):
+        import importlib
+
+        for modname in self.MODULES:
+            # Drop any cached hardware modules + the module under test, so we observe
+            # exactly what importing THIS module pulls in.
+            saved = {h: sys.modules.pop(h, None) for h in self.HARDWARE}
+            sys.modules.pop(modname, None)
+            try:
+                importlib.import_module(modname)
+                leaked = [h for h in self.HARDWARE if h in sys.modules]
+                assert not leaked, (
+                    "%s imported hardware at module scope: %s" % (modname, leaked))
+            finally:
+                for h, mod in saved.items():
+                    if mod is not None:
+                        sys.modules[h] = mod

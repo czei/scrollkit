@@ -40,6 +40,22 @@ from ..exceptions import DisplayError, NetworkError, WebServerError
 from .memory import free_memory
 
 
+class _SuspendRender:
+    """Sync context manager for SLDKApp.suspended_render(): suspend on enter,
+    always resume on exit (even if the wrapped block raises)."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def __enter__(self):
+        self._app.suspend_render()
+        return self._app
+
+    def __exit__(self, exc_type, exc, tb):
+        self._app.resume_render()
+        return False
+
+
 class SLDKApp:
     """Base class for SLDK applications.
     
@@ -90,6 +106,12 @@ class SLDKApp:
         self.watchdog_timeout = watchdog_timeout
         self._watchdog = None  # set by _arm_watchdog() on hardware when enabled
         self.running: bool = False
+        # When True, the display loop skips rendering queue content (the queue
+        # keeps its items) — see suspend_render()/suspended_render(). Used while an
+        # app paints an off-queue status frame and then blocks on a fetch, so stale
+        # content can't ghost over the status frame. Default off: existing apps and
+        # the dev harness are unaffected.
+        self._render_suspended: bool = False
         self.display: Optional[DisplayInterface] = None
         self.content_queue = ContentQueue()
         self._tasks: List[asyncio.Task] = []
@@ -132,12 +154,46 @@ class SLDKApp:
     
     async def prepare_display_content(self):
         """Prepare content for display.
-        
+
         Called by display process to get content.
         Return a DisplayContent instance or None.
         """
+        # While rendering is suspended, draw nothing from the queue (the queue keeps
+        # its items, so it resumes exactly where it was). Lets an app paint an
+        # off-queue status frame + block on a fetch without stale content ghosting.
+        if self._render_suspended:
+            return None
         # Default implementation uses content queue
         return await self.content_queue.get_current()
+
+    # --- render suspension --------------------------------------------------
+    # An app sometimes needs to paint an off-queue frame (e.g. "Updating…") and
+    # then make a blocking call (a synchronous HTTP fetch pauses the whole loop).
+    # Suspending render keeps the queue intact but stops the loop drawing it, so
+    # the previous item can't ghost over the status frame. Prefer the context
+    # manager — it always resumes, even if the blocking work raises.
+
+    def suspend_render(self) -> None:
+        """Stop the display loop from drawing queue content (queue is preserved)."""
+        self._render_suspended = True
+
+    def resume_render(self) -> None:
+        """Resume drawing queue content after suspend_render()."""
+        self._render_suspended = False
+
+    @property
+    def render_suspended(self) -> bool:
+        """Whether queue rendering is currently suspended."""
+        return self._render_suspended
+
+    def suspended_render(self):
+        """Context manager: suspend rendering for the block, always resume after.
+
+            with app.suspended_render():
+                await app.paint_status_frame()
+                await app.blocking_fetch()   # loop frozen anyway; no ghosting
+        """
+        return _SuspendRender(self)
     
     async def cleanup(self) -> None:
         """Clean up resources on shutdown.
