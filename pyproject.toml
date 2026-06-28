@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Michael Winslow Czeiszperger"}
+    {name = "Michael Winslow Czeiszperger", email = "michael@czei.org"}
 ]
 keywords = ["circuitpython", "led-matrix", "display", "matrixportal", "simulator"]
 classifiers = [
