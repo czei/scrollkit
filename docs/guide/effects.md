@@ -146,3 +146,7 @@ print(result.hardware_text)                 # per-frame budget breakdown
 Strict mode is opt-in (`strict=True`, or `SCROLLKIT_HW_STRICT=1`); it is a
 desktop-simulator concept and a no-op on CircuitPython, where the device runs at
 real speed.
+
+For the measured costs behind the budget (C bulk calls vs interpreted Python, the
+refresh floor, and the swarm rewrite that motivated all of this), see the
+[Performance](performance.md) guide.

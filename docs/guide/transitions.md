@@ -124,6 +124,10 @@ the ~50 ms (20 fps) `bit_depth=4` device budget. `DropFromSky` writes no mask pi
 at all — it only nudges the incoming Labels' positions — so it is the cheapest of the
 set.
 
+See the [Performance](performance.md) guide for the full cost model these budgets
+come from (the measured per-pixel and refresh costs, and why the 50 ms ceiling
+exists).
+
 ## Adding your own transition
 
 Subclass `Transition` and implement two methods — the base class runs the
