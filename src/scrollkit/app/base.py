@@ -78,10 +78,12 @@ class SLDKApp:
             watchdog_timeout: Watchdog timeout in seconds. MUST exceed the longest
                 expected gap between display-loop iterations (a blocking fetch
                 pauses feeding), so keep HTTP timeouts comfortably below it and
-                feed it during any long blocking work. Default 8s — the ESP32-S3
-                hardware watchdog rejects values over ~8.3s, so a larger default
-                would silently fail to arm; _arm_watchdog() also steps the value
-                down to whatever the board accepts.
+                feed it during any long blocking work. Default 8s — short enough for
+                quick freeze recovery. (Hardware note: the assumption that the
+                ESP32-S3 rejects timeouts over ~8.3s with ValueError was NOT
+                reproduced on CP 9.2.7 — it accepts AND honors 16s, accepts 30s. The
+                step-down in _arm_watchdog is kept as defensive insurance for a
+                board/version that does cap lower; verify on your target CircuitPython.)
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
@@ -543,11 +545,14 @@ class SLDKApp:
             import microcontroller
             from watchdog import WatchDogMode
             wdt = microcontroller.watchdog
-            # The ESP32-S3 hardware watchdog rejects timeouts over ~8.3s with a
-            # ValueError. Try the requested value, then step down to the largest
-            # value the board accepts — so a too-large request still arms the
-            # watchdog at a usable value instead of silently never arming (the
-            # broad except below used to swallow that ValueError entirely).
+            # Defensive step-down: try the requested timeout, then fall back to the
+            # largest value the board accepts. NOTE: the assumption that the ESP32-S3
+            # rejects timeouts over ~8.3s with ValueError was NOT reproduced on real
+            # hardware — CP 9.2.7 accepts and honors 16s and accepts 30s — so there
+            # this loop just applies the requested value and never falls back. It is
+            # kept as cheap insurance for any board/CP version that DOES cap lower
+            # (unverified — possibly CP 10.x); without it the broad except below would
+            # swallow such a ValueError and leave the watchdog silently unarmed.
             applied = None
             for candidate in (self.watchdog_timeout, 8, 6, 4):
                 if not candidate or candidate <= 0:
