@@ -3,6 +3,8 @@
 The simplest ScrollKit app — scroll some text across the simulated LED matrix.
 No network, no data sources.
 
+![Hello World demo](../assets/demos/hello_world.gif){ width="480" }
+
 Full source: [`demos/easy/hello_world.py`](https://github.com/Czeiszperger/scrollkit/blob/main/demos/easy/hello_world.py)
 
 ```python

@@ -4,6 +4,8 @@ The complete stack: a web configuration UI, a priority display queue, the
 effects engine, multiple public data sources, an OTA update check, and the
 **chunked-fetch** technique that keeps the scroll alive during blocking HTTP.
 
+![Crypto dashboard demo](../assets/demos/crypto_dashboard.gif){ width="480" }
+
 Full source: [`demos/hard/crypto_dashboard.py`](https://github.com/Czeiszperger/scrollkit/blob/main/demos/hard/crypto_dashboard.py)
 
 ## The chunked-fetch workaround

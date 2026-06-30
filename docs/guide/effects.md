@@ -19,6 +19,11 @@ all built to respect the device's memory and frame budget.
     See `demos/hard/showcase.py` for a reel that announces and demonstrates every
     one of them.
 
+The `showcase` demo runs the whole reel — characterful scrolls, theatrical
+transitions, and palette-animated bitmap text — back to back:
+
+![Showcase reel](../assets/demos/showcase.gif){ width="480" }
+
 ## One effect contract, plus standalone helpers
 
 After the effects consolidation there is **one** content-swap contract —

@@ -132,7 +132,11 @@ exists).
 
 Subclass `Transition` and implement two methods — the base class runs the
 cover → swap → reveal lifecycle for you. The full, heavily-annotated reference is
-**`demos/medium/golden_transition.py`** (`GoldenWipe`); copy it. The rules:
+**`demos/medium/golden_transition.py`** (`GoldenWipe`); copy it.
+
+![Golden transition demo](../assets/demos/golden_transition.gif){ width="480" }
+
+The rules:
 
 1. Implement `_paint_cover(progress)` and `_paint_reveal(progress)`, where
    `progress` is an eased `0..255` through each phase. Paint into `self._mask` (an

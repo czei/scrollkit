@@ -50,6 +50,37 @@ code.
 
 Requires `pygame` on desktop: `pip install pygame`.
 
+## Recording animated GIFs
+
+`screenshot()`'s sibling captures *many* frames and encodes an animated GIF —
+ideal for a README, a docs preview, or a bug report. Turn recording on, run the
+animation, then save:
+
+```python
+display.start_recording()
+for _ in range(80):
+    await content.render(display)
+    await display.show()          # each shown frame is captured
+display.save_gif("demo.gif")      # encodes + returns the path (None on hardware)
+```
+
+`save_gif(path, *, fps=20, target_width=360, max_colors=48, frame_step=2, ...)`
+downscales to `target_width`, shares one adaptive palette across frames, and only
+stores each frame's changed region, so files stay small. Raise the display's
+`pitch` (e.g. `SimulatorDisplay(pitch=4)`) for crisper recordings.
+
+To capture a whole `ScrollKitApp` headlessly there's a one-call helper:
+
+```python
+from scrollkit.dev import record_gif
+
+record_gif(MyApp(), "demo.gif", seconds=4)   # target_width=, max_colors=, ... forwarded
+```
+
+This is exactly how the [Demo Gallery](../demos.md) previews are generated
+(`demos/render_gifs.py`). Like `screenshot()`, recording is desktop-only and a
+no-op on hardware.
+
 ## Fonts: BDF vs PCF
 
 ScrollKit ships and uses **BDF** fonts (under `scrollkit/simulator/fonts/`), and
