@@ -13,6 +13,12 @@ frame — near-zero per-frame pixel work and **no glyph rebuild**.
     text is held static or scrolling (`PAIRS_WITH = ("static", "scrolling")`). See
     [pairing effects to content](effects.md#pairing-effects-to-content).
 
+!!! tip "Want a *static* gradient in your normal font?"
+    `BitmapText` is for **animated** colour in the 5×7 block font. For a fixed
+    gradient on ordinary `StaticText` / `ScrollingText` (your terminalio font) — a
+    subtle two-tone or "lit from above" depth — pass a `palette` instead. See
+    [Gradient Text](gradient-text.md).
+
 ```python
 from scrollkit.display.bitmap_text import (
     BitmapText, RainbowChase, MonoChase, NeonTubeCrawl, ChromeSheen, HazardStripes,

@@ -55,9 +55,59 @@ def _content_types():
                 and obj is not base
                 and obj.__module__ == _content.__name__):
             types.append({"name": name, "doc": _first_line(obj),
-                          "params": _init_params(obj)})
+                          "params": _init_params(obj),
+                          "feasibility": getattr(obj, "FEASIBILITY", None)})
     types.sort(key=lambda t: t["name"])
     return types
+
+
+def _text_fills():
+    """Gradient text-fill capability for the Label-based content types.
+
+    The fill *params* (``palette``/``direction``/``palette_steps``) already surface
+    via ``_content_types`` signature introspection; this section adds the
+    machine-usable detail an author needs — the valid directions and step bounds —
+    read **live** from ``display.text_fill`` (never a hardcoded copy), so it can't
+    drift from the renderer.
+    """
+    from ..display.text_fill import (DEFAULT_PALETTE_STEPS, MAX_PALETTE_STEPS,
+                                     gradient_directions)
+    return {
+        "gradient": {
+            "applies_to": ["StaticText", "ScrollingText"],
+            "params": ["palette", "direction", "palette_steps"],
+            "directions": list(gradient_directions()),
+            "default_direction": "vertical",
+            "default_palette_steps": DEFAULT_PALETTE_STEPS,
+            "max_palette_steps": MAX_PALETTE_STEPS,
+            "palette": ("a sequence of 2+ 0xRRGGBB stops (2 = simple gradient, 3+ "
+                        "= multi-stop). When set, `color` is ignored. "
+                        "depth_palette(color) derives a subtle close ramp from one "
+                        "base colour. Static fill, zero per-frame cost — for "
+                        "ANIMATED colour use BitmapText + a palette_effect."),
+        }
+    }
+
+
+def _color_utilities():
+    """Continuous colour generators/transforms (NOT named palettes).
+
+    Surfaced as live signatures from ``display.colors`` so an author samples the
+    full 24-bit space rather than reaching for a fixed named subset.
+    """
+    from ..display import colors as _c
+    out = []
+    for nm in ("gradient", "multi_gradient", "depth_palette", "spectrum",
+               "hsv", "scale", "lerp", "wheel"):
+        fn = getattr(_c, nm, None)
+        if fn is None:
+            continue
+        try:
+            sig = "%s%s" % (nm, inspect.signature(fn))
+        except (ValueError, TypeError):
+            sig = nm
+        out.append({"name": nm, "signature": sig, "doc": _first_line(fn)})
+    return out
 
 
 def _priorities():
@@ -233,6 +283,7 @@ def capabilities():
     for key, fn in (("content_types", _content_types), ("priorities", _priorities),
                     ("effects", _effects), ("transitions", _transitions),
                     ("scrolling", _scrolling), ("palette_effects", _palette_effects),
+                    ("text_fills", _text_fills), ("color_utilities", _color_utilities),
                     ("named_colors", _named_colors),
                     ("display_api", _display_api), ("hardware", _hardware),
                     ("performance", _performance)):
@@ -289,6 +340,15 @@ def as_text(cat=None):
         lines.append("Palette effects (on BitmapText):")
         for e in pe:
             lines.append("  - %s%s — %s" % (e["name"], _pairs(e), e["doc"]))
+    tf = cat.get("text_fills")
+    if isinstance(tf, dict) and isinstance(tf.get("gradient"), dict):
+        g = tf["gradient"]
+        lines.append("Text fills: gradient palette=(c1,c2[,...]) direction=%s on %s"
+                     % ("|".join(g.get("directions", [])),
+                        "/".join(g.get("applies_to", []))))
+    cu = cat.get("color_utilities")
+    if isinstance(cu, list) and cu:
+        lines.append("Color utilities: " + ", ".join(u["name"] for u in cu))
     nc = cat.get("named_colors")
     if isinstance(nc, dict) and nc:
         lines.append("Named colors: " + ", ".join(sorted(nc)))

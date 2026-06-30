@@ -94,10 +94,24 @@ Discover these (and their exact parameters) at runtime with
 `scrollkit.dev.capabilities()` — it's introspected from the live code so it can't
 go stale. The two you'll use most:
 
-- `ScrollingText(text, x=None, y=0, color=0xFFFFFF, speed=30, priority=2)` —
-  scrolls right-to-left; ideal for anything wider than 64px.
-- `StaticText(text, x=0, y=0, color=0xFFFFFF, duration=None, priority=2)` —
-  fixed; keep it short enough to fit 64px (≈10 chars) or it'll be clipped.
+- `ScrollingText(text, x=None, y=0, color=0xFFFFFF, speed=30, priority=2,
+  palette=None, direction="vertical", palette_steps=8)` — scrolls right-to-left;
+  ideal for anything wider than 64px.
+- `StaticText(text, x=0, y=0, color=0xFFFFFF, duration=None, priority=2,
+  palette=None, direction="vertical", palette_steps=8)` — fixed; keep it short
+  enough to fit 64px (≈10 chars) or it'll be clipped.
+
+**Gradient fill:** pass `palette` to either class for a static gradient in the
+normal font instead of a flat `color` — two stops `(0xA0E8FF, 0x206080)` for a
+simple gradient, three+ for multi-stop, or `depth_palette(color)`
+(`scrollkit.display.colors`) to derive a subtle close ramp from one base colour.
+`direction` is `"vertical"` (default, reads as depth) / `"horizontal"` /
+`"diagonal"`; reverse by reversing the palette. When `palette` is set, `color` is
+ignored. Static fill, zero per-frame cost — for *animated* colour use `BitmapText`
++ a `palette_effect`. Details at `capabilities()["text_fills"]`; colour generators
+(`gradient`/`multi_gradient`/`depth_palette`/`hsv`/`spectrum`) at
+`capabilities()["color_utilities"]`. The panel is RGB444, so keep gradient stops
+far enough apart to survive quantization (the simulator previews finer).
 
 **Coordinates:** the origin `(0, 0)` is the **top-left** corner. X grows to the
 **right**, Y grows **downward** (standard CircuitPython `displayio`). `y` sets the

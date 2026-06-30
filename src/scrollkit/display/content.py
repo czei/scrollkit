@@ -12,6 +12,7 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 
 from ..exceptions import ContentError
+from .text_fill import DEFAULT_PALETTE_STEPS, normalize_direction
 
 import time
 # Monotonic clock works in both sync and async contexts, on desktop and
@@ -141,10 +142,65 @@ class DisplayContent:
         }
 
 
-class StaticText(DisplayContent):
+class _GradientFillMixin:
+    """Shared gradient text-fill state for the Label-based text content classes.
+
+    When ``self.palette`` is set, the text is rendered through an indexed-bitmap
+    ``_GradientTextLayer`` (built once, scrolled by moving its TileGrid) instead of
+    the flat single-colour displayio ``Label``. Mono content (``palette is None``)
+    never touches any of this — and the renderer module is imported lazily on the
+    gradient path only, so the boot/mono path pays no extra RAM.
+    """
+
+    def _init_gradient(self, palette, direction, palette_steps) -> None:
+        # None → flat single-colour Label path (unchanged). A sequence of >=2
+        # colours → gradient; a 1-element sequence → flat fill of that colour.
+        self.palette = tuple(palette) if palette else None
+        self.direction = normalize_direction(direction)
+        self.palette_steps = palette_steps
+        self._grad = None            # lazily-built _GradientTextLayer
+        self._grad_display = None
+        self._grad_key = None
+
+    def _grad_active(self, display) -> bool:
+        # Fall back to the flat path when there's no font (headless without one),
+        # rather than crashing in the rasteriser.
+        return self.palette is not None and getattr(display, "font", None) is not None
+
+    def _ensure_grad(self, display) -> None:
+        """Build (or rebuild on change) the gradient layer; idempotent per frame."""
+        from .gradient_text import _GradientTextLayer  # lazy: gradient path only
+        key = (self.text, self.palette, self.direction, self.palette_steps,
+               self.y, id(getattr(display, "font", None)))
+        if (self._grad is not None and self._grad_key == key
+                and self._grad_display is display):
+            return
+        self._detach_grad()
+        self._grad = _GradientTextLayer(self.text, self.y, self.palette,
+                                        self.direction, self.palette_steps)
+        self._grad.build(display)
+        self._grad_display = display
+        self._grad_key = key
+
+    def _detach_grad(self) -> None:
+        """Remove the gradient layer and clear state (safe to call repeatedly)."""
+        if self._grad is not None and self._grad_display is not None:
+            try:
+                self._grad.detach(self._grad_display)
+            except Exception:
+                pass
+        self._grad = None
+        self._grad_display = None
+        self._grad_key = None
+
+
+class StaticText(_GradientFillMixin, DisplayContent):
     """Static text display content."""
-    
-    def __init__(self, text: str, x: int = 0, y: int = 0, color=None, duration: Optional[float] = None, priority: int = 2):
+
+    def __init__(self, text: str, x: int = 0, y: int = 0, color=None,
+                 duration: Optional[float] = None, priority: int = 2,
+                 palette=None, direction: str = "vertical",
+                 palette_steps: int = DEFAULT_PALETTE_STEPS):
         """Initialize static text.
 
         Args:
@@ -154,6 +210,17 @@ class StaticText(DisplayContent):
             color: Text color as 24-bit RGB int (None = use library default_color setting)
             duration: Display duration in seconds
             priority: Queue priority (default Priority.NORMAL)
+            palette: ``None`` for a flat ``color`` (the default). A sequence of two
+                24-bit ``0xRRGGBB`` colours gives a gradient from the first to the
+                second; three or more gives a multi-stop gradient. Tip:
+                ``depth_palette(color)`` (``scrollkit.display.colors``) derives a
+                subtle close ramp from one base colour. When set, ``color`` is
+                ignored.
+            direction: Gradient axis — ``"vertical"`` (default, top→bottom; reads
+                as depth), ``"horizontal"`` (left→right) or ``"diagonal"``. Reverse
+                by reversing the ``palette``.
+            palette_steps: Number of ramp colours generated from the stops (clamped
+                to 2..15; the panel is RGB444, so a few steps is plenty).
         """
         super().__init__(duration, priority)
         self.text: str = text
@@ -162,18 +229,33 @@ class StaticText(DisplayContent):
         # None → "default_color"; str → named setting key; int → explicit value
         self._color_setting = "default_color" if color is None else (color if isinstance(color, str) else None)
         self.color: int = _resolve_color(color)
+        self._init_gradient(palette, direction, palette_steps)
+
+    async def start(self) -> None:
+        """Detach any prior gradient layer so a re-shown item rebuilds cleanly."""
+        await super().start()
+        self._detach_grad()
 
     async def render(self, display) -> None:
-        """Render static text to display."""
-        await display.draw_text(self.text, self.x, self.y, self.color)
+        """Render static text — flat ``Label`` path, or a gradient layer."""
+        if not self._grad_active(display):
+            await display.draw_text(self.text, self.x, self.y, self.color)
+            return
+        self._ensure_grad(display)
+        self._grad.x = self.x
+
+    async def stop(self) -> None:
+        await super().stop()
+        self._detach_grad()
 
     def describe(self) -> dict:
         info = super().describe()
-        info.update({"text": self.text, "x": self.x, "y": self.y})
+        info.update({"text": self.text, "x": self.x, "y": self.y,
+                     "gradient": self.palette is not None})
         return info
 
 
-class ScrollingText(DisplayContent):
+class ScrollingText(_GradientFillMixin, DisplayContent):
     """Scrolling text display content.
 
     When speed resolves to 0 (the library's "None" scroll speed setting),
@@ -187,7 +269,9 @@ class ScrollingText(DisplayContent):
 
     def __init__(self, text: str, x: Optional[int] = None, y: int = 0,
                  color=None, speed=None, priority: int = 2,
-                 static_duration: float = DEFAULT_STATIC_DURATION):
+                 static_duration: float = DEFAULT_STATIC_DURATION,
+                 palette=None, direction: str = "vertical",
+                 palette_steps: int = DEFAULT_PALETTE_STEPS):
         """Initialize scrolling text.
 
         Args:
@@ -198,6 +282,17 @@ class ScrollingText(DisplayContent):
             speed: px/sec (None = library scroll_speed setting; 0 = static mode).
             priority: Queue priority (default Priority.NORMAL).
             static_duration: Seconds to show text before completing in static mode.
+            palette: ``None`` for a flat ``color`` (the default). A sequence of two
+                24-bit ``0xRRGGBB`` colours gives a gradient from the first to the
+                second; three or more gives a multi-stop gradient. Tip:
+                ``depth_palette(color)`` (``scrollkit.display.colors``) derives a
+                subtle close ramp from one base colour. When set, ``color`` is
+                ignored. The gradient is locked to the letters, so it scrolls with
+                the text.
+            direction: Gradient axis — ``"vertical"`` (default), ``"horizontal"``
+                or ``"diagonal"``. Reverse by reversing the ``palette``.
+            palette_steps: Number of ramp colours generated from the stops (clamped
+                to 2..15).
         """
         super().__init__(duration=None, priority=priority)
         self.text: str = text
@@ -206,6 +301,7 @@ class ScrollingText(DisplayContent):
         self._color_setting = ("default_color" if color is None
                                else (color if isinstance(color, str) else None))
         self.color: int = _resolve_color(color)
+        self._init_gradient(palette, direction, palette_steps)
         self._speed_is_default = (speed is None)
         self._static_duration: float = static_duration
         # Internal speed storage; use the property setter so _static_mode and
@@ -241,6 +337,12 @@ class ScrollingText(DisplayContent):
         await super().start()
         self._pos_q = None
         self._measured_width = None
+        # Detach any prior gradient layer so a re-shown item rebuilds + re-adds it.
+        self._detach_grad()
+
+    async def stop(self) -> None:
+        await super().stop()
+        self._detach_grad()
 
     # --- rendering ------------------------------------------------------------
 
@@ -249,26 +351,43 @@ class ScrollingText(DisplayContent):
         return int(round(self._speed * 16 / LOOP_FPS))
 
     async def render(self, display) -> None:
-        """Render text: scrolling when speed > 0, centred-static when speed == 0."""
+        """Render text: scrolling when speed > 0, centred-static when speed == 0.
+
+        With a ``palette`` the glyphs are drawn through a gradient TileGrid that is
+        positioned each frame (``self._grad.x``); otherwise the flat-colour Label
+        path is used. The scroll bookkeeping (``_pos_q`` / completion) is identical.
+        """
+        use_grad = self._grad_active(display)
+        if use_grad:
+            self._ensure_grad(display)
+
         if self._static_mode:
             # First render in static mode: measure width and choose x position.
             if self._pos_q is None:
-                self._measured_width = display.measure_text(self.text)
+                self._measured_width = (self._grad.width if use_grad
+                                        else display.measure_text(self.text))
                 if self.x is not None:
                     x = self.x
                 else:
                     x = max(0, (display.width - self._measured_width) // 2)
                 self._pos_q = x << 4
-            await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
+            if use_grad:
+                self._grad.x = self._pos_q >> 4
+            else:
+                await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
             return
 
         # Scrolling mode: initialise position on first render (needs display.width).
         if self._pos_q is None:
             start_x = display.width if self.x is None else self.x
             self._pos_q = int(start_x) << 4
-            self._measured_width = display.measure_text(self.text)
+            self._measured_width = (self._grad.width if use_grad
+                                    else display.measure_text(self.text))
 
-        await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
+        if use_grad:
+            self._grad.x = self._pos_q >> 4
+        else:
+            await display.draw_text(self.text, self._pos_q >> 4, self.y, self.color)
         self._pos_q -= self._delta_q()
 
         if (self._pos_q >> 4) < -self._measured_width:
@@ -296,8 +415,28 @@ class ScrollingText(DisplayContent):
             "position": None if self._pos_q is None else (self._pos_q >> 4),
             "text_width": self._measured_width,
             "started": self._pos_q is not None,
+            "gradient": self.palette is not None,
         })
         return info
+
+
+# Advertised feasibility (read by run_headless(strict=True) and the capabilities
+# catalog). Both the flat-colour Label path and the gradient path do ZERO per-frame
+# pixel writes and no per-frame allocation: a flat Label is reused and only
+# repositioned; a gradient rasterises ONCE and then scrolls by moving its
+# TileGrid.x. Metadata lives on the CLASS (CircuitPython can't attach it to a
+# function).
+_TEXT_FILL_FEASIBILITY = {
+    "hardware_safe": True,
+    "allocates_per_frame": False,
+    "max_pixel_writes_per_frame": 0,
+    "modeled_frame_ms": 5.0,
+    "note": ("Flat colour reuses a pooled Label; a gradient palette rasterises the "
+             "text once and scrolls by moving its TileGrid — zero per-frame pixel "
+             "writes either way."),
+}
+StaticText.FEASIBILITY = dict(_TEXT_FILL_FEASIBILITY)
+ScrollingText.FEASIBILITY = dict(_TEXT_FILL_FEASIBILITY)
 
 
 class ContentQueue:

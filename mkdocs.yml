@@ -56,6 +56,7 @@ nav:
       - Effects: guide/effects.md
       - Characterful Scrolling: guide/scrolling.md
       - Theatrical Transitions: guide/transitions.md
+      - Gradient Text: guide/gradient-text.md
       - Palette-Animated Bitmap Text: guide/bitmap-text.md
       - Web Interface: guide/web.md
       - OTA Updates: guide/ota.md

@@ -62,6 +62,15 @@ All LEDs light, then wink off at random until only the logo remains.
 A browser-configurable scrolling message — edit it live in the auto-generated
 settings web UI and the display updates on save. `demos/medium/configurable_message.py`
 
+### Gradient Text
+
+![Gradient-text demo](assets/demos/gradient_text.gif){ width="480" }
+
+Subtle two-tone and "lit from above" depth on ordinary text — pass a `palette`
+(or `depth_palette(color)`) and a `direction` to `StaticText` / `ScrollingText`.
+The gradient is locked to the letters and scrolls with them.
+`demos/medium/gradient_text.py`. See [Gradient Text](guide/gradient-text.md).
+
 ### Drip Value
 
 ![Drip-value demo](assets/demos/drip_value.gif){ width="480" }

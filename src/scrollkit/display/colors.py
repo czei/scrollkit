@@ -117,6 +117,35 @@ def scale(color, factor):
     return (r << 16) | (g << 8) | b
 
 
+def depth_palette(color, strength=0.4, steps=2):
+    """Two (or more) close shades of ``color`` for subtle "lit from above" depth.
+
+    Returns a ramp from ``color`` (the highlight) down to a darker shade
+    ``scale(color, 1 - strength)`` (the shadow). Feed it straight to a gradient
+    text fill::
+
+        ScrollingText("NEXT TRAIN", palette=depth_palette(0x66CCFF))
+
+    This is a colour *transform*, NOT a named palette — it keeps the
+    "expose the full space via generators" philosophy: you pass any base colour
+    and a subtlety knob, and get a tasteful close ramp instead of hand-picking
+    two near-identical hex values.
+
+    Args:
+        color:    Base ``0xRRGGBB`` highlight colour.
+        strength: 0.0..1.0 depth amount; the shadow is ``color`` darkened by this
+                  fraction. ~0.4 is a tasteful default; below ~0.15 the two shades
+                  can collapse to one step on the 4-bit panel.
+        steps:    Length of the returned ramp. 2 returns just ``(highlight,
+                  shadow)`` (the renderer expands it to ``palette_steps``); >2
+                  returns an already-interpolated ramp.
+    """
+    shadow = scale(color, max(0.0, 1.0 - strength))
+    if steps <= 2:
+        return (color, shadow)
+    return gradient(color, shadow, steps)
+
+
 def hsv(h, s=1.0, v=1.0):
     """HSV -> ``0xRRGGBB``. ``h`` in degrees (0..360, wraps), ``s``/``v`` in 0.0..1.0.
 
