@@ -41,6 +41,8 @@ class RunResult:
         self.hardware = kw.get("hardware")            # FeasibilityReport dict or None
         self.hardware_text = kw.get("hardware_text")  # human-readable report or None
         self.screenshot = kw.get("screenshot")        # saved path or None
+        self.gif = kw.get("gif")                      # saved animated-GIF path or None
+        self.video = kw.get("video")                  # saved MP4 path or None
         self.errors = kw.get("errors") or []
         self.warnings = kw.get("warnings") or []
 
@@ -62,6 +64,8 @@ class RunResult:
             "memory": self.memory,
             "hardware": self.hardware,
             "screenshot": self.screenshot,
+            "gif": self.gif,
+            "video": self.video,
             "errors": list(self.errors),
             "warnings": list(self.warnings),
             "ok": self.ok,
@@ -77,6 +81,10 @@ class RunResult:
             lines.append("  Content: %s" % (self.current_content,))
         if self.screenshot:
             lines.append("  Screenshot: %s" % self.screenshot)
+        if self.gif:
+            lines.append("  GIF: %s" % self.gif)
+        if self.video:
+            lines.append("  Video: %s" % self.video)
         if self.errors:
             lines.append("  ERRORS:")
             for e in self.errors:
@@ -96,7 +104,8 @@ class RunResult:
 
 
 def run_headless(app, frames=None, seconds=None, screenshot=None,
-                 hardware=True, warmup_data=False, strict=False):
+                 hardware=True, warmup_data=False, strict=False, gif=None,
+                 gif_opts=None, video=None, video_opts=None):
     """Run ``app`` headlessly for a fixed number of frames; return a ``RunResult``.
 
     Args:
@@ -104,6 +113,19 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
         frames: number of display frames to render (default 120).
         seconds: alternative to ``frames``; converted at 20 FPS.
         screenshot: path to save the final frame as a PNG (optional).
+        gif: path to save the whole run as an animated GIF (optional). Records
+            every rendered frame from the simulator's LED panel and encodes it
+            via ``display.save_gif``; the saved path lands on ``result.gif``.
+            Ignored if the display can't record (e.g. real hardware).
+        gif_opts: optional dict of keyword args forwarded to ``display.save_gif``
+            (e.g. ``{"target_width": 320, "frame_step": 2, "max_colors": 48}``)
+            to tune the encoded GIF's size/quality. Ignored unless ``gif`` is set.
+        video: path to save the whole run as an MP4 (optional), via
+            ``display.save_video``; the saved path lands on ``result.video``.
+            Mutually exclusive with ``gif`` in one run (the recording is consumed
+            by the first save). Ignored if the display can't record.
+        video_opts: optional dict forwarded to ``display.save_video`` (e.g.
+            ``{"crf": 20, "border": 22}``). Ignored unless ``video`` is set.
         hardware: model real-hardware timing/RAM and include a feasibility
             report (default True).
         warmup_data: call ``update_data()`` once after ``setup()`` (default
@@ -120,11 +142,39 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
     import asyncio
     return asyncio.run(run_headless_async(
         app, frames=frames, seconds=seconds, screenshot=screenshot,
-        hardware=hardware, warmup_data=warmup_data, strict=strict))
+        hardware=hardware, warmup_data=warmup_data, strict=strict, gif=gif,
+        gif_opts=gif_opts, video=video, video_opts=video_opts))
+
+
+def record_gif(app, path, *, seconds=4.0, hardware=False, **gif_opts):
+    """Render ``app`` headlessly and save an animated GIF of the run to ``path``.
+
+    A thin convenience over :func:`run_headless` with ``gif=path`` — the natural
+    way to make a shareable preview of an app (docs, README, a bug report).
+    Extra keyword args (``target_width``, ``max_colors``, ``frame_step``, ``fps``)
+    are forwarded to ``display.save_gif`` to tune size/quality. Returns the saved
+    GIF path, or None if the display can't record (e.g. real hardware / no pygame).
+    """
+    return run_headless(app, seconds=seconds, gif=path, hardware=hardware,
+                        gif_opts=gif_opts or None).gif
+
+
+def record_video(app, path, *, seconds=4.0, hardware=False, **video_opts):
+    """Render ``app`` headlessly and save an MP4 of the run to ``path``.
+
+    The MP4 sibling of :func:`record_gif` (via ``display.save_video``) — far
+    smaller and smoother than a GIF, the right format for a site hero. Extra
+    keyword args (``crf``, ``target_width``, ``border``, ``fps``, ``preset``) are
+    forwarded to ``display.save_video``. Returns the saved path, or None if the
+    display can't record (e.g. real hardware / no ffmpeg).
+    """
+    return run_headless(app, seconds=seconds, video=path, hardware=hardware,
+                        video_opts=video_opts or None).video
 
 
 async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
-                             hardware=True, warmup_data=False, strict=False):
+                             hardware=True, warmup_data=False, strict=False,
+                             gif=None, gif_opts=None, video=None, video_opts=None):
     """Async core of :func:`run_headless` (use inside a running event loop)."""
     if frames is None and seconds is not None:
         frames = max(1, int(round(seconds * TARGET_FPS)))
@@ -153,6 +203,12 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
 
     try:
         await app._initialize_display()
+
+        # If a GIF was requested, start capturing frames from the simulator's
+        # LED panel now (no-op on displays that can't record, e.g. hardware).
+        if (gif or video) and app.display is not None \
+                and hasattr(app.display, "start_recording"):
+            app.display.start_recording()
 
         # Headless runs must stay fast, deterministic, and quiet: never crawl in
         # real time and never print ambient nags, even if the app built its
@@ -221,6 +277,24 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             except Exception as e:
                 warnings.append("screenshot failed: %r" % (e,))
 
+        gif_path = None
+        if gif and app.display and hasattr(app.display, "save_gif"):
+            try:
+                gif_path = app.display.save_gif(gif, **(gif_opts or {}))
+                if gif_path is None:
+                    warnings.append("gif unavailable (no recorded frames / no pygame)")
+            except Exception as e:
+                warnings.append("gif save failed: %r" % (e,))
+
+        video_path = None
+        if video and app.display and hasattr(app.display, "save_video"):
+            try:
+                video_path = app.display.save_video(video, **(video_opts or {}))
+                if video_path is None:
+                    warnings.append("video unavailable (no recorded frames / no ffmpeg)")
+            except Exception as e:
+                warnings.append("video save failed: %r" % (e,))
+
         buf = _metrics.buffer_from_display(app.display)
         snap = _metrics.snapshot(buf)
         if not snap["available"]:
@@ -271,11 +345,20 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             hardware=hw_dict,
             hardware_text=hw_text,
             screenshot=shot,
+            gif=gif_path,
+            video=video_path,
             errors=errors,
             warnings=warnings,
         )
     finally:
         app.running = False
+        # Release any still-open recording (save_gif already clears it on the
+        # happy path; this covers an early error before the save).
+        try:
+            if app.display is not None and hasattr(app.display, "stop_recording"):
+                app.display.stop_recording()
+        except Exception:
+            pass
         try:
             await app.cleanup()
         except Exception:

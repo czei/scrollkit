@@ -26,14 +26,16 @@ if getattr(sys, "implementation", None) is not None \
         "build and check apps before deploying to the device."
     )
 
-from .harness import RunResult, run_headless, run_headless_async  # noqa: E402
+from .harness import (  # noqa: E402
+    RunResult, run_headless, run_headless_async, record_gif, record_video)
 from .capabilities import capabilities, as_text  # noqa: E402
 from .validation import validate, ValidationReport, Issue  # noqa: E402
 from .performance import performance_guide  # noqa: E402
 from . import metrics  # noqa: E402,F401
 
 __all__ = [
-    "RunResult", "run_headless", "run_headless_async", "metrics",
+    "RunResult", "run_headless", "run_headless_async", "record_gif",
+    "record_video", "metrics",
     "capabilities", "as_text", "validate", "ValidationReport", "Issue",
     "performance_guide",
 ]

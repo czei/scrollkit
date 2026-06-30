@@ -107,6 +107,11 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         # For pygame window
         self._window_created: bool = False
 
+        # GIF recording (desktop-only, opt-in). None = off; a list = capturing.
+        # Each entry is one shown frame as an (H, W, 3) uint8 array of the LED
+        # panel surface. The sibling of screenshot(): one PNG vs many frames.
+        self._recording: Optional[list] = None
+
         # Foreground pixels from set_pixel(), applied after each refresh.
         self._overlay_pixels: dict = {}
 
@@ -236,6 +241,11 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
                 if hasattr(self.matrix, 'render'):
                     self.matrix.render()
 
+            # If recording (opt-in), grab this finished frame for save_gif().
+            # Done after the overlay re-render so set_pixel() pixels are included.
+            if self._recording is not None:
+                self._capture_recording_frame()
+
             # Copy the rendered LED matrix surface to the window.
             if pygame.get_init() and pygame.display.get_surface():
                 screen = pygame.display.get_surface()
@@ -285,6 +295,217 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         except (pygame.error, OSError) as e:
             print(f"screenshot failed: {e}")
             return None
+
+    # ------------------------------------------------------------------
+    # GIF recording — the sibling of screenshot(): one PNG vs an animation.
+    # Desktop-only and opt-in; off by default so a normal run pays nothing.
+    # ------------------------------------------------------------------
+
+    # Soft cap: warn once past this many captured frames (~25s at 20 FPS) so a
+    # recording left on by accident doesn't silently eat memory.
+    _RECORDING_WARN_FRAMES = 500
+
+    def start_recording(self):
+        """Begin capturing each shown frame for a later :meth:`save_gif`.
+
+        After this, every :meth:`show` appends the current LED-panel frame. Call
+        :meth:`save_gif` to encode them or :meth:`stop_recording` to discard.
+        Returns ``self`` so the call can be chained.
+        """
+        self._recording = []
+        return self
+
+    def stop_recording(self) -> None:
+        """Stop capturing frames and discard anything not yet saved."""
+        self._recording = None
+
+    @property
+    def is_recording(self) -> bool:
+        """True while frames are being captured for :meth:`save_gif`."""
+        return self._recording is not None
+
+    def _capture_recording_frame(self) -> None:
+        """Append the current LED-panel surface to the recording (internal)."""
+        try:
+            import pygame
+        except ImportError:
+            return
+        surface = (self.matrix.get_surface()
+                   if self.matrix is not None and hasattr(self.matrix, "get_surface")
+                   else None)
+        if surface is None:
+            return
+        # array3d gives (W, H, 3); transpose to image orientation (H, W, 3).
+        frame = pygame.surfarray.array3d(surface).transpose(1, 0, 2).copy()
+        self._recording.append(frame)
+        if len(self._recording) == self._RECORDING_WARN_FRAMES:
+            print("SimulatorDisplay: recording is %d frames and growing; call "
+                  "save_gif()/stop_recording() to release memory."
+                  % self._RECORDING_WARN_FRAMES)
+
+    def save_gif(self, path, *, fps: int = 20, target_width: int = 360,
+                 max_colors: int = 48, loop: int = 0, frame_step: int = 1,
+                 disposal: int = 1):
+        """Encode the recorded frames to an animated GIF and clear the buffer.
+
+        Renders the frames captured since :meth:`start_recording` into an
+        animated GIF at ``path``. Frames are downscaled to ``target_width`` and
+        share **one** adaptive palette (≤ ``max_colors``) so colors stay stable
+        across the loop and the file stays small. ``frame_step`` keeps only every
+        Nth frame (smaller file; the per-frame duration is lengthened to keep
+        playback speed correct). ``loop=0`` loops forever. ``disposal=1`` keeps
+        the file small by letting Pillow store only each frame's changed region.
+
+        Returns the path on success, or None when there is nothing to save or
+        pygame/Pillow isn't available (e.g. on hardware) — mirroring
+        :meth:`screenshot`. Recording is stopped afterward either way.
+
+        Example::
+
+            display.start_recording()
+            for _ in range(60):
+                await content.render(display)
+                await display.show()
+            display.save_gif("demo.gif")
+        """
+        frames = self._recording or []
+        self._recording = None
+        if not frames:
+            return None
+        try:
+            from PIL import Image
+        except ImportError:
+            print("save_gif failed: Pillow not installed (pip install Pillow)")
+            return None
+
+        kept = frames[::max(1, int(frame_step))]
+        rgb = []
+        for arr in kept:
+            img = Image.fromarray(arr, "RGB")
+            if target_width and img.width != target_width:
+                h = max(1, round(img.height * target_width / img.width))
+                img = img.resize((target_width, h), Image.LANCZOS)
+            rgb.append(img)
+
+        # One shared palette from a handful of evenly-sampled frames: stable
+        # colors across the loop (no per-frame flicker) and a much smaller file.
+        sample = rgb[::max(1, len(rgb) // 16)]
+        montage = Image.new("RGB", (rgb[0].width, rgb[0].height * len(sample)))
+        for i, frame_img in enumerate(sample):
+            montage.paste(frame_img, (0, i * rgb[0].height))
+        palette = montage.quantize(colors=max_colors, method=Image.MEDIANCUT)
+        paletted = [im.quantize(palette=palette) for im in rgb]
+
+        duration = int(round(1000.0 / fps)) * max(1, int(frame_step))
+        try:
+            # disposal=1 ("do not dispose") leaves the prior frame in place so
+            # Pillow can crop each frame to just its changed region — the static
+            # LED-panel background is written once, shrinking the file several-fold
+            # versus disposal=2 (which restores to background and forces full frames).
+            paletted[0].save(path, save_all=True, append_images=paletted[1:],
+                             duration=duration, loop=loop, optimize=True,
+                             disposal=disposal)
+            return path
+        except (OSError, ValueError) as e:
+            print(f"save_gif failed: {e}")
+            return None
+
+    def save_video(self, path, *, fps: int = 24, target_width=None,
+                   crf: int = 20, preset: str = "medium",
+                   border: int = 0, border_color=(10, 10, 13)):
+        """Encode the recorded frames to an MP4 (H.264) via ffmpeg; clear the buffer.
+
+        The web-friendly sibling of :meth:`save_gif`: for full-colour animation an
+        MP4 is far smaller and smoother than a GIF (no 256-colour palette, real
+        inter-frame compression), so it's the right format for a site hero. The raw
+        recorded frames are piped straight to ``ffmpeg`` (which must be on PATH).
+
+        ``target_width`` optionally downscales (kept even, as ``yuv420p`` requires);
+        ``None`` keeps native size. ``crf`` trades size for quality (≈18 best … 24
+        smaller; 20 is a good default). ``preset`` is libx264's speed/efficiency
+        knob. ``-movflags +faststart`` makes the file stream-ready on the web.
+        ``border`` adds a dark bezel of that many pixels on every side (the panel
+        surface is flush to the LEDs, so a bezel keeps edge rows off the frame
+        boundary — like a real sign's frame); ``border_color`` is its RGB.
+
+        Returns the path, or None when there are no frames or ffmpeg/encode is
+        unavailable (mirroring :meth:`save_gif`). Recording is stopped either way.
+
+        Example::
+
+            display.start_recording()
+            for _ in range(120):
+                await content.render(display)
+                await display.show()
+            display.save_video("hero.mp4")
+        """
+        import shutil
+        import subprocess
+
+        frames = self._recording or []
+        self._recording = None
+        if not frames:
+            return None
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            print("save_video failed: ffmpeg not found (e.g. `brew install ffmpeg`)")
+            return None
+
+        h0, w0 = int(frames[0].shape[0]), int(frames[0].shape[1])
+        if target_width and int(target_width) != w0:
+            out_w = int(target_width)
+            out_h = max(1, round(h0 * out_w / w0))
+        else:
+            out_w, out_h = w0, h0
+        out_w -= out_w % 2          # yuv420p needs even dimensions
+        out_h -= out_h % 2
+        if out_w < 2 or out_h < 2:
+            return None
+        resize = (out_w, out_h) != (w0, h0)
+        if resize:
+            try:
+                from PIL import Image
+            except ImportError:
+                print("save_video failed: Pillow needed to resize (pip install Pillow)")
+                return None
+
+        vf = []
+        if border and int(border) > 0:
+            b = int(border) - int(border) % 2   # keep padded dims even for yuv420p
+            if b > 0:
+                bc = border_color
+                vf = ["-vf", "pad=iw+%d:ih+%d:%d:%d:color=0x%02X%02X%02X"
+                      % (2 * b, 2 * b, b, b, int(bc[0]), int(bc[1]), int(bc[2]))]
+
+        cmd = ([ffmpeg, "-y", "-loglevel", "error",
+                "-f", "rawvideo", "-pix_fmt", "rgb24",
+                "-s", "%dx%d" % (out_w, out_h), "-r", str(int(fps)), "-i", "-",
+                "-an"] + vf
+               + ["-c:v", "libx264", "-pix_fmt", "yuv420p",
+                  "-crf", str(int(crf)), "-preset", str(preset),
+                  "-movflags", "+faststart", path])
+        try:
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        except OSError as e:
+            print("save_video failed: could not launch ffmpeg (%r)" % (e,))
+            return None
+        try:
+            for arr in frames:
+                if resize:
+                    arr_bytes = Image.fromarray(arr, "RGB").resize(
+                        (out_w, out_h), Image.LANCZOS).tobytes()
+                else:
+                    arr_bytes = arr.tobytes()
+                proc.stdin.write(arr_bytes)
+            proc.stdin.close()
+            rc = proc.wait()
+        except (OSError, ValueError) as e:
+            print("save_video failed: %r" % (e,))
+            return None
+        if rc != 0:
+            print("save_video failed: ffmpeg exited %s" % rc)
+            return None
+        return path
 
     def _maybe_enable_hardware_timing(self) -> None:
         """Build a PerformanceManager if hardware timing is requested (opt-in).
