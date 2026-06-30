@@ -70,7 +70,23 @@ class SwarmReveal:
 
     Args:
         pixels:          Iterable of ``(x, y)`` target cells to assemble.
-        text_color:      24-bit RGB of the captured/assembled image.
+        text_color:      24-bit RGB of the captured/assembled image.  Used as the
+                         single flat color when ``text_colors`` is ``None``.
+        text_colors:     Optional sequence of 24-bit ``0xRRGGBB`` colors forming a
+                         ramp (low->high) for the assembled image — e.g. a range
+                         of yellows->oranges.  When ``None`` (the default) the
+                         image is the single ``text_color`` (a 2-entry palette,
+                         byte-for-byte the original behavior).  When given, the
+                         text layer uses a ``len(text_colors) + 1`` palette and
+                         each target pixel's ramp stop is precomputed once in
+                         :meth:`start` (no per-frame / per-capture float math), so
+                         the measured ``num_birds**2`` frame budget is unaffected.
+        color_axis:      How the ramp maps across the image when ``text_colors``
+                         is set: ``"vertical"`` (default — top of the glyph is
+                         ``text_colors[0]``, bottom is ``text_colors[-1]``),
+                         ``"horizontal"`` (left->right), or ``"diagonal"``
+                         (top-left->bottom-right).  The ramp spans exactly the
+                         bounding box of the target pixels, not the whole panel.
         bird_color:      24-bit RGB of the flock.
         num_birds:       Flock size.  **This is the hardware-feasibility knob.**
                          The per-frame cost grows ~``num_birds**2`` (the boids
@@ -92,9 +108,14 @@ class SwarmReveal:
     """
 
     def __init__(self, pixels, text_color=0xFFCC00, bird_color=0xFFE08A,
-                 num_birds=14, bird_speed=2.4, disperse_frames=18):
+                 num_birds=14, bird_speed=2.4, disperse_frames=18,
+                 text_colors=None, color_axis="vertical"):
         self.pixels = pixels
         self.text_color = text_color
+        # A ramp of >=1 colors (low->high). Empty/None -> single-color path.
+        self.text_colors = tuple(text_colors) if text_colors else None
+        self.color_axis = color_axis if color_axis in (
+            "vertical", "horizontal", "diagonal") else "vertical"
         self.bird_color = bird_color
         self.num_birds = num_birds if num_birds > 1 else 1
         self.bird_speed = bird_speed if bird_speed > 0.5 else 0.5
@@ -106,6 +127,7 @@ class SwarmReveal:
         self._h = 0
         self._text_bmp = None
         self._text_tile = None
+        self._index_map = None      # {(x, y): palette_index} ramp lookup (gradient only)
         self._birds_bmp = None
         self._birds_tile = None
 
@@ -127,10 +149,23 @@ class SwarmReveal:
         self._w, self._h = w, h
 
         # Captured-text layer (written incrementally; never fully redrawn).
-        self._text_bmp = gfx.Bitmap(w, h, 2)
-        tpal = gfx.Palette(2)
-        tpal.make_transparent(0)
-        tpal[1] = self.text_color
+        # Single-color path: a 2-entry palette (index 1 = text_color). Gradient
+        # path: a (len(text_colors) + 1)-entry palette holding the ramp, with the
+        # per-pixel index precomputed below once _remaining is known.
+        self._index_map = None
+        if self.text_colors is None:
+            self._text_bmp = gfx.Bitmap(w, h, 2)
+            tpal = gfx.Palette(2)
+            tpal.make_transparent(0)
+            tpal[1] = self.text_color
+        else:
+            n = len(self.text_colors)
+            self._text_bmp = gfx.Bitmap(w, h, n + 1)
+            tpal = gfx.Palette(n + 1)
+            if hasattr(tpal, "make_transparent"):
+                tpal.make_transparent(0)
+            for i, c in enumerate(self.text_colors):
+                tpal[i + 1] = c
         self._text_tile = gfx.TileGrid(self._text_bmp, pixel_shader=tpal)
 
         # Birds layer (cleared + redrawn each frame). Added AFTER text so birds
@@ -151,6 +186,12 @@ class SwarmReveal:
         self._queue = list(self._remaining)
         _shuffle(self._queue)
         self._qi = 0
+
+        # Gradient path: precompute each in-bounds target cell's palette index
+        # ONCE here so the per-capture write in step() is a single O(1) dict
+        # lookup with no float math (keeps the num_birds^2 frame budget intact).
+        if self.text_colors is not None:
+            self._index_map = self._build_index_map(self._remaining)
 
         # Spawn the flock from the screen edges in small clusters.
         self._birds = [self._spawn_bird() for _ in range(self.num_birds)]
@@ -195,6 +236,43 @@ class SwarmReveal:
             if p in self._remaining:
                 return p
         return None
+
+    def _build_index_map(self, cells):
+        """Precompute ``{(x, y): palette_index}`` mapping the ramp over ``cells``.
+
+        The ramp (palette indices ``1..len(text_colors)``) spans exactly the
+        bounding box of the target ``cells`` along ``color_axis`` — so the full
+        ramp covers the glyph extent, not the whole panel.  Done once in
+        :meth:`start`; the float math here never runs per frame or per capture.
+        """
+        colors = self.text_colors
+        last = len(colors) - 1                  # ramp index range 0..last
+        if not cells:
+            return {}
+        xs = [x for (x, y) in cells]
+        ys = [y for (x, y) in cells]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        span_x = max_x - min_x
+        span_y = max_y - min_y
+        axis = self.color_axis
+        index_map = {}
+        for (x, y) in cells:
+            if axis == "horizontal":
+                num, den = (x - min_x), span_x
+            elif axis == "diagonal":
+                num, den = (x - min_x) + (y - min_y), span_x + span_y
+            else:                               # vertical (default)
+                num, den = (y - min_y), span_y
+            if den <= 0 or last == 0:
+                ramp_i = 0
+            else:
+                # Nearest ramp stop; +0.5 rounds to nearest (num, last, den >= 0).
+                ramp_i = int(num * last / den + 0.5)
+                if ramp_i > last:
+                    ramp_i = last
+            index_map[(x, y)] = ramp_i + 1      # palette indices start at 1
+        return index_map
 
     def _flock(self, b):
         """All three boids rules in one neighbor pass (squared-distance gates)."""
@@ -272,7 +350,12 @@ class SwarmReveal:
                         # capture — birds don't blanket-paint, so the flock stays
                         # the show.) Light it permanently; resume flocking.
                         self._remaining.discard(b.target)
-                        self._text_bmp[tx, ty] = 1
+                        # Single-color: write 1 (unchanged). Gradient: a single
+                        # precomputed O(1) lookup — no per-capture float math.
+                        if self._index_map is None:
+                            self._text_bmp[tx, ty] = 1
+                        else:
+                            self._text_bmp[tx, ty] = self._index_map.get(b.target, 1)
                         b.target = None
                         b.vx += fx
                         b.vy += fy
@@ -366,6 +449,8 @@ async def show_swarm_splash(
     bird_speed=2.4,
     hold_seconds=2.0,
     max_steps=2000,
+    text_colors=None,
+    color_axis="vertical",
 ):
     """Play a swarm-assembles-the-image animation (blocking convenience wrapper).
 
@@ -385,7 +470,8 @@ async def show_swarm_splash(
     is always ``True`` there.
     """
     swarm = SwarmReveal(pixels, text_color=text_color, bird_color=bird_color,
-                        num_birds=num_birds, bird_speed=bird_speed)
+                        num_birds=num_birds, bird_speed=bird_speed,
+                        text_colors=text_colors, color_axis=color_axis)
     swarm.start(display)
     steps = 0
     while not swarm.is_complete and steps < max_steps:

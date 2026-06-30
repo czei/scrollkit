@@ -92,6 +92,98 @@ async def test_empty_pixels_is_safe():
     sw.detach()
 
 
+def _rect_pixels(x0, y0, w, h):
+    """A solid w×h rectangle of cells with a guaranteed pixel at every bbox edge."""
+    return [(x, y) for x in range(x0, x0 + w) for y in range(y0, y0 + h)]
+
+
+@pytest.mark.asyncio
+async def test_text_colors_builds_n_plus_one_entry_palette():
+    # A ramp of N colors -> a palette of N+1 entries (index 0 transparent + the
+    # ramp at 1..N). The single-color default stays a 2-entry palette.
+    d = await _make()
+    ramp = (0xFFFF00, 0xFFAA00, 0xFF5500, 0xFF0000)  # 4 yellows -> reds
+    sw = SwarmReveal(_rect_pixels(10, 5, 5, 7), text_colors=ramp)
+    sw.start(d)
+    pal = sw._text_tile.pixel_shader
+    assert len(pal) == len(ramp) + 1
+    assert pal.is_transparent(0)
+    sw.detach()
+
+
+@pytest.mark.asyncio
+async def test_vertical_ramp_top_is_low_bottom_is_high():
+    d = await _make()
+    ramp = (0x110000, 0x220000, 0x330000, 0x440000, 0x550000)  # N = 5
+    n = len(ramp)
+    px = _rect_pixels(10, 5, 5, 7)                  # bbox y: 5 (top) .. 11 (bottom)
+    sw = SwarmReveal(px, text_colors=ramp, color_axis="vertical")
+    sw.start(d)
+    assert all(sw._index_map[(x, 5)] == 1 for x in range(10, 15))   # top -> colors[0]
+    assert all(sw._index_map[(x, 11)] == n for x in range(10, 15))  # bottom -> colors[-1]
+    sw.detach()
+
+
+@pytest.mark.asyncio
+async def test_horizontal_ramp_left_is_low_right_is_high():
+    d = await _make()
+    ramp = (0x001100, 0x002200, 0x003300, 0x004400)  # N = 4
+    n = len(ramp)
+    px = _rect_pixels(10, 5, 5, 7)                  # bbox x: 10 (left) .. 14 (right)
+    sw = SwarmReveal(px, text_colors=ramp, color_axis="horizontal")
+    sw.start(d)
+    assert all(sw._index_map[(10, y)] == 1 for y in range(5, 12))   # left -> colors[0]
+    assert all(sw._index_map[(14, y)] == n for y in range(5, 12))   # right -> colors[-1]
+    sw.detach()
+
+
+@pytest.mark.asyncio
+async def test_diagonal_ramp_corner_to_corner():
+    d = await _make()
+    ramp = (0x000011, 0x000022, 0x000033, 0x000044, 0x000055, 0x000066)  # N = 6
+    n = len(ramp)
+    px = _rect_pixels(10, 5, 5, 7)
+    sw = SwarmReveal(px, text_colors=ramp, color_axis="diagonal")
+    sw.start(d)
+    assert sw._index_map[(10, 5)] == 1     # top-left corner  -> colors[0]
+    assert sw._index_map[(14, 11)] == n    # bottom-right corner -> colors[-1]
+    sw.detach()
+
+
+@pytest.mark.asyncio
+async def test_gradient_capture_writes_the_precomputed_index():
+    # End-to-end: step() must paint each captured pixel with its precomputed ramp
+    # index (not the constant 1), and the full ramp must actually appear.
+    d = await _make()
+    ramp = (0x110000, 0x330000, 0x550000)  # N = 3
+    px = _rect_pixels(12, 6, 5, 7)
+    sw = SwarmReveal(px, text_colors=ramp, color_axis="vertical", num_birds=18)
+    sw.start(d)
+    _run(sw)
+    assert sw.is_complete
+    for cell in px:
+        assert sw._text_bmp[cell[0], cell[1]] == sw._index_map[cell]
+    painted = {sw._index_map[cell] for cell in px}
+    assert painted == {1, 2, 3}            # whole ramp spans the glyph extent
+    sw.detach()
+
+
+@pytest.mark.asyncio
+async def test_default_path_unchanged_without_text_colors():
+    # Omitting text_colors must leave the original 2-color path intact: no index
+    # map, a 2-entry palette, and every capture writes the constant index 1.
+    d = await _make()
+    px = _rect_pixels(10, 5, 5, 7)
+    sw = SwarmReveal(px, num_birds=18)
+    sw.start(d)
+    assert sw._index_map is None
+    assert len(sw._text_tile.pixel_shader) == 2
+    _run(sw)
+    assert sw.is_complete
+    assert {sw._text_bmp[x, y] for (x, y) in px} == {1}
+    sw.detach()
+
+
 @pytest.mark.asyncio
 async def test_captured_pixels_only_land_on_targets():
     d = await _make()
