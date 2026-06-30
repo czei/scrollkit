@@ -17,6 +17,14 @@ from .easing import ease, EASE_IN_OUT
 from .overlay import OverlayMask
 
 
+def _shuffle(lst):
+    """In-place Fisher-Yates — random.shuffle is absent on CircuitPython."""
+    import random
+    for i in range(len(lst) - 1, 0, -1):
+        j = random.randint(0, i)
+        lst[i], lst[j] = lst[j], lst[i]
+
+
 class Transition:
     """Base cover -> swap-while-covered -> reveal transition over an OverlayMask.
 
@@ -351,12 +359,11 @@ class PixelDissolve(Transition):
         self._revealed = 0
 
     async def start(self, display, swap_callback):
-        import random
         bw = bh = self.BLOCK
         self._cols = max(1, display.width // bw)
         rows = max(1, display.height // bh)
         order = list(range(self._cols * rows))
-        random.shuffle(order)
+        _shuffle(order)
         self._order = tuple(order)
         self._covered = 0
         self._revealed = 0
@@ -415,7 +422,6 @@ class ColumnRain(Transition):
         self._h = 0
 
     async def start(self, display, swap_callback):
-        import random
         n = self.NUM_COLS
         self._col_w = max(1, display.width // n)
         self._w = display.width
@@ -423,7 +429,7 @@ class ColumnRain(Transition):
         self._col_fill = [0] * n
         self._col_reveal = [0] * n
         order = list(range(n))
-        random.shuffle(order)
+        _shuffle(order)
         self._col_rank = [0] * n
         for rank, col in enumerate(order):
             self._col_rank[col] = rank
@@ -610,7 +616,7 @@ class GlitchBars(Transition):
             bh = min(random.randint(1, 4), h - y)
             bars.append((y, bh))
             y += bh
-        random.shuffle(bars)
+        _shuffle(bars)
         self._bars = tuple(bars)
         self._covered = 0
         self._revealed = 0

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for CircuitPython compatibility."""
 
+import ast
+import os
 import pytest
 import sys
 from unittest.mock import patch, MagicMock
@@ -336,6 +338,92 @@ class TestSLDKCircuitPythonUsage:
             pass
 
         # Document that complex file operations should be avoided
+
+
+class TestNoUnsupportedRandomFunctions:
+    """Static source guard: the device path must not call ``random`` functions
+    that exist on desktop CPython but NOT on CircuitPython.
+
+    The classic trap is ``random.shuffle`` — CPython has it, CircuitPython does
+    not, so a unit suite running on CPython renders fine while the real board
+    spams ``'module' object has no attribute 'shuffle'`` every frame and the
+    panel stays black. A normal runtime test can't catch this (the runner IS
+    CPython), so we parse the source instead.
+
+    CircuitPython's ``random`` provides only: ``random``, ``uniform``,
+    ``randint``, ``randrange``, ``getrandbits``, ``choice``, ``seed``. Anything
+    else (``shuffle``, ``sample``, ``choices``, the ``*variate`` family, ``gauss``,
+    ``triangular`` …) is absent. We allowlist the available names and flag the
+    rest — future-proof against new stdlib-only calls.
+
+    We use the AST rather than a regex so docstrings/comments that merely mention
+    ``random.shuffle`` (the Fisher-Yates helpers do) are not false positives.
+    """
+
+    # The complete CircuitPython 8.x/9.x random surface.
+    CIRCUITPYTHON_RANDOM = frozenset({
+        "random", "uniform", "randint", "randrange",
+        "getrandbits", "choice", "seed",
+    })
+
+    # Desktop-only trees that legitimately run on CPython.
+    EXCLUDED_DIRS = ("simulator", "dev")
+
+    @classmethod
+    def _device_path_root(cls):
+        here = os.path.dirname(os.path.abspath(__file__))
+        return os.path.normpath(os.path.join(here, "..", "..", "src", "scrollkit"))
+
+    def _device_path_files(self):
+        root = self._device_path_root()
+        assert os.path.isdir(root), "device-path root not found: %s" % root
+        for dirpath, dirnames, filenames in os.walk(root):
+            # Prune desktop-only subtrees in place so os.walk skips them.
+            dirnames[:] = [d for d in dirnames if d not in self.EXCLUDED_DIRS]
+            for name in filenames:
+                if name.endswith(".py"):
+                    yield os.path.join(dirpath, name)
+
+    def _violations_in(self, path):
+        """Return [(lineno, name), ...] for unsupported random.* usage in a file."""
+        with open(path, "r") as f:
+            tree = ast.parse(f.read(), filename=path)
+
+        # Track every local name bound to the `random` module (handles
+        # `import random` and `import random as r`).
+        random_aliases = set()
+        violations = []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "random":
+                        random_aliases.add(alias.asname or "random")
+            elif isinstance(node, ast.ImportFrom) and node.module == "random":
+                # `from random import shuffle` — flag the imported names directly.
+                for alias in node.names:
+                    if alias.name not in self.CIRCUITPYTHON_RANDOM:
+                        violations.append((node.lineno, alias.name))
+
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Attribute)
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id in random_aliases
+                    and node.attr not in self.CIRCUITPYTHON_RANDOM):
+                violations.append((node.lineno, node.attr))
+
+        return violations
+
+    def test_device_path_uses_only_circuitpython_random(self):
+        offenders = []
+        for path in self._device_path_files():
+            for lineno, name in self._violations_in(path):
+                offenders.append("%s:%d random.%s" % (path, lineno, name))
+
+        assert not offenders, (
+            "Device-path code calls random functions absent on CircuitPython "
+            "(use a hand-rolled equivalent, e.g. Fisher-Yates for shuffle):\n  "
+            + "\n  ".join(sorted(offenders)))
 
 
 class TestInfraModuleImportSafety:
