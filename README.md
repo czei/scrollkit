@@ -4,6 +4,10 @@ LED Matrix Display Framework for CircuitPython and Desktop.
 
 Build applications that run on CircuitPython HUB75 boards (the Adafruit MatrixPortal S3 and the Pimoroni Interstate 75 W) and a desktop simulator — write once, test everywhere.
 
+<p align="center">
+  <img src="docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold — all rendered on a 64×32 LED panel" width="640">
+</p>
+
 ## Installation
 
 ```bash

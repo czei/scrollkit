@@ -24,6 +24,7 @@ Everything after assembly is device-feasible.
 import os
 import sys
 import math
+import random
 import asyncio
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -130,6 +131,32 @@ def ease(t):
     return t * t * (3 - 2 * t)
 
 
+def _mp4_to_gif(mp4_path, gif_path, *, width=600, fps=15):
+    """Convert the rendered MP4 to an optimized, looping GIF for the GitHub README
+    (where <video> tags are stripped). Two-pass palette for good quality at a small
+    size. Returns the path, or None if ffmpeg is unavailable / the MP4 is missing."""
+    import shutil
+    import subprocess
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None or not (mp4_path and os.path.exists(mp4_path)):
+        return None
+    palette = gif_path + ".palette.png"
+    vf = "fps=%d,scale=%d:-1:flags=lanczos" % (fps, width)
+    try:
+        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", mp4_path,
+                        "-vf", vf + ",palettegen=stats_mode=diff", palette], check=True)
+        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", mp4_path,
+                        "-i", palette, "-lavfi",
+                        vf + " [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=4",
+                        gif_path], check=True)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    finally:
+        if os.path.exists(palette):
+            os.remove(palette)
+    return gif_path
+
+
 def _save_poster(disp, path):
     """Pad a finale screenshot with the same bezel save_video adds, so the poster
     (the autoplay fallback) matches the video frame exactly."""
@@ -150,6 +177,9 @@ def _save_poster(disp, path):
 
 
 async def render():
+    # Seed so the random swarm flight is deterministic -> `make hero` always renders
+    # the same animation (the encoded bytes may differ slightly via x264 threading).
+    random.seed(0x5C0117)
     os.makedirs(OUT_DIR, exist_ok=True)
     pix = logo_pixels()
 
@@ -223,7 +253,12 @@ async def render():
     out = disp.save_video(os.path.join(OUT_DIR, "scrollkit-hero.mp4"),
                           fps=24, crf=20, border=44)
     size = os.path.getsize(out) / 1e6 if out and os.path.exists(out) else 0
-    print("hero -> %s  (%.1f MB)" % (out, size))
+    print("hero mp4 -> %s  (%.1f MB)" % (out, size))
+
+    # README GIF (GitHub can't autoplay an <video>): convert the MP4 once.
+    gif = _mp4_to_gif(out, os.path.join(OUT_DIR, "scrollkit-hero.gif"))
+    if gif:
+        print("hero gif -> %s  (%.1f MB)" % (gif, os.path.getsize(gif) / 1e6))
     return out
 
 
