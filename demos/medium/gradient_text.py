@@ -58,8 +58,9 @@ class GradientTextApp(ScrollKitApp):
 
         q = self.content_queue
 
-        # 1) Subtle vertical depth from ONE base colour (the common case).
-        q.add(ScrollingText("DEPARTURES", y=12, speed=22,
+        # 1) Subtle vertical depth from ONE base colour (the common case) — on
+        #    mixed-case prose with descenders, which baseline-aligns correctly.
+        q.add(ScrollingText("Jungle Cruise", y=12, speed=22,
                             palette=depth_palette(0x66CCFF, strength=0.45)))
 
         # 2) Two-colour vertical gradient (highlight -> shadow) held static.

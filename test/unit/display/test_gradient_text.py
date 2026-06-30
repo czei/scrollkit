@@ -183,6 +183,74 @@ async def test_gradient_aligns_vertically_with_mono_text():
     assert abs(max(mono) - max(grad)) <= 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["Big Thunder", "Jungle Cruise",
+                                  "Space Mountain", "jolly"])
+async def test_gradient_matches_mono_baseline_with_descenders(text):
+    # Regression: pixels_from_font_text used to top-align every glyph, so mixed-case
+    # text with descenders (g/j/p/q/y) floated short letters up and clipped caps.
+    # Gradient text must land in the SAME rows as the flat draw_text() path.
+    d_mono = await _make_display()
+    d_grad = await _make_display()
+    await _render_to_matrix(d_mono, StaticText(text, x=0, y=5))
+    await _render_to_matrix(
+        d_grad, StaticText(text, x=0, y=5, palette=(0xFFFFFF, 0x808080)))
+    mono = _lit_rows(d_mono)
+    grad = _lit_rows(d_grad)
+    assert mono and grad
+    assert abs(min(mono) - min(grad)) <= 1
+    assert abs(max(mono) - max(grad)) <= 1
+
+
+class _StubBitmap:
+    def __init__(self, w, h):
+        self._w, self._h = w, h
+
+    @property
+    def width(self):
+        return self._w
+
+    def __getitem__(self, xy):
+        x, y = xy
+        return 1 if (0 <= x < self._w and 0 <= y < self._h) else 0
+
+
+class _StubFont:
+    """Two equal-height glyphs: a cap on the baseline and a 2px descender."""
+    GLYPHS = {
+        ord("A"): {"bitmap": _StubBitmap(3, 6), "width": 3, "height": 6,
+                   "x_offset": 0, "y_offset": 0, "dx": 4, "dy": 0},
+        ord("g"): {"bitmap": _StubBitmap(3, 6), "width": 3, "height": 6,
+                   "x_offset": 0, "y_offset": -2, "dx": 4, "dy": 0},
+    }
+
+    def get_glyph(self, cp):
+        return self.GLYPHS.get(cp)
+
+
+def test_pixels_baseline_aligns_descender_below_caps():
+    # Font-independent: the descender's y_offset must drop it below the cap's
+    # baseline, not top-align both glyphs to the same row.
+    from scrollkit.display.text_pixels import pixels_from_font_text, font_text_ascent
+    f = _StubFont()
+    assert font_text_ascent(f, "Ag") == 6              # tallest glyph above baseline
+    px = pixels_from_font_text(f, "Ag", x=0, y=0)
+    a_rows = [y for (x, y) in px if x < 4]              # 'A' (advance 4) is first
+    g_rows = [y for (x, y) in px if x >= 4]             # 'g' is second
+    assert (min(a_rows), max(a_rows)) == (0, 5)         # cap at top, sits on baseline
+    assert (min(g_rows), max(g_rows)) == (2, 7)         # descender drops 2px below it
+
+
+def test_equal_height_run_unchanged_by_baseline_fix():
+    # Backward-compat: a uniform-height run (digits / ALL-CAPS) is identical to the
+    # old top-aligned behaviour — every glyph starts at row y.
+    from scrollkit.display.text_pixels import pixels_from_font_text
+    f = _StubFont()
+    px = pixels_from_font_text(f, "AA", x=0, y=3)
+    assert min(y for _, y in px) == 3                   # top row == y (no shift)
+    assert max(y for _, y in px) == 8                   # y + height - 1
+
+
 # --- scrollability ----------------------------------------------------------
 
 @pytest.mark.asyncio

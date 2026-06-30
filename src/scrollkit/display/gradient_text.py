@@ -19,15 +19,16 @@ no per-frame allocation).
 
 from .colors import gradient, multi_gradient
 from .text_fill import clamp_palette_steps, normalize_direction
-from .text_pixels import font_text_width, pixels_from_font_text
+from .text_pixels import font_text_ascent, font_text_width, pixels_from_font_text
 
 # The Label path positions a line's baseline at screen row ``y + 4`` (the
 # simulator's adafruit_display_text.Label applies a device-compat offset so the
-# sim matches hardware). Gradient text is rasterised top-origin, so we bottom-align
-# its lit pixels to that baseline — a cap-height run's bottom pixel sits one row
-# above the baseline — so swapping ``color=`` for ``palette=`` does not move the
-# text vertically. Pinned by the baseline-alignment test in test_gradient_text.py.
-_BASELINE_BOTTOM = 3
+# sim matches hardware). pixels_from_font_text rasterises with the run's baseline
+# `ascent` rows below the top, so placing tile.y = y + 4 - ascent puts that
+# baseline on the Label's baseline. The `ascent` term then cancels: every glyph
+# pixel lands at `y + 4 - height - y_offset + gy`, identical to the flat Label
+# path per glyph (descenders included). Pinned by test_gradient_text.py.
+_BASELINE_DROP = 4
 
 
 def _build_ramp(palette, steps):
@@ -74,6 +75,7 @@ class _GradientTextLayer:
         # Top-origin rasterisation; the layer is positioned vertically via tile.y.
         pixels = pixels_from_font_text(font, self.text, x=0, y=0)
         advance = font_text_width(font, self.text)
+        ascent = font_text_ascent(font, self.text)   # baseline row within the raster
         if pixels:
             max_x = max(p[0] for p in pixels)
             ys = [p[1] for p in pixels]
@@ -104,7 +106,7 @@ class _GradientTextLayer:
 
         tile = gfx.TileGrid(bitmap, pixel_shader=palette)
         tile.x = display.width                       # start off the right edge
-        tile.y = self.y + _BASELINE_BOTTOM - max_y   # bottom-align to Label baseline
+        tile.y = self.y + _BASELINE_DROP - ascent    # baseline-align to the Label
         display.add_layer(tile)
 
         self._bitmap = bitmap

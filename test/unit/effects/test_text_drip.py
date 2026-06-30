@@ -65,15 +65,18 @@ async def test_width_matches_pixel_extent_and_scales():
 
 
 def test_glyph_fields_handles_dict_form():
-    # Simulator-style glyph dict: 'dx' is the advance, per-glyph bitmap (origin 0).
-    g = {"bitmap": None, "width": 5, "height": 7, "x_offset": 0, "dx": 6}
-    bmp, gw, gh, xoff, adv, sx, sy = _glyph_fields(g)
-    assert (gw, gh, adv, sx, sy) == (5, 7, 6, 0, 0)
+    # Simulator-style glyph dict: 'dx' is the advance, 'y_offset' the baseline-
+    # relative vertical offset (negative for descenders), per-glyph bitmap (origin 0).
+    g = {"bitmap": None, "width": 5, "height": 7, "x_offset": 0, "y_offset": -2,
+         "dx": 6}
+    bmp, gw, gh, xoff, yoff, adv, sx, sy = _glyph_fields(g)
+    assert (gw, gh, yoff, adv, sx, sy) == (5, 7, -2, 6, 0, 0)
 
 
 def test_glyph_fields_handles_packed_sheet_object():
     # Device-style packed font: one wide sheet shared by all glyphs; the glyph
-    # lives at tile_index -> sheet_x = (index % tiles_per_row) * width.
+    # lives at tile_index -> sheet_x = (index % tiles_per_row) * width. '.dy' is
+    # the baseline-relative vertical offset.
     class _Sheet:
         width = 570
 
@@ -85,11 +88,12 @@ def test_glyph_fields_handles_packed_sheet_object():
         width = 6
         height = 12
         dx = 0
+        dy = -3
         shift_x = 6
         tile_index = 20
 
-    bmp, gw, gh, xoff, adv, sx, sy = _glyph_fields(_Glyph())
-    assert gw == 6 and adv == 6
+    bmp, gw, gh, xoff, yoff, adv, sx, sy = _glyph_fields(_Glyph())
+    assert gw == 6 and adv == 6 and yoff == -3
     assert sx == 120 and sy == 0     # 20 * 6, single row (570 // 6 = 95 per row)
 
 
