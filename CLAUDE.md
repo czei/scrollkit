@@ -106,6 +106,7 @@ module, verify it exists in CircuitPython.**
 | `enum.auto()` | explicit values | `auto()` not available |
 | `time.time()` | `time.monotonic()` | wall clock unreliable |
 | `random.choices()` | `random.choice()` in a loop | `choices()` not available |
+| `random.shuffle()` | hand-rolled Fisher-Yates | also `sample`/`gauss`/`*variate` absent — only `random`/`uniform`/`randint`/`randrange`/`getrandbits`/`choice`/`seed` exist (static guard: `test_circuitpython_compat.py`) |
 | f-string `f"{x=}"` | regular f-strings | `=` debug syntax unsupported |
 | `match`/`case` | `if`/`elif` | no pattern matching |
 
