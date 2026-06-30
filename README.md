@@ -4,6 +4,8 @@ Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built S
 
 *Built by [Michael Czeiszperger](http://czei.org)*
 
+📖 **Full documentation: [scrollkit.dev](https://scrollkit.dev)**
+
 <p align="center">
   <img src="docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold, all rendered on a 64×32 LED panel" width="640">
 </p>
@@ -29,7 +31,7 @@ app.scroll_text("Hello, LED Matrix!", color="cyan")
 > The top-level `scrollkit` package deliberately performs **no** imports (every
 > import costs RAM on CircuitPython), so you always import from submodules, e.g.
 > `from scrollkit.app.minimal import MinimalLEDApp`. See the
-> [getting-started guide](https://github.com/czei/scrollkit/blob/master/docs/getting-started.md)
+> [getting-started guide](https://scrollkit.dev/getting-started/)
 > for the full `ScrollKitApp` / `UnifiedDisplay` API.
 
 ## Package Structure
@@ -143,7 +145,7 @@ color = ColorUtils.scale_color(0xff0000, 0.5)  # Dim red to 50%
 | Adafruit MatrixPortal S3 | CircuitPython + displayio | ✅ Calibrated from device |
 | Pimoroni Interstate 75 W (RP2350) | CircuitPython + rgbmatrix | ✅ Supported (perf profile uncalibrated) |
 | Desktop (macOS/Linux/Windows) | SLDK Simulator | ✅ |
-| Custom CircuitPython boards | displayio / rgbmatrix | 🔌 Extensible (see docs: Adding New Hardware) |
+| Custom CircuitPython boards | displayio / rgbmatrix | 🔌 Extensible (see [Adding New Hardware](https://scrollkit.dev/guide/hardware/)) |
 
 ## How this was built
 
