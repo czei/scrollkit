@@ -64,10 +64,11 @@ for _ in range(80):
 display.save_gif("demo.gif")      # encodes + returns the path (None on hardware)
 ```
 
-`save_gif(path, *, fps=20, target_width=360, max_colors=48, frame_step=2, ...)`
+`save_gif(path, *, fps=20, target_width=360, max_colors=48, frame_step=1, ...)`
 downscales to `target_width`, shares one adaptive palette across frames, and only
-stores each frame's changed region, so files stay small. Raise the display's
-`pitch` (e.g. `SimulatorDisplay(pitch=4)`) for crisper recordings.
+stores each frame's changed region, so files stay small. Raise `frame_step` (keep
+only every Nth frame) for an even smaller file; raise the display's `pitch` (e.g.
+`SimulatorDisplay(pitch=4)`) for crisper recordings.
 
 To capture a whole `ScrollKitApp` headlessly there's a one-call helper:
 
@@ -80,6 +81,40 @@ record_gif(MyApp(), "demo.gif", seconds=4)   # target_width=, max_colors=, ... f
 This is exactly how the [Demo Gallery](../demos.md) previews are generated
 (`demos/render_gifs.py`). Like `screenshot()`, recording is desktop-only and a
 no-op on hardware.
+
+## Recording MP4 video
+
+For full-colour animation an MP4 is far smaller and smoother than a GIF (no
+256-colour palette, real inter-frame compression), so it's the right format for a
+site hero or a long clip. The recording flow is identical — just save with
+`save_video` instead of `save_gif`:
+
+```python
+display.start_recording()
+for _ in range(120):
+    await content.render(display)
+    await display.show()
+display.save_video("hero.mp4")    # H.264 MP4; returns the path, or None on hardware
+```
+
+`save_video(path, *, fps=24, target_width=None, crf=20, preset="medium", border=0,
+border_color=(10, 10, 13))` pipes the recorded frames straight to **`ffmpeg`**.
+`target_width` optionally downscales (`None` keeps native size); `crf` trades size
+for quality (≈18 best … 24 smaller; 20 is a good default); `border` adds a dark
+bezel of that many pixels on every side, like a real sign's frame.
+
+The whole-app one-call helper mirrors `record_gif`:
+
+```python
+from scrollkit.dev import record_video
+
+record_video(MyApp(), "hero.mp4", seconds=6, border=22)   # crf=, target_width=, ... forwarded
+```
+
+This is how the landing-page hero is generated (`demos/render_hero.py`, run via
+`make hero`). MP4 recording needs the **`ffmpeg`** binary on your PATH
+(`brew install ffmpeg`); without it `save_video` returns `None`. Like every
+recording call, it's desktop-only and a no-op on hardware.
 
 ## Fonts: BDF vs PCF
 

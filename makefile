@@ -10,7 +10,7 @@ PIP := python -m pip
 PYTEST := PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) -m pytest
 
 .PHONY: all test test-unit test-all test-coverage lint lint-errors test-with-lint \
-        format clean mpy copy-to-circuitpy hero \
+        format clean mpy copy-to-circuitpy hero docs-gifs \
         install-test-deps install-dev-deps install-lint-deps
 
 all: test
@@ -80,6 +80,11 @@ mpy:
 # Render the scrollkit.dev landing-page hero video (-> docs/assets/video/).
 hero:
 	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_hero.py
+
+# Regenerate the Demo Gallery GIF previews (-> docs/assets/demos/).
+# Pass demo names to render only some, e.g.:  make docs-gifs ARGS="hello_world showcase"
+docs-gifs:
+	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_gifs.py $(ARGS)
 
 # --- Housekeeping ----------------------------------------------------------
 clean:

@@ -307,6 +307,81 @@ the full pairing table is in `docs/guide/effects.md`.)
 
 ---
 
+## Recording video & animated GIFs
+
+**ScrollKit records the simulator for you — do not write your own capture code.**
+There is a built-in, calibrated recorder that emits PNG, animated GIF, and MP4
+(H.264). It produced the `scrollkit.dev` landing-page hero video and every Demo
+Gallery GIF. If you're asked to make a video, GIF, preview, or screenshot, use the
+API here — **don't** add a dependency, a new recorder module, a separate pygame
+frame loop, or a parallel ffmpeg pipeline. It's all desktop-only and a safe no-op
+(returns `None`) on hardware.
+
+### The easy way: record a whole app headlessly
+
+```python
+from scrollkit.dev import record_gif, record_video
+
+record_gif(MyApp(),   "preview.gif", seconds=4)              # animated GIF
+record_video(MyApp(), "hero.mp4",    seconds=6, border=22)   # MP4 / H.264
+```
+
+Both render the app's real display loop headlessly (deterministically, at the
+harness's 20 FPS — so `seconds` × 20 = frames captured) and return the saved path
+(or `None` if recording isn't available). Extra keyword args are forwarded to the
+encoder (see the tuning knobs below). The same thing via the general harness:
+
+```python
+from scrollkit.dev import run_headless
+
+r = run_headless(MyApp(), seconds=4, gif="preview.gif",
+                 gif_opts={"target_width": 320, "max_colors": 48, "frame_step": 2})
+print(r.gif)          # saved path; r.video / r.screenshot for the other outputs
+
+run_headless(MyApp(), seconds=6, video="hero.mp4", video_opts={"crf": 20, "border": 22})
+```
+
+> **GIF and MP4 are mutually exclusive in a single `run_headless` call** — the
+> recorded frame buffer is consumed by the first save. Make two calls (or use the
+> `record_*` helpers) if you want both.
+
+### The manual way: capture frames you render yourself
+
+When you're driving a `SimulatorDisplay` directly (not a whole app), record off it:
+
+```python
+display.start_recording()         # begin capturing every shown frame
+for _ in range(80):
+    await content.render(display)
+    await display.show()          # each shown frame is captured
+display.save_gif("out.gif")       # encode + clear the buffer (or .save_video("out.mp4"))
+display.screenshot("frame.png")   # one-off: just the current frame, no recording
+```
+
+### Tuning the output
+
+| knob | where | effect |
+|---|---|---|
+| `seconds` / `frames` | `run_headless` / `record_*` | duration; harness runs at 20 FPS (`seconds × 20 = frames`) |
+| `pitch` | `SimulatorDisplay(pitch=…)` | render resolution. Default `3.0`; raise it for crisp output (Demo GIFs use `4.0`, the hero uses `6.0`). Logical grid stays 64×32. |
+| `fps` | `save_gif` / `save_video` | playback frame rate of the encoded file (GIF default 20, MP4 default 24) — separate from the capture rate |
+| `target_width` | both | downscale width (GIF default 360; MP4 `None` = native) |
+| `max_colors`, `frame_step` | `save_gif` | GIF palette size (default 48) and "keep every Nth frame" for smaller files (default 1) |
+| `crf`, `preset`, `border` | `save_video` | MP4 quality (≈18 best … 24 smaller; 20 default), x264 speed preset, and a dark bezel of N px |
+
+### Dependencies & ready-made generators
+
+GIF needs **Pillow**, MP4 needs a system **`ffmpeg`** on PATH (`brew install
+ffmpeg`); both need pygame + numpy. Pillow/pygame/numpy ship in the `[simulator]`
+extra (`pip install scrollkit[simulator]`); ffmpeg is a separate system install.
+
+Don't reinvent the batch generators either — reuse or extend these:
+
+- `make docs-gifs` (or `PYTHONSAFEPATH=1 PYTHONPATH=src python demos/render_gifs.py`)
+  — regenerates every Demo Gallery GIF into `docs/assets/demos/`.
+- `make hero` (`demos/render_hero.py`) — the landing-page hero MP4 + GIF + poster
+  PNG into `docs/assets/video/`.
+
 ## Reliability & device lifecycle (on the real board)
 
 The simulator can't exercise these — they only do something on hardware — but a

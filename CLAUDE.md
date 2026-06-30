@@ -73,6 +73,39 @@ This is how an app is built and checked against the simulator before flashing:
 code or from the core library** (`app/`, `display/`, the top-level `__init__`).
 It raises `ImportError` immediately on CircuitPython.
 
+## Recording video & GIFs — the recorder already exists; do NOT rebuild it
+
+**STOP before writing any screen-capture, ffmpeg-wrapping, frame-grabbing, or
+image-stitching code.** ScrollKit already records the simulator to PNG, animated
+GIF, and MP4 (H.264). This is the built-in, calibrated path that produced the
+`scrollkit.dev` landing-page hero video and every Demo Gallery GIF. If you are
+asked to "make a video / GIF / preview / screenshot" of an app or effect, use the
+existing API below — **do not** add a new dependency, a new recorder module, a new
+pygame frame loop, or a parallel ffmpeg pipeline.
+
+The two entry points (full how-to + tuning in **`AGENTS.md` → "Recording video &
+animated GIFs"**, and `docs/guide/simulator.md`):
+
+```python
+# 1) High-level: record a whole ScrollKitApp headlessly (the usual choice).
+from scrollkit.dev import record_gif, record_video
+record_gif(MyApp(),   "preview.gif", seconds=4)   # animated GIF (needs Pillow)
+record_video(MyApp(), "hero.mp4",    seconds=6)   # MP4/H.264  (needs ffmpeg on PATH)
+
+# 2) Low-level: capture frames you render yourself off a SimulatorDisplay.
+display.start_recording()
+# ... await display.show() in a loop (each shown frame is captured) ...
+display.save_gif("out.gif")     # or display.save_video("out.mp4")
+display.screenshot("frame.png") # single PNG of the current frame
+```
+
+Reuse the generator scripts too — `demos/render_gifs.py` (Demo Gallery GIFs, run
+`make docs-gifs`) and `demos/render_hero.py` (landing-page hero MP4/GIF/poster, run
+`make hero`). Dependencies ship in the `[simulator]` extra (pygame + Pillow +
+numpy); MP4 additionally needs a system `ffmpeg` (`brew install ffmpeg`). All of it
+is **desktop-only** and a no-op (returns `None`) on hardware. If something is
+missing or wrong in the recorder, **fix the recorder**, don't route around it.
+
 ## Hardware feasibility + calibration
 
 The simulator can model the real device's speed and RAM so problems surface
