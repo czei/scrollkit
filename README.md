@@ -1,11 +1,11 @@
 # ScrollKit
 
-LED Matrix Display Framework for CircuitPython and Desktop.
+Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built ScrollKit for what comes next: over-the-air updates to boards in the field, fault-tolerant data refresh, real transitions and effects, Wi-Fi setup with no file to edit, and a built-in web server users control from a browser. The hard part isn't any single feature. It's running all of them at once on a microcontroller without the display stuttering. It also runs on a desktop simulator I wrote that exports its own GIFs and videos, like the one below.
 
-Build applications that run on CircuitPython HUB75 boards (the Adafruit MatrixPortal S3 and the Pimoroni Interstate 75 W) and a desktop simulator — write once, test everywhere.
+*Built by [Michael Czeiszperger](http://czei.org)*
 
 <p align="center">
-  <img src="docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold — all rendered on a 64×32 LED panel" width="640">
+  <img src="docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold, all rendered on a 64×32 LED panel" width="640">
 </p>
 
 ## Installation
@@ -27,7 +27,7 @@ app.scroll_text("Hello, LED Matrix!", color="cyan")
 ```
 
 > The top-level `scrollkit` package deliberately performs **no** imports (every
-> import costs RAM on CircuitPython), so you always import from submodules — e.g.
+> import costs RAM on CircuitPython), so you always import from submodules, e.g.
 > `from scrollkit.app.minimal import MinimalLEDApp`. See the
 > [getting-started guide](https://github.com/czei/scrollkit/blob/master/docs/getting-started.md)
 > for the full `ScrollKitApp` / `UnifiedDisplay` API.
@@ -144,6 +144,17 @@ color = ColorUtils.scale_color(0xff0000, 0.5)  # Dim red to 50%
 | Pimoroni Interstate 75 W (RP2350) | CircuitPython + rgbmatrix | ✅ Supported (perf profile uncalibrated) |
 | Desktop (macOS/Linux/Windows) | SLDK Simulator | ✅ |
 | Custom CircuitPython boards | displayio / rgbmatrix | 🔌 Extensible (see docs: Adding New Hardware) |
+
+## How this was built
+
+I wrote the first two shipping versions by hand in 2024, when all of this was
+still one application. Splitting it into a library and a separate app layer, then
+documenting the result, is the kind of project that dies quietly in a spare-time
+backlog. So I used Claude Code and spec-driven development to handle the
+refactoring and the first drafts, then went back through all of it in my own
+voice, with my own screenshots. Yes, AI has touched a lot of this code. It was
+also directed by an engineer who has shipped production software for a living,
+including time on one of Sun Microsystems' API teams. Both are true.
 
 ## License
 
