@@ -48,7 +48,7 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
 
     def __init__(self, width: int = 64, height: int = 32, scale: int = 10,
                  *, hardware_timing: bool = False, throttle: bool = False,
-                 strict: bool = False, board=None):
+                 strict: bool = False, board=None, pitch: float = 3.0):
         """Initialize simulator display.
 
         Args:
@@ -75,6 +75,10 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         self._width: int = width
         self._height: int = height
         self._scale: int = scale
+        # LED pitch (mm) -> on-screen LED size. Raise it (e.g. 6.0) to render the
+        # panel at a higher resolution for crisp recordings/screenshots; it changes
+        # only the visual scale, not the logical 64x32 pixel grid.
+        self._pitch: float = pitch
         # Hardware-realism simulation (opt-in).
         self._hardware_timing: bool = hardware_timing
         self._throttle: bool = throttle
@@ -147,7 +151,8 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             # Create simulator device
             self.device = MatrixPortalS3(
                 width=self._width,
-                height=self._height
+                height=self._height,
+                pitch=self._pitch
             )
             # Wire hardware-timing simulation onto the device BEFORE initialize()
             # (LEDMatrix reads device.performance_manager in initialize()).
