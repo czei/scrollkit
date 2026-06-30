@@ -180,19 +180,51 @@ def pixels_from_font_text(font, text, x=0, y=0, scale=1):
 
 
 def font_text_ascent(font, text, scale=1):
-    """Baseline row offset (px below ``y``) for ``text`` — i.e. how far below the
-    top of the rendered run its shared baseline sits.
+    """Baseline row offset (px below ``y``) for ``text`` — how far below the top of
+    the rendered run its shared baseline sits, so a caller positioning the pixels
+    itself (the gradient text layer) can baseline-align to the ``Label`` path.
 
-    Lets a caller that positions the rendered pixels itself (e.g. the gradient
-    text layer) baseline-align them to the displayio ``Label`` path. Matches the
-    baseline :func:`pixels_from_font_text` uses for the same arguments.
+    Derived from the glyphs' real **ink bottoms** (the most common bottom row is the
+    baseline), NOT from the reported glyph heights. That distinction is the whole
+    fix for the device: its built-in ``terminalio`` font is a FULL-CELL font — every
+    glyph is a 6x12 tile with ``height=12, dy=0`` and the true baseline buried inside
+    the cell — so ``max(height + y_offset)`` returns the cell bottom (12), which
+    pushes the text up and clips the cap tops on mixed-case names. Ink-bottoms give
+    the real baseline (~10) on that font and reduce to ``run_ascent`` on the
+    simulator's trimmed BDF font, so one rule serves both. Falls back to the metric
+    ascent when no ink is found (all spaces / empty).
     """
     if scale is None or scale < 1:
         scale = 1
     scale = int(scale)
     resolved = [_glyph_fields(font.get_glyph(ord(ch)) if font is not None else None)
                 for ch in text]
-    return _run_ascent(resolved) * scale
+    # Same placement reference pixels_from_font_text uses, so ink rows land in the
+    # same coordinate space as the rasterised pixels.
+    ascent = _run_ascent(resolved)
+    counts = {}
+    for fields in resolved:
+        if fields is None:
+            continue
+        bmp, gw, gh, _xoff, yoff, _adv, sheet_x, sheet_y = fields
+        if bmp is None or not gw or not gh:
+            continue
+        glyph_top = ascent - gh - yoff
+        for ry in range(gh - 1, -1, -1):           # this glyph's lowest ink row
+            if any(bmp[sheet_x + rx, sheet_y + ry] for rx in range(gw)):
+                row = glyph_top + ry
+                counts[row] = counts.get(row, 0) + 1
+                break
+    if not counts:
+        return ascent * scale                       # no ink -> metric fallback
+    # baseline-1 == the most common ink bottom. Ties resolve to the HIGHER row
+    # (smaller value) — the body baseline rather than a descender's bottom — which
+    # is also the smaller ascent, so the text shifts DOWN, never up into a top clip.
+    best_row, best_n = None, -1
+    for row, n in counts.items():
+        if n > best_n or (n == best_n and row < best_row):
+            best_row, best_n = row, n
+    return (best_row + 1) * scale
 
 
 def font_text_width(font, text, scale=1):

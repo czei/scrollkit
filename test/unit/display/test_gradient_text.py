@@ -241,6 +241,75 @@ def test_pixels_baseline_aligns_descender_below_caps():
     assert (min(g_rows), max(g_rows)) == (2, 7)         # descender drops 2px below it
 
 
+class _FullCellBitmap:
+    """A 6x12 cell with ink only on `lit_rows` (full glyph width)."""
+    def __init__(self, lit_rows):
+        self._lit = set(lit_rows)
+
+    @property
+    def width(self):
+        return 6
+
+    def __getitem__(self, xy):
+        x, y = xy
+        return 1 if (0 <= x < 6 and y in self._lit) else 0
+
+
+class _FullCellGlyph:
+    def __init__(self, lit_rows):
+        self.bitmap = _FullCellBitmap(lit_rows)
+        self.width = 6
+        self.height = 12          # FULL CELL — like the device BuiltinFont
+        self.dx = 0
+        self.dy = 0               # baseline buried in the cell, not in the metrics
+        self.shift_x = 6
+        self.shift_y = 0
+        self.tile_index = 0
+
+
+class _FullCellFont:
+    """Mimics the device's terminalio BuiltinFont: 6x12 full cells, baseline row 10.
+
+    Recorded from a real MatrixPortal S3 (CP 10.2.1): caps ink rows 2-9, x-height
+    4-9, descenders 4-11. The trimmed-BDF simulator font never exercises this, so
+    this fixture is how the headless suite guards the device case.
+    """
+    GLYPHS = {
+        ord("A"): list(range(2, 10)),    # cap, sits on the baseline (bottom row 9)
+        ord("x"): list(range(4, 10)),    # x-height, same baseline
+        ord("p"): list(range(4, 12)),    # descender, drops to row 11
+    }
+
+    def get_glyph(self, cp):
+        rows = self.GLYPHS.get(cp)
+        return _FullCellGlyph(rows) if rows is not None else None
+
+
+def test_full_cell_font_baseline_from_ink_not_cell_height():
+    # Regression for the hardware-only clip: max(height+y_offset) == 12 (cell bottom)
+    # would shove the text up; the real baseline (from ink bottoms) is row 10.
+    from scrollkit.display.text_pixels import font_text_ascent, pixels_from_font_text
+    f = _FullCellFont()
+    assert font_text_ascent(f, "Apx") == 10        # NOT 12
+    assert font_text_ascent(f, "AAAx") == 10
+    px = pixels_from_font_text(f, "Apx", 0, 0)
+    ys = [y for _x, y in px]
+    assert min(ys) == 2 and max(ys) == 11          # cap top to descender bottom
+
+
+@pytest.mark.asyncio
+async def test_gradient_full_cell_font_does_not_clip_top():
+    from scrollkit.display.gradient_text import _GradientTextLayer
+    d = await _make_display()
+    d.font = _FullCellFont()                        # pretend the device font
+    layer = _GradientTextLayer("Apx", y=5, palette=(0xFFFFFF, 0x808080))
+    layer.build(d)
+    assert layer._tile.y == -1                      # y + 4 - baseline(10)
+    top = min(y for x in range(layer.width) for y in range(layer._bitmap.height)
+              if layer._bitmap[x, y])
+    assert layer._tile.y + top >= 0                 # topmost ink on-panel, not clipped
+
+
 def test_equal_height_run_unchanged_by_baseline_fix():
     # Backward-compat: a uniform-height run (digits / ALL-CAPS) is identical to the
     # old top-aligned behaviour — every glyph starts at row y.
