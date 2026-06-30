@@ -139,6 +139,97 @@ class TestErrorSurfaced:
         assert client.seconds_since_last_success() is not None
 
 
+class TestSocketRelease:
+    """The success path must close the native response so its socket returns to
+    the ~4-socket pool. Leaking it on every successful fetch exhausts the pool and
+    wedges the device with permanent OSError 16 (EBUSY) — the original field bug
+    that no caller (not even the demos) guarded against, because they never
+    ``.close()`` the response."""
+
+    @pytest.mark.asyncio
+    async def test_async_get_closes_native_response_on_success(self):
+        native = MagicMock(status_code=200, text='{"ok": true}', headers={"X": "y"})
+        session = MagicMock()
+        session.get.return_value = native
+        client = _adafruit_client(session)
+
+        with patch("scrollkit.network.http_client.logger"):
+            resp = await client.get("https://example.com/api", max_retries=1)
+
+        # Socket released: the native response was closed exactly once.
+        native.close.assert_called_once()
+        # And the caller got a detached, socket-free object with the data intact.
+        assert resp is not native
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        assert resp.headers == {"X": "y"}
+
+    def test_sync_get_closes_native_response_on_success(self):
+        native = MagicMock(status_code=200, text='{"ok": true}', headers={})
+        session = MagicMock()
+        session.get.return_value = native
+        client = _adafruit_client(session)
+
+        with patch("scrollkit.network.http_client.logger"):
+            resp = client.get_sync("https://example.com/api", max_retries=1)
+
+        native.close.assert_called_once()
+        assert resp is not native
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+    @pytest.mark.asyncio
+    async def test_no_socket_leak_over_many_fetches(self):
+        """Every one of N successful fetches must close its native response — the
+        leak that exhausted the pool was one un-closed socket PER successful get."""
+        session = MagicMock()
+        natives = [MagicMock(status_code=200, text="{}", headers={}) for _ in range(10)]
+        session.get.side_effect = natives
+        client = _adafruit_client(session)
+
+        with patch("scrollkit.network.http_client.logger"):
+            for _ in range(10):
+                await client.get("https://example.com/api", max_retries=1)
+
+        assert all(n.close.call_count == 1 for n in natives)
+
+    @pytest.mark.asyncio
+    async def test_post_closes_native_response_and_passes_timeout(self):
+        """post() has the same socket contract as get(): close the native response
+        on success AND pass a timeout so a hung POST can't block the loop."""
+        native = MagicMock(status_code=201, text='{"created": true}', headers={})
+        session = MagicMock()
+        session.post.return_value = native
+        client = _adafruit_client(session)
+
+        with patch("scrollkit.network.http_client.logger"):
+            resp = await client.post("https://example.com/api", data={"a": 1})
+
+        native.close.assert_called_once()
+        assert resp is not native
+        assert resp.status_code == 201
+        assert resp.json() == {"created": True}
+        _, kwargs = session.post.call_args
+        assert kwargs.get("timeout") == client.timeout
+
+    @pytest.mark.asyncio
+    async def test_post_failure_is_recorded_for_session_rebuild(self):
+        """A POST failure must feed _note_failure (surface the cause + count toward
+        a session rebuild), even though POST itself is single-shot."""
+        boom = OSError("connection reset")
+        session = MagicMock()
+        session.post.side_effect = boom
+        client = _adafruit_client(session, session_rebuild_threshold=99)
+
+        with patch("scrollkit.network.http_client.logger"):
+            resp = await client.post("https://example.com/api", data={"a": 1})
+
+        assert resp.status_code == 500
+        assert resp.error is boom
+        assert client.last_error is boom
+        assert client._failures_since_rebuild == 1
+
+
 class TestWedgeRecovery:
     @pytest.mark.asyncio
     async def test_wedged_session_recovers_after_rebuild(self):

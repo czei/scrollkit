@@ -181,7 +181,11 @@ class HttpClient:
         urllib path is used instead.
 
         Returns:
-            A Response object (native adafruit_requests, UrllibResponse, or MockResponse)
+            A socket-free Response object: a detached ``BaseResponse`` (device
+            path; the native ``adafruit_requests`` response is read and closed so
+            its socket returns to the pool), a ``UrllibResponse`` (desktop), or a
+            ``MockResponse`` (mock provider / synthesized failure). Callers never
+            need to ``.close()`` it.
         """
         if headers is None:
             headers = {"User-Agent": "Mozilla/5.0 (CircuitPython)"}
@@ -221,28 +225,63 @@ class HttpClient:
         # the app can record why the outage happened and show it for diagnosis.
         return MockResponse(status_code=500, text="{}", error=last_error)
 
-    async def _get_adafruit(self, url, headers, retry_count):
-        """Issue one ``adafruit_requests`` GET and return the native response.
+    @staticmethod
+    def _detach_response(resp):
+        """Copy a native ``adafruit_requests`` response into a socket-free
+        ``BaseResponse`` so the native one (and its socket) can be closed.
 
-        On any exception the response/socket is closed (mirroring ``get_sync`` —
-        a socket leaked out of the ESP32-S3's ~4-socket pool compounds a wedge)
-        and the error is re-raised so ``get()``'s retry/rebuild logic runs.
-        Session recreation is handled centrally by ``_note_failure()`` /
-        ``_rebuild_session()``, NOT here, so EVERY repeated failure — read/connect
-        timeout, mbedTLS/SSL error, ConnectionError, OSError, OutOfRetries — clears
-        a wedged session, not just the rare ``OutOfRetries`` case.
+        Reading ``.text`` pulls the whole body off the socket (the adafruit
+        response caches it); the caller then closes the native response and the
+        socket goes back to the ESP32-S3's ~4-socket pool. The returned
+        ``BaseResponse`` owns no socket, so callers may keep or discard it freely.
+
+        This mirrors the urllib path, which already detaches via
+        ``UrllibResponse``. Without it, every SUCCESSFUL device fetch returned the
+        live native response and nothing ever closed it (only failures were
+        closed), so a socket leaked per fetch until the pool was exhausted and
+        every subsequent ``session.get`` raised ``OSError 16 (EBUSY)`` — a
+        permanent wedge a ``_rebuild_session`` could not clear, because the leaked
+        sockets were owned by discarded, never-closed response objects.
+        """
+        status = getattr(resp, "status_code", 200)
+        try:
+            hdrs = dict(resp.headers)
+        except Exception:
+            hdrs = {}
+        text = resp.text
+        if not isinstance(text, str):
+            # Real adafruit_requests returns str; guard odd providers/mocks.
+            try:
+                text = text.decode("utf-8")
+            except Exception:
+                text = ""
+        return BaseResponse(status_code=status, text=text, headers=hdrs)
+
+    async def _get_adafruit(self, url, headers, retry_count):
+        """Issue one ``adafruit_requests`` GET and return a DETACHED response,
+        always closing the native socket.
+
+        The native response is read into a socket-free ``BaseResponse``
+        (``_detach_response``) and the native one is closed in ``finally`` on BOTH
+        success and failure — a socket leaked out of the ESP32-S3's ~4-socket pool
+        is the dominant field wedge (it exhausts the pool, then every fetch raises
+        ``OSError 16 EBUSY``). On any exception it propagates so ``get()``'s
+        retry/rebuild logic runs. Session recreation is handled centrally by
+        ``_note_failure()`` / ``_rebuild_session()``, NOT here, so EVERY repeated
+        failure — read/connect timeout, mbedTLS/SSL error, ConnectionError,
+        OSError, OutOfRetries — clears a wedged session, not just the rare
+        ``OutOfRetries`` case.
         """
         resp = None
         try:
             resp = self.session.get(url, headers=headers, timeout=self.timeout)
-            return resp
-        except Exception:
+            return self._detach_response(resp)
+        finally:
             if resp is not None:
                 try:
                     resp.close()
                 except Exception:
                     pass
-            raise
 
     def _note_success(self):
         """Record a successful request: clear the error + failure streak and
@@ -321,7 +360,18 @@ class HttpClient:
             return UrllibResponse(response)
 
     async def post(self, url, data, headers=None):
-        """Make a POST request."""
+        """Make a POST request.
+
+        Mirrors ``get()``: on the device path the native ``adafruit_requests``
+        response is read into a socket-free ``BaseResponse`` and CLOSED in a
+        ``finally`` so its socket returns to the ~4-socket pool — a leaked POST
+        socket wedges the device with ``OSError 16 (EBUSY)`` exactly like a leaked
+        GET. A per-request ``timeout`` is passed (both paths) so a hung POST can't
+        block the synchronous asyncio loop and trip the watchdog. POST is
+        single-shot (no retry loop), but a failure is recorded via
+        ``_note_failure`` so a wedged session still gets rebuilt on the next
+        request, and the cause is surfaced on ``.error`` / ``last_error``.
+        """
         if headers is None:
             headers = {
                 "User-Agent": "Mozilla/5.0 (CircuitPython)",
@@ -331,7 +381,19 @@ class HttpClient:
             data = json.dumps(data)
         try:
             if self.using_adafruit and self.session:
-                return self.session.post(url, data=data, headers=headers)
+                resp = None
+                try:
+                    resp = self.session.post(url, data=data, headers=headers,
+                                             timeout=self.timeout)
+                    detached = self._detach_response(resp)
+                    self._note_success()
+                    return detached
+                finally:
+                    if resp is not None:
+                        try:
+                            resp.close()
+                        except Exception:
+                            pass
             else:
                 request = self.urllib.Request(
                     url,
@@ -340,11 +402,12 @@ class HttpClient:
                 )
                 for key, value in headers.items():
                     request.add_header(key, value)
-                with self.urllib.urlopen(request) as response:
+                with self.urllib.urlopen(request, timeout=self.timeout) as response:
                     return UrllibResponse(response)
         except Exception as e:
             logger.error(e, f"Error making POST request to {url}")
-            return MockResponse(status_code=500, text=str(e))
+            self._note_failure(e)
+            return MockResponse(status_code=500, text=str(e), error=e)
 
     def set_use_live_data(self, use_live_data):
         """Set whether to use live data or mock data."""
@@ -368,15 +431,18 @@ class HttpClient:
                     try:
                         logger.debug(f"Sync GET: {url}")
                         resp = self.session.get(url, headers=headers, timeout=self.timeout)
+                        # Detach BEFORE _note_success/return so the native socket
+                        # is freed by the finally on the success path too — leaking
+                        # it exhausts the ~4-socket pool (OSError 16 EBUSY).
+                        detached = self._detach_response(resp)
                         self._note_success()
-                        return resp
-                    except Exception:
-                        if resp:
+                        return detached
+                    finally:
+                        if resp is not None:
                             try:
                                 resp.close()
-                            except:
+                            except Exception:
                                 pass
-                        raise
                 elif self.urllib:
                     request = self.urllib.Request(url)
                     for key, value in headers.items():

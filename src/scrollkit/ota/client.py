@@ -54,6 +54,7 @@ class OTAClient:
     backup_dir: str
     download_timeout: int
     chunk_size: int
+    session: Any
     last_check: Any
     available_update: Optional[UpdateManifest]
     update_in_progress: bool
@@ -64,7 +65,7 @@ class OTAClient:
 
     @classmethod
     def for_github(cls, owner, repo, branch="releases", current_version="0.0.0",
-                   update_dir="/updates", backup_dir="/backup"):
+                   update_dir="/updates", backup_dir="/backup", session=None):
         """Build an OTAClient that fetches updates from GitHub raw content.
 
         Constructs the base URL
@@ -76,10 +77,15 @@ class OTAClient:
         Recovery does not depend on this: the frozen ``boot.py`` + update system
         stay intact regardless of any ``/src`` payload, so a bad update can always
         be re-fetched on the next boot.
+
+        ``session`` is an optional Session-style HTTP client (anything exposing
+        ``.get(url, timeout=...)``) — on CircuitPython the app injects its
+        ``adafruit_requests.Session`` here, since modern ``adafruit_requests`` has
+        no module-level ``get``.
         """
         url = "https://raw.githubusercontent.com/{}/{}/{}".format(owner, repo, branch)
         return cls(url, current_version=current_version,
-                   update_dir=update_dir, backup_dir=backup_dir)
+                   update_dir=update_dir, backup_dir=backup_dir, session=session)
 
     def __init__(
         self,
@@ -87,6 +93,7 @@ class OTAClient:
         current_version: str = "0.5.0",
         update_dir: str = "/updates",
         backup_dir: str = "/backup",
+        session: Any = None,
     ) -> None:
         """Initialize OTA client.
 
@@ -95,6 +102,14 @@ class OTAClient:
             current_version: Current application version
             update_dir: Directory for downloaded updates
             backup_dir: Directory for backups
+            session: Optional Session-style HTTP client (exposing
+                ``.get(url, timeout=...)``). On CircuitPython modern
+                ``adafruit_requests`` is Session-based and has no module-level
+                ``get``, so the app injects its existing
+                ``adafruit_requests.Session`` here. Read live at each request
+                (see ``_http_get``), so it may be assigned/replaced after
+                construction. When ``None`` the module-level ``requests.get`` is
+                used (desktop, where the PyPI ``requests`` module has ``.get``).
         """
         self.server_url = update_server_url.rstrip('/')
         self.current_version = current_version
@@ -102,6 +117,7 @@ class OTAClient:
         self.backup_dir = backup_dir
         self.download_timeout = 30
         self.chunk_size = 1024
+        self.session = session
 
         self.last_check = None
         self.available_update = None
@@ -136,18 +152,31 @@ class OTAClient:
         if on_error:
             self.on_update_error = on_error
 
+    def _http_get(self, url: str) -> Any:
+        """Perform an HTTP GET, preferring an injected Session.
+
+        ``self.session`` is read live (never cached) so the app can create or
+        rebuild the session during WiFi connect and assign ``client.session``
+        right before use. When a session is present, its ``.get`` is used (modern
+        ``adafruit_requests`` is Session-based and exposes no module-level
+        ``get``); otherwise the module-level ``requests.get`` is used (desktop).
+        """
+        if self.session is not None:
+            return self.session.get(url, timeout=self.download_timeout)
+        return requests.get(url, timeout=self.download_timeout)
+
     def check_for_updates(self) -> Tuple[bool, Union[str, UpdateManifest]]:
         """Check if updates are available.
 
         Returns:
             tuple: (has_update, manifest_or_error)
         """
-        if not requests:
+        if self.session is None and not requests:
             return False, "Requests library not available"
 
         try:
             url = f"{self.server_url}/manifest.json"
-            response = requests.get(url, timeout=self.download_timeout)
+            response = self._http_get(url)
 
             if response.status_code != 200:
                 return False, f"Server error: {response.status_code}"
@@ -202,7 +231,7 @@ class OTAClient:
         if not manifest:
             return False, "No update manifest available"
 
-        if not requests:
+        if self.session is None and not requests:
             return False, "Requests library not available"
 
         try:
@@ -271,7 +300,7 @@ class OTAClient:
         """
         try:
             url = f"{self.server_url}/files/{file_path.lstrip('/')}"
-            response = requests.get(url, timeout=self.download_timeout)
+            response = self._http_get(url)
 
             if response.status_code != 200:
                 return False, f"Server error: {response.status_code}"

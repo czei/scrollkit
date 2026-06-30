@@ -119,6 +119,12 @@ async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
 
         except Exception as e:
             logger.error(e, f"NTP server {server} failed, trying next")
+            # Reclaim the failed NTP object (and any socket/SSL allocations it
+            # held) before trying the next server. On the RAM-constrained ESP32-S3
+            # this curbs heap fragmentation across the failover loop — cheap
+            # insurance on a once-at-boot path. No-op cost on desktop.
+            import gc
+            gc.collect()
             continue
 
     logger.error(None, "All NTP servers failed to respond")

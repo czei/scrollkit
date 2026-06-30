@@ -72,14 +72,21 @@ class TestHttpClient:
         payload = {"name": "Test", "value": 123}
         response = await client.post("https://example.com/api/test", data=payload)
         
-        # Verify the request was made correctly
+        # Verify the request was made correctly. A per-request timeout (default
+        # 6s, below the ~8s watchdog) is passed so a hung POST can't block the
+        # synchronous adafruit_requests call and freeze the asyncio display loop.
         mock_session.post.assert_called_once_with(
-            "https://example.com/api/test", 
+            "https://example.com/api/test",
             data=json.dumps(payload),
-            headers={"User-Agent": "Mozilla/5.0 (CircuitPython)", "Content-Type": "application/json"}
+            headers={"User-Agent": "Mozilla/5.0 (CircuitPython)", "Content-Type": "application/json"},
+            timeout=6
         )
-        
-        # Verify response handling - since we're returning native response
+
+        # The native response is closed so its socket returns to the pool
+        # (a leaked POST socket wedges the device with EBUSY just like a GET).
+        mock_response.close.assert_called_once()
+
+        # Verify response handling - a detached, socket-free response.
         assert response.status_code == 201
         data = json.loads(response.text)
         assert data["status"] == "created"
@@ -116,13 +123,15 @@ class TestHttpClient:
         test_data = {"test": "data"}
         response = await client.post("https://example.com/api/test", data=test_data)
         
-        # Verify the request was made with the correct JSON payload
+        # Verify the request was made with the correct JSON payload (and the
+        # per-request timeout that keeps a hung POST from blocking the loop).
         mock_session.post.assert_called_once_with(
-            "https://example.com/api/test", 
+            "https://example.com/api/test",
             data=json.dumps(test_data),
-            headers={"User-Agent": "Mozilla/5.0 (CircuitPython)", "Content-Type": "application/json"}
+            headers={"User-Agent": "Mozilla/5.0 (CircuitPython)", "Content-Type": "application/json"},
+            timeout=6
         )
-        
+
         # Verify response
         assert response.status_code == 200
         data = json.loads(response.text)
