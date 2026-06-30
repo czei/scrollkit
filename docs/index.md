@@ -1,3 +1,12 @@
+<div class="sk-hero">
+  <video class="sk-hero__video" autoplay loop muted playsinline preload="auto"
+         poster="assets/video/scrollkit-hero-poster.png">
+    <source src="assets/video/scrollkit-hero.mp4" type="video/mp4">
+    Your browser doesn't support embedded video.
+  </video>
+  <p class="sk-hero__caption">One 64×32 LED show &mdash; swarm-assembled, lit with sweeping sheen, and colored entirely by ScrollKit, captured from its pixel-accurate simulator.</p>
+</div>
+
 # ScrollKit
 
 **ScrollKit is an LED matrix display framework that runs the same code on

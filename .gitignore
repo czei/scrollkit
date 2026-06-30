@@ -48,6 +48,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+# ...except the landing-page hero, a tracked docs asset (regenerate: make hero)
+!docs/assets/video/scrollkit-hero.mp4
+
 **/.claude/settings.local.json
 
 # Local agent config and Spec Kit framework scaffolding (specs/ themselves are

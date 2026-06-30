@@ -10,7 +10,7 @@ PIP := python -m pip
 PYTEST := PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) -m pytest
 
 .PHONY: all test test-unit test-all test-coverage lint lint-errors test-with-lint \
-        format clean mpy copy-to-circuitpy \
+        format clean mpy copy-to-circuitpy hero \
         install-test-deps install-dev-deps install-lint-deps
 
 all: test
@@ -75,6 +75,11 @@ mpy:
 		$(MPY_CROSS) "$$f" -o "$$out" || exit 1; \
 	done
 	@echo "Done -> build/scrollkit/. Copy it to the device (e.g. CIRCUITPY/lib/scrollkit)."
+
+# --- Docs assets -----------------------------------------------------------
+# Render the scrollkit.dev landing-page hero video (-> docs/assets/video/).
+hero:
+	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_hero.py
 
 # --- Housekeeping ----------------------------------------------------------
 clean:

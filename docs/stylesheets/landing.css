@@ -1,0 +1,26 @@
+/* Landing-page hero (home page). The video is pre-rendered with the LED-panel
+   look, so it needs no special image-rendering — just framing. */
+
+.sk-hero {
+  margin: 0.5rem 0 2.2rem;
+  text-align: center;
+}
+
+.sk-hero__video {
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  background: #08080b;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.sk-hero__caption {
+  margin: 0.65rem auto 0;
+  max-width: 640px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  opacity: 0.7;
+}
