@@ -80,8 +80,17 @@ class SLDKApp:
     # forever. The forced parse fails gracefully if there genuinely isn't room.
     MAX_LOW_MEM_SKIPS = 5
 
+    # Last-resort auto-reboot: after this many CONSECUTIVE failed data refreshes
+    # (reported via note_refresh_result), reboot to clear a wedged radio/HTTP
+    # session. Default 12 ≈ one hour at the 300 s default refresh cadence (an app
+    # using a faster stale-retry cadence reaches it sooner — tune per app). Only
+    # acts when enable_auto_reboot is set. See note_refresh_result()/_auto_reboot().
+    MAX_REFRESH_FAILURES = 12
+
     def __init__(self, enable_web: bool = True, update_interval: int = 300,
-                 enable_watchdog: bool = False, watchdog_timeout: int = 8) -> None:
+                 enable_watchdog: bool = False, watchdog_timeout: int = 8,
+                 enable_auto_reboot: bool = False,
+                 max_refresh_failures: int = None) -> None:
         """Initialize SLDK application.
 
         Args:
@@ -99,12 +108,35 @@ class SLDKApp:
                 honors any value on both CP 9.2.7 and the target CP 10.2.1 — the
                 once-assumed ~8.3s ValueError cap does not exist; see
                 test/claude/RELIABILITY_TESTING.md.)
+            enable_auto_reboot: Opt in to the last-resort auto-reboot. The watchdog
+                only catches a FROZEN display loop; a box whose outbound fetches all
+                fail isn't frozen — the loop runs, the web server serves, the panel
+                just shows stale data forever (the real 637-failures-over-2-days
+                field outage). When enabled, ``note_refresh_result(ok=False)`` past
+                ``max_refresh_failures`` reboots to re-init the radio/session.
+                Default False so existing apps are unaffected.
+            max_refresh_failures: Consecutive refresh failures before an
+                auto-reboot. Defaults to ``MAX_REFRESH_FAILURES`` (12). Composes
+                with the diagnostics boot-loop breaker: in safe mode the app stops
+                fetching, so it stops reporting failures and this never fires — the
+                ~hourly reboot cadence can't spin the way a deterministic crash loop
+                would.
         """
         self.enable_web = enable_web
         self.update_interval = update_interval
         self.enable_watchdog = enable_watchdog
         self.watchdog_timeout = watchdog_timeout
         self._watchdog = None  # set by _arm_watchdog() on hardware when enabled
+
+        # --- data-refresh resilience (last-resort auto-reboot) --------------
+        self.enable_auto_reboot = enable_auto_reboot
+        self.max_refresh_failures = (max_refresh_failures
+                                     if max_refresh_failures is not None
+                                     else self.MAX_REFRESH_FAILURES)
+        self._consecutive_refresh_failures = 0
+        self._last_refresh_error = None
+        self._last_refresh_success_time = None
+
         self.running: bool = False
         # When True, the display loop skips rendering queue content (the queue
         # keeps its items) — see suspend_render()/suspended_render(). Used while an
@@ -620,6 +652,128 @@ class SLDKApp:
                 wdt.feed()
             except Exception:
                 pass
+
+    # --- data-refresh resilience -------------------------------------------
+    # The watchdog only catches a frozen display loop. A box whose every outbound
+    # fetch fails is NOT frozen — the loop runs, the web UI serves, the panel just
+    # shows stale data indefinitely (the real field outage: 637 failed fetches
+    # over ~2 days, never self-recovered). This is the generic, app-driven last
+    # resort: the app reports each refresh's outcome and, opt-in, the box reboots
+    # to re-init the radio/session after a sustained failure run.
+
+    def note_refresh_result(self, ok: bool, reason=None) -> int:
+        """Report the outcome of one data refresh (the app's resilience hook).
+
+        Call once per refresh attempt (typically at the end of ``update_data()``)
+        with whether it actually fetched + applied fresh data. On success the
+        failure streak resets and the last-success time is stamped; on failure the
+        streak grows and — if ``enable_auto_reboot`` is set and the streak reaches
+        ``max_refresh_failures`` — a last-resort reboot is triggered to clear a
+        wedged radio/session.
+
+        Args:
+            ok: True if the refresh succeeded.
+            reason: Optional diagnostic string for a failure (e.g.
+                ``str(http_client.last_error)``). Surfaced via ``last_refresh_error``
+                and persisted to NVM before an auto-reboot so the outage is
+                diagnosable after recovery.
+
+        Returns:
+            The current consecutive-failure count (0 after a success).
+        """
+        if ok:
+            self._consecutive_refresh_failures = 0
+            self._last_refresh_error = None
+            import time
+            self._last_refresh_success_time = (
+                time.monotonic() if hasattr(time, "monotonic") else None)
+            return 0
+
+        self._consecutive_refresh_failures += 1
+        if reason is not None:
+            self._last_refresh_error = reason
+        if (self.enable_auto_reboot
+                and self._consecutive_refresh_failures >= self.max_refresh_failures):
+            self._auto_reboot(
+                "%d consecutive refresh failures; last_error=%s"
+                % (self._consecutive_refresh_failures, self._last_refresh_error))
+        return self._consecutive_refresh_failures
+
+    @property
+    def consecutive_refresh_failures(self) -> int:
+        """Consecutive failed refreshes reported via ``note_refresh_result``."""
+        return self._consecutive_refresh_failures
+
+    @property
+    def data_stale(self) -> bool:
+        """True when the most recent reported refresh failed (showing old data)."""
+        return self._consecutive_refresh_failures > 0
+
+    @property
+    def last_refresh_error(self):
+        """Diagnostic reason from the last failed refresh, or None."""
+        return self._last_refresh_error
+
+    def seconds_since_last_refresh_success(self):
+        """Seconds since the last successful refresh, or None if never succeeded.
+
+        A staleness signal the app can read to drive an on-panel "stale data"
+        indicator — the box can look alive while the data is hours old.
+        """
+        if self._last_refresh_success_time is None:
+            return None
+        import time
+        if not hasattr(time, "monotonic"):
+            return None
+        return time.monotonic() - self._last_refresh_success_time
+
+    def _auto_reboot(self, reason: str) -> None:
+        """Last-resort reboot to clear a wedged radio/session (device-only).
+
+        Records the cause to NVM (survives the reset; shown on the config UI after
+        recovery) then resets via ``_hardware_reset()``. A no-op on desktop/sim, so
+        the simulator and tests never reboot.
+        """
+        wifi_state = self._wifi_connected()
+        full_reason = "auto-reboot: %s (wifi_connected=%s)" % (reason, wifi_state)
+        print(full_reason)
+        # Best-effort: persist the cause so the next outage is diagnosable. A
+        # reboot fixes the wedge; if the link is genuinely down it won't — but an
+        # ~hourly retry-reboot is acceptable, and wifi_state records which it was.
+        try:
+            from ..utils import diagnostics
+            diagnostics.open().record_crash(full_reason)
+        except Exception as e:
+            print("auto-reboot diag record failed:", e)
+        self._hardware_reset()
+
+    def _hardware_reset(self) -> None:
+        """Reset the board on CircuitPython; no-op elsewhere (test/sim seam)."""
+        if not self._is_circuitpython():
+            return
+        try:
+            import microcontroller
+            microcontroller.reset()
+        except Exception as e:
+            print("auto-reboot reset failed:", e)
+
+    @staticmethod
+    def _is_circuitpython() -> bool:
+        import sys
+        return (hasattr(sys, "implementation")
+                and sys.implementation.name == "circuitpython")
+
+    @staticmethod
+    def _wifi_connected():
+        """Best-effort WiFi-associated check; None when undetectable (desktop)."""
+        try:
+            import wifi
+            radio = wifi.radio
+            if getattr(radio, "connected", False):
+                return True
+            return getattr(radio, "ipv4_address", None) is not None
+        except Exception:
+            return None
 
     def stop(self) -> None:
         """Stop the application."""
