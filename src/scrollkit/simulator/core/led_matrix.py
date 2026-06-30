@@ -2,7 +2,6 @@
 """Core LED matrix simulation with pixel-level control."""
 
 import os
-import numpy as np
 from .pixel_buffer import PixelBuffer
 from .color_utils import apply_brightness
 
@@ -20,7 +19,7 @@ class LEDMatrix:
     """
     
     def __init__(self, width, height, pitch=3.0, led_size=None, performance_manager=None,
-                 headless=False):
+                 headless=False, bit_depth=4):
         """Initialize LED matrix.
         
         Args:
@@ -58,8 +57,26 @@ class LEDMatrix:
         
         # Create pygame surface for rendering
         self.surface = None
-        self._led_cache = {}  # Cache rendered LED circles
-        self._background_color = (30, 30, 30)  # Medium gray background for realistic appearance
+        self._background_color = (8, 8, 11)  # near-black, like a powered-but-unlit HUB75 panel
+
+        # Honest colour: quantise to the panel's per-channel bit depth (16 levels
+        # at bit_depth=4) so the simulator shows what the hardware actually shows,
+        # not full 24-bit colour the panel can't display. Set ``bit_depth`` to 6
+        # (and the caches self-refresh) for the smooth-gradient finale.
+        self.bit_depth = bit_depth
+        self.posterize = True
+
+        # Round-LED + soft-glow appearance geometry, derived from the LED size so
+        # it tracks the configured pitch (matches the rendered hero stills).
+        self._dot_radius = max(2, int(round(self.led_size * 0.46)))
+        self._core_radius = max(1, int(round(self.led_size * 0.22)))
+        self._off_radius = max(1, int(round(self.led_size * 0.30)))
+        self._off_color = (22, 22, 26)            # faint unlit LED, so the grid reads
+        self._glow_reach = max(self.led_size,     # how far the additive halo bleeds
+                               int(round((self.led_size + self.spacing) * 0.95)))
+        self._glow_cache = {}      # posterised color -> additive glow halo sprite
+        self._dot_cache = {}       # posterised color -> crisp LED dot sprite
+        self._base_surface = None  # near-black bg + unlit-LED grid (rebuilt only if cleared)
         
     def initialize_surface(self):
         """Initialize the pygame surface for rendering (no-op when headless)."""
@@ -71,9 +88,6 @@ class LEDMatrix:
             
         self.surface = pygame.Surface((self.surface_width, self.surface_height))
         self.surface.fill(self._background_color)
-        
-        # Pre-render some common LED appearances for performance
-        self._create_led_cache()
         
     def set_pixel(self, x, y, color):
         """Set a single pixel color.
@@ -156,106 +170,121 @@ class LEDMatrix:
                 
             self.pixel_buffer.clear_dirty()
             
-    def _render_full(self):
-        """Render all LEDs to the surface."""
-        # Clear surface
-        self.surface.fill(self._background_color)
-        
-        # Get pixel data
-        pixels = self.pixel_buffer.get_buffer()
-        
-        # Render each LED
-        for y in range(self.height):
-            for x in range(self.width):
-                color = tuple(pixels[y, x])
-                if self.brightness < 1.0:
-                    color = apply_brightness(color, self.brightness)
-                    
-                self._render_led(x, y, color)
-                
-    def _render_led(self, x, y, color):
-        """Render a single LED at the given position.
-        
-        Args:
-            x: LED X position
-            y: LED Y position
-            color: Color as (r, g, b) tuple
+    def _posterize_color(self, color):
+        """Quantise an (r, g, b) to the panel's per-channel bit depth.
+
+        At ``bit_depth=4`` each channel snaps to 16 levels (multiples of 17) — the
+        honest hardware colour. Returns plain Python ints (no numpy scalars).
         """
-        # Calculate LED position on surface
-        led_x = x * (self.led_size + self.spacing)
-        led_y = y * (self.led_size + self.spacing)
-        
-        # Check if we have this LED appearance cached
-        # Convert to regular Python ints to avoid numpy type issues
-        cache_key = (int(color[0]), int(color[1]), int(color[2]))
-        if cache_key in self._led_cache:
-            led_surface = self._led_cache[cache_key]
-        else:
-            # Create new LED appearance
-            led_surface = self._create_led_surface(color)
-            # Cache it if cache isn't too large
-            if len(self._led_cache) < 256:
-                self._led_cache[cache_key] = led_surface
-                
-        # Blit LED to main surface
-        self.surface.blit(led_surface, (led_x, led_y))
-        
-    def _create_led_surface(self, color):
-        """Create a surface for a single LED with given color.
-        
-        Args:
-            color: Color as (r, g, b) tuple
-            
-        Returns:
-            Pygame surface with rendered LED
+        if not self.posterize:
+            return (int(color[0]), int(color[1]), int(color[2]))
+        levels = (1 << self.bit_depth) - 1
+        if levels <= 0:
+            return (int(color[0]), int(color[1]), int(color[2]))
+        return tuple(int(round(int(c) / 255.0 * levels)) * 255 // levels
+                     for c in color)
+
+    # All round LEDs are drawn supersampled then smooth-scaled down: a plain small
+    # pygame circle rasterises to a chunky diamond, so we draw big and shrink for
+    # clean anti-aliased dots (matches the rendered hero stills).
+    @staticmethod
+    def _aa_scale(surface, size):
+        import pygame
+        return pygame.transform.smoothscale(surface, size)
+
+    def _build_base_surface(self):
+        """Build (and cache) the static panel: near-black ground + the unlit-LED grid."""
+        import pygame
+        ss = 3
+        big = pygame.Surface((self.surface_width * ss, self.surface_height * ss))
+        big.fill(self._background_color)
+        step = (self.led_size + self.spacing) * ss
+        half = (self.led_size // 2) * ss
+        rad = max(1, self._off_radius * ss)
+        for gy in range(self.height):
+            cy = gy * step + half
+            for gx in range(self.width):
+                cx = gx * step + half
+                pygame.draw.circle(big, self._off_color, (cx, cy), rad)
+        return self._aa_scale(big, (self.surface_width, self.surface_height))
+
+    def _glow_sprite(self, color):
+        """A radial additive halo for an 'on' LED of ``color`` (cached per colour).
+
+        Drawn on black so an additive blit contributes only the glow; overlapping
+        halos sum, giving the soft bleed of a real panel.
         """
         import pygame
-        # Create surface with per-pixel alpha
-        led_surface = pygame.Surface((self.led_size, self.led_size), pygame.SRCALPHA)
-        
-        # Draw LED as a perfect circle to simulate real LED
-        center = self.led_size // 2
-        radius = self.led_size // 2 - 1
-        
-        # For 100% brightness, enhance the LED appearance for maximum visibility
-        enhanced_color = color
-        if hasattr(self, 'brightness') and self.brightness == 1.0:
-            # At 100% brightness, make LEDs extra bright by enhancing the base color
-            enhanced_color = tuple(min(255, int(c * 1.15)) for c in color)
-        
-        # For realistic LED matrix appearance, "off" LEDs should be visible
-        color_sum = int(color[0]) + int(color[1]) + int(color[2])
-        
-        if color_sum <= 20:  # "Off" LEDs - show as dark grey circles
-            # Draw visible "off" LED as dark grey circle
-            off_led_color = (60, 60, 60)  # Dark grey but visible
-            pygame.draw.circle(led_surface, off_led_color, (center, center), radius)
-            # Add subtle darker outline for depth
-            pygame.draw.circle(led_surface, (40, 40, 40), (center, center), radius, 1)
-        else:
-            # Draw main LED circle for "on" LEDs
-            pygame.draw.circle(led_surface, enhanced_color, (center, center), radius)
-            
-            # Add subtle gradient for realism without creating diamond shape
-            # Create a smaller, dimmer circle for subtle depth
-            # Avoid sharp highlights that create diamond appearance
-            inner_radius = max(1, radius - 3)
-            gradient_intensity = 15  # Very subtle
-            gradient_color = tuple(min(255, int(c) + gradient_intensity) for c in enhanced_color)
-            pygame.draw.circle(led_surface, gradient_color, (center, center), inner_radius)
-            
-        return led_surface
-        
-    def _create_led_cache(self):
-        """Pre-create commonly used LED appearances."""
-        # Cache black LED
-        self._led_cache[(0, 0, 0)] = self._create_led_surface((0, 0, 0))
-        
-        # Cache primary colors at full brightness
-        for color in [(255, 0, 0), (0, 255, 0), (0, 0, 255), 
-                      (255, 255, 0), (255, 0, 255), (0, 255, 255),
-                      (255, 255, 255)]:
-            self._led_cache[color] = self._create_led_surface(color)
+        sprite = self._glow_cache.get(color)
+        if sprite is not None:
+            return sprite
+        ss = 2
+        reach = self._glow_reach
+        big = pygame.Surface((2 * reach * ss, 2 * reach * ss))  # RGB; additive ignores black
+        big.fill((0, 0, 0))
+        steps = 6
+        for k in range(steps):
+            t = k / (steps - 1)                           # 0 outer .. 1 inner
+            rad = int(round((reach - t * (reach - self._dot_radius)) * ss))
+            bright = 0.10 + 0.42 * t                      # dim at the edge, bright near the core
+            col = tuple(min(255, int(ch * bright)) for ch in color)
+            pygame.draw.circle(big, col, (reach * ss, reach * ss), max(1, rad))
+        sprite = self._aa_scale(big, (2 * reach, 2 * reach))
+        if len(self._glow_cache) < 256:
+            self._glow_cache[color] = sprite
+        return sprite
+
+    def _dot_sprite(self, color):
+        """The crisp LED dot + bright core for an 'on' LED (cached per colour)."""
+        import pygame
+        sprite = self._dot_cache.get(color)
+        if sprite is not None:
+            return sprite
+        ss = 4
+        size = self.led_size
+        big = pygame.Surface((size * ss, size * ss), pygame.SRCALPHA)
+        center = (size // 2) * ss
+        pygame.draw.circle(big, color, (center, center), self._dot_radius * ss)
+        core = tuple(min(255, int(ch * 1.18) + 40) for ch in color)
+        pygame.draw.circle(big, core, (center, center), max(1, self._core_radius * ss))
+        sprite = self._aa_scale(big, (size, size))
+        if len(self._dot_cache) < 256:
+            self._dot_cache[color] = sprite
+        return sprite
+
+    def _render_full(self):
+        """Render the panel: near-black ground + unlit grid, then additive glow + dots.
+
+        Two passes so every halo blooms *under* every crisp dot (and overlapping
+        halos add), matching the rendered hero stills.
+        """
+        import pygame
+        if self._base_surface is None:
+            self._base_surface = self._build_base_surface()
+        self.surface.blit(self._base_surface, (0, 0))
+
+        pixels = self.pixel_buffer.get_buffer()
+        step = self.led_size + self.spacing
+        half = self.led_size // 2
+
+        lit = []
+        for y in range(self.height):
+            for x in range(self.width):
+                color = tuple(int(c) for c in pixels[y, x])
+                if self.brightness < 1.0:
+                    color = apply_brightness(color, self.brightness)
+                color = self._posterize_color(color)
+                if color[0] + color[1] + color[2] <= 24:
+                    continue   # 'off' — the unlit grid in the base shows through
+                lit.append((x * step, y * step, color))
+
+        reach = self._glow_reach
+        for led_x, led_y, color in lit:
+            self.surface.blit(self._glow_sprite(color),
+                              (led_x + half - reach, led_y + half - reach),
+                              special_flags=pygame.BLEND_RGB_ADD)
+        for led_x, led_y, color in lit:
+            self.surface.blit(self._dot_sprite(color), (led_x, led_y))
             
     def get_surface(self):
         """Get the pygame surface for this matrix.
