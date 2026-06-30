@@ -10,7 +10,7 @@ PIP := python -m pip
 PYTEST := PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) -m pytest
 
 .PHONY: all test test-unit test-all test-coverage lint lint-errors test-with-lint \
-        format clean mpy copy-to-circuitpy hero docs-gifs \
+        format clean mpy copy-to-circuitpy hero docs-gifs deploy-docs \
         install-test-deps install-dev-deps install-lint-deps
 
 all: test
@@ -85,6 +85,16 @@ hero:
 # Pass demo names to render only some, e.g.:  make docs-gifs ARGS="hello_world showcase"
 docs-gifs:
 	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_gifs.py $(ARGS)
+
+# Build and publish the docs to https://scrollkit.dev (static MkDocs on the
+# shared EC2 host). The upload step (host/key/docroot) lives in the gitignored
+# deployment skill so those infra details stay out of this public repo; install
+# that skill to deploy. See .claude/skills/deployment/SKILL.md.
+DEPLOY_DOCS_SCRIPT := .claude/skills/deployment/deploy-scrollkit-docs.sh
+deploy-docs:
+	mkdocs build
+	@test -x "$(DEPLOY_DOCS_SCRIPT)" || { echo "Missing $(DEPLOY_DOCS_SCRIPT) — install the 'deployment' skill to deploy."; exit 1; }
+	@"$(DEPLOY_DOCS_SCRIPT)"
 
 # --- Housekeeping ----------------------------------------------------------
 clean:
