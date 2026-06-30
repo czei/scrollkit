@@ -5,7 +5,6 @@ from PIL import Image
 import numpy as np
 from .bitmap import Bitmap
 from .palette import Palette
-from ..core.color_utils import rgb888_to_rgb565
 
 
 class OnDiskBitmap:
@@ -73,10 +72,14 @@ class OnDiskBitmap:
                         
                 self.bitmap[x, y] = unique_colors[color]
                 
-        # Create palette
+        # Create palette. Hand Palette the plain-int RGB888 tuple and let
+        # Palette.__setitem__ do the single, correct RGB565 conversion. (Passing
+        # rgb888_to_rgb565() the raw numpy uint8 channels overflowed the dtype —
+        # (r & 0xF8) << 8 wrapped to 0 — zeroing red/green so every image went
+        # blue; it also double-converted, since __setitem__ re-converts ints.)
         self.palette = Palette(len(unique_colors))
         for color, idx in unique_colors.items():
-            self.palette[idx] = rgb888_to_rgb565(color[0], color[1], color[2])
+            self.palette[idx] = (int(color[0]), int(color[1]), int(color[2]))
             
     def _find_closest_color(self, target_color, color_dict):
         """Find closest color in palette.
