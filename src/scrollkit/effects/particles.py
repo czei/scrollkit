@@ -12,6 +12,12 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 
 from ..exceptions import DisplayError
+from ..display.colors import multi_gradient
+
+# Default ember fire ramp: a smooth 24-step gradient (deep red -> orange -> yellow ->
+# near-white), built ONCE. Far richer than a handful of fixed primaries; pass your own
+# ``colors`` to recolour the fire (e.g. a blue/green flame).
+_FIRE_RAMP = multi_gradient((0x330000, 0xCC1100, 0xFF4400, 0xFF8800, 0xFFCC22, 0xFFF0A0), 24)
 
 try:
     import time
@@ -238,23 +244,27 @@ class RainDrop(Particle):
 class Ember(Particle):
     """Fire ember that rises and fades."""
     
-    def __init__(self, x: int, y: int, speed: float = 5.0, drift: float = 2.0, lifetime: float = 2.0) -> None:
+    def __init__(self, x: int, y: int, speed: float = 5.0, drift: float = 2.0,
+                 lifetime: float = 2.0, colors=None) -> None:
         """Initialize ember.
-        
+
         Args:
             x: Starting X position
             y: Starting Y position
             speed: Rise speed
             drift: Horizontal drift amount
             lifetime: Ember lifetime
+            colors: Optional colour ramp (sequence of 0xRRGGBB, coolest first) the
+                ember walks as it ages. Defaults to a smooth 24-step fire gradient;
+                pass e.g. ``colors.gradient(0x001133, 0x66CCFF, 24)`` for a blue flame.
         """
         super().__init__(x, y, lifetime)
         self.speed = speed
         self.drift = drift
         self.drift_direction = 1 if random.random() > 0.5 else -1
-        
-        # Ember colors (red to yellow to white)
-        self.colors: list[int] = [0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00]
+
+        # Smooth fire ramp (deep red -> orange -> yellow -> near-white) by default.
+        self.colors = list(colors) if colors is not None else _FIRE_RAMP
     
     def update(self, elapsed_time: float) -> None:
         """Update ember physics."""

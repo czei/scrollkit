@@ -12,6 +12,7 @@ tube crawl, chrome sheen, hazard stripes) and the complete printable-ASCII 5x7 f
 """
 
 from .content import DisplayContent, LOOP_FPS
+from .colors import scale as _scale, spectrum, gradient
 
 # Full printable-ASCII 5x7 font (table-driven; no BDF). Each glyph is 7 rows of a
 # 5-char mask ('#' = lit). Missing chars render blank. Lookup folds to upper-case.
@@ -86,10 +87,16 @@ GLYPH_W = 5
 GLYPH_H = 7
 CELL_W = GLYPH_W + 1     # one column of spacing between glyphs
 
-# Colour ramp for the rainbow-chase animation (indices 1..RAMP in the palette;
-# index 0 is the transparent background).
-RAMP = 6
-_RAINBOW = (0xFF0000, 0xFF7F00, 0xFFFF00, 0x00FF00, 0x0000FF, 0x8B00FF)
+# Colour resolution of the palette effects. RAMP is how many palette slots BitmapText
+# animates, so it sets how smoothly a gradient spreads across the letters — wider ==
+# smoother (still pure palette rewrites: no per-frame allocation and zero PIXEL writes,
+# so feasibility is unchanged). 16 is a smooth spread that stays well inside the panel's
+# 4-bit-per-channel (4096-colour) reality. (Index 0 is the transparent background.)
+RAMP = 16
+# A smooth full-spectrum hue wheel of RAMP stops, built ONCE at import (zero per-frame
+# cost). Replaces the old six fixed primaries, so rainbow text sweeps the whole spectrum
+# instead of stepping through six blocks.
+_RAINBOW = spectrum(RAMP)
 
 # Public ramp + a tiny chase helper, so content can use the SAME flowing rainbow as
 # the palette effects without the legacy EffectsEngine.get_rainbow_color().
@@ -105,19 +112,24 @@ def _glyph(ch):
     return FONT_5x7.get(ch.upper())
 
 
-def _scale(color, factor):
-    """Scale a 0xRRGGBB colour's brightness by ``factor`` (0.0-1.0).
+# Brightness curves for the single-hue palette effects, GENERATED at RAMP length so
+# they scale with the palette resolution (no hard-coded 6-tuples to fall out of sync
+# when RAMP changes). Built once when the effect is constructed.
+def _ramp_profile(n):
+    """A dark -> full brightness curve of length ``n`` (sheen: dim base to highlight)."""
+    if n <= 1:
+        return (1.0,)
+    lo = 0.12
+    return tuple(lo + (1.0 - lo) * i / (n - 1) for i in range(n))
 
-    Integer-only (CircuitPython-safe). Effects call this once at construction to
-    derive their shades/ramp from a single base colour, so there is no per-frame cost.
-    """
-    if factor <= 0.0:
-        return 0
-    f = 256 if factor >= 1.0 else int(factor * 256)
-    r = (((color >> 16) & 0xFF) * f) >> 8
-    g = (((color >> 8) & 0xFF) * f) >> 8
-    b = ((color & 0xFF) * f) >> 8
-    return (r << 16) | (g << 8) | b
+
+def _peak_profile(n):
+    """A dim -> bright -> dim brightness curve of length ``n`` (mono-chase highlight)."""
+    if n <= 1:
+        return (1.0,)
+    lo = 0.12
+    return tuple(lo + (1.0 - lo) * (1.0 - abs(2.0 * i / (n - 1) - 1.0))
+                 for i in range(n))
 
 
 class RainbowChase:
@@ -164,16 +176,24 @@ class NeonTubeCrawl:
 
 class ChromeSheen:
     """A metallic sheen: a dark→bright ramp of ``color`` (default silver/white) with a
-    highlight band that sweeps across the letters as the ramp rotates. Pure palette
-    rewrites — no glyph rebuild."""
+    highlight band that sweeps across the letters as the ramp rotates. Pass
+    ``highlight`` to make the sheen a smooth TWO-colour gradient (dim ``color`` → full
+    ``highlight``, e.g. steel-blue → white) instead of a single-hue brightness ramp.
+    Pure palette rewrites — no glyph rebuild."""
 
-    # brightness profile, dark -> full; the highlight sits at the bright end.
-    _PROFILE = (0.12, 0.25, 0.45, 0.65, 0.85, 1.0)
+    # brightness profile, dark -> full; the highlight sits at the bright end. Generated
+    # at RAMP length so the gradient stays smooth as the palette resolution widens.
+    _PROFILE = _ramp_profile(RAMP)
 
-    def __init__(self, color=0xFFFFFF, period=1):
+    def __init__(self, color=0xFFFFFF, highlight=None, period=1):
         self.color = color
+        self.highlight = highlight
         self.period = period if period > 1 else 1
-        self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
+        if highlight is None:
+            self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
+        else:
+            # dim base of `color` -> full `highlight`: a smooth two-colour sheen ramp.
+            self._ramp = gradient(_scale(color, self._PROFILE[0]), highlight, RAMP)
         self._phase = 0
         self._tick = 0
 
@@ -212,8 +232,9 @@ class MonoChase:
     but monochrome (one hue at varying brightness). Pure palette rewrites — no glyph
     rebuild. ``period`` advances the chase every N frames."""
 
-    # a brightness peak (dim -> bright -> dim) that sweeps around the ramp.
-    _PROFILE = (0.12, 0.35, 0.7, 1.0, 0.55, 0.25)
+    # a brightness peak (dim -> bright -> dim) that sweeps around the ramp. Generated at
+    # RAMP length so the sweep stays smooth as the palette resolution widens.
+    _PROFILE = _peak_profile(RAMP)
 
     def __init__(self, color=0xFFFFFF, period=1):
         self.color = color

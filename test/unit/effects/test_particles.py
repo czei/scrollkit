@@ -346,25 +346,32 @@ class TestEmberParticle:
         assert ember.lifetime == 2.0  # Default lifetime
     
     def test_ember_color_variation(self):
-        """Test ember has appropriate fire colors."""
+        """Ember walks a smooth, warm fire ramp (deep ember -> hot near-white)."""
         ember = Ember(x=10, y=20, lifetime=3.0)
-        
-        # Ember has a colors list attribute
+
+        # Ember has a colors ramp; the default is a smooth multi-step gradient, not a
+        # handful of fixed primaries.
         assert hasattr(ember, 'colors')
-        assert len(ember.colors) > 0
-        
-        # Check that colors are fire-like (red, orange, yellow)
+        assert len(ember.colors) >= 8
+
+        # Every step is warm: red dominates green and blue (a fire ramp is never
+        # blue/green-cast). This still rejects a mistakenly cool default while
+        # allowing the dim deep-red ember and the near-white hot tip.
         for color in ember.colors:
-            # Extract RGB components
             r = (color >> 16) & 0xFF
             g = (color >> 8) & 0xFF
             b = color & 0xFF
-            
-            # Fire colors should have significant red component
-            assert r >= 0xFF  # Full red
-            
-            # Blue should be zero for fire colors
-            assert b == 0
+            assert r >= g, hex(color)
+            assert r >= b, hex(color)
+
+        # It spans a real range: the hot tip is markedly brighter than the dim ember.
+        def _brightness(c):
+            return ((c >> 16) & 0xFF) + ((c >> 8) & 0xFF) + (c & 0xFF)
+        assert _brightness(ember.colors[-1]) > _brightness(ember.colors[0])
+
+        # Custom ramps override the default (proving it's not hard-locked to fire).
+        custom = Ember(x=0, y=0, colors=[0x001133, 0x66CCFF])
+        assert list(custom.colors) == [0x001133, 0x66CCFF]
     
     def test_ember_upward_movement(self):
         """Test ember moves upward like rising fire."""
