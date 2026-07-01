@@ -54,7 +54,7 @@ from scrollkit.effects import ParticleEngine, show_reveal_splash
 ## Web
 
 ```python
-from scrollkit.web.server import ScrollKitWebServer   # alias: SLDKWebServer
+from scrollkit.web.settings_server import SettingsWebServer
 ```
 
 ## OTA
@@ -84,7 +84,7 @@ from scrollkit.network import mdns
 from scrollkit.config.settings_manager import SettingsManager
 from scrollkit.utils.error_handler import ErrorHandler
 from scrollkit.utils import diagnostics
-from scrollkit.utils.color_utils import rgb_to_hex, hex_to_rgb, scale_brightness
+from scrollkit.utils.color_utils import ColorUtils
 ```
 
 - **`HttpClient`** — `await get(url, headers, max_retries)`, `await post(...)`,

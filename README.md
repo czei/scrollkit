@@ -22,15 +22,21 @@ pip install scrollkit[simulator]
 ## Quick Start
 
 ```python
-from scrollkit.app.minimal import MinimalLEDApp
+import asyncio
+from scrollkit.app.base import ScrollKitApp
+from scrollkit.display.content import ScrollingText
 
-app = MinimalLEDApp()                       # auto-detects MatrixPortal hardware vs desktop simulator
-app.scroll_text("Hello, LED Matrix!", color="cyan")
+class HelloWorldApp(ScrollKitApp):
+    async def setup(self):
+        self.content_queue.add(
+            ScrollingText("Hello, LED Matrix!", y=12, color=0x00AAFF))
+
+asyncio.run(HelloWorldApp().run())   # auto-detects MatrixPortal hardware vs desktop simulator
 ```
 
 > The top-level `scrollkit` package deliberately performs **no** imports (every
 > import costs RAM on CircuitPython), so you always import from submodules, e.g.
-> `from scrollkit.app.minimal import MinimalLEDApp`. See the
+> `from scrollkit.app.base import ScrollKitApp`. See the
 > [getting-started guide](https://scrollkit.dev/getting-started/)
 > for the full `ScrollKitApp` / `UnifiedDisplay` API.
 
@@ -38,33 +44,31 @@ app.scroll_text("Hello, LED Matrix!", color="cyan")
 
 ```
 scrollkit/
-├── display/          # Display abstraction layer
-│   ├── display_interface.py     # Abstract base class
-│   ├── generic_display.py       # Cross-platform rendering engine
-│   ├── display_factory.py       # Platform-aware display creation
-│   ├── message_queue.py         # Generic message queuing
-│   ├── roller_coaster_animation.py
-│   └── roller_coaster_animation_cp.py
-├── network/          # Networking utilities
-│   ├── http_client.py           # Dual-implementation HTTP client
-│   ├── wifi_manager.py          # WiFi configuration and management
-│   ├── mdns.py                  # <hostname>.local advertising (CircuitPython; no-op on desktop)
-│   ├── server_adapters.py       # Platform-specific HTTP servers
-│   ├── async_http_request.py    # Low-level async HTTP
-│   └── http_response_patch.py   # Connection error handling
-├── config/           # Configuration management
-│   └── settings_manager.py      # JSON-based persistent settings
-├── ota/              # Over-the-air updates
-│   ├── ota_updater.py           # GitHub release-based OTA
-│   └── display_progress.py      # Display-progress + staged-install adapter over OTAClient
-└── utils/            # Utilities
-    ├── error_handler.py         # Logging and error handling
-    ├── diagnostics.py           # NVM boot/crash record + reboot-loop safe-mode breaker
-    ├── color_utils.py           # Color conversion and manipulation
-    ├── timer.py                 # Simple elapsed-time timer
-    ├── system_utils.py          # NTP clock synchronization
-    ├── url_utils.py             # URL decoding and credential loading
-    └── image_processor.py       # Bitmap image utilities
+├── app/               # ScrollKitApp base class, async run loop, memory helpers
+├── display/           # UnifiedDisplay (auto-detects hardware vs simulator), content
+│   ├── unified.py                # Production display (device + desktop)
+│   ├── content.py                # DisplayContent / StaticText / ScrollingText / ContentQueue / Priority
+│   ├── bitmap_text.py            # Animated bitmap-font text + palette effects
+│   ├── gradient_text.py          # Gradient/multi-color text fill (GradientTextLayer)
+│   └── colors.py                 # Continuous 24-bit color generators
+├── effects/           # Transition contract (transitions.py) + standalone splash/particle helpers
+├── network/           # Networking utilities
+│   ├── http_client.py            # Dual-implementation HTTP client (raises NetworkError)
+│   ├── wifi_manager.py           # WiFi connection lifecycle
+│   └── mdns.py                   # <hostname>.local advertising (CircuitPython; no-op on desktop)
+├── config/            # Configuration management
+│   └── settings_manager.py       # JSON-based persistent settings
+├── ota/               # Over-the-air updates
+│   ├── client.py                 # GitHub-release-based OTA client
+│   ├── manifest.py               # Update manifest model
+│   ├── display_progress.py       # Display-progress adapter over OTAClient
+│   └── publish.py                # Host-side release publishing (desktop/CI only)
+└── utils/             # Utilities
+    ├── error_handler.py          # Logging and error handling
+    ├── diagnostics.py            # NVM boot/crash record + reboot-loop safe-mode breaker
+    ├── color_utils.py            # Named colors + hex-string color conversion
+    ├── system_utils.py           # NTP / HTTP-Date system clock sync
+    └── url_utils.py              # URL decoding and credential loading
 ```
 
 ## Core API
@@ -72,48 +76,37 @@ scrollkit/
 ### Display
 
 ```python
-from scrollkit import GenericDisplay, MessageQueue
-
-# Platform detection
-from scrollkit import is_circuitpython, is_dev_mode
+from scrollkit.display.unified import UnifiedDisplay
+from scrollkit.display.content import ContentQueue, ScrollingText
 
 # Create display (auto-detects CircuitPython vs desktop)
-display = GenericDisplay()
+display = UnifiedDisplay(width=64, height=32)
 display.initialize()
 
-# Basic operations
-display.show_scroll_message("Scrolling text")
-display.show_static_text("Hello", x=0, y=15)
-display.show_image(pil_image, x=0, y=0)
-display.set_brightness(0.5)
-display.clear()
-
-# Custom layouts
-label = display.create_label("Custom", x=2, y=10, scale=2, color=0xffaa00)
-group = display.create_group(label)
-display.add_to_main_group(group)
-
-# Message queuing
-queue = MessageQueue(display)
-queue.add_message(display.show_scroll_message, "Message 1")
-queue.add_message(display.show_scroll_message, "Message 2")
-await queue.show()
+# ScrollKitApp drives this queue's render loop for you (see Quick Start above);
+# add() is all a subclass's setup() typically needs to call.
+queue = ContentQueue()
+queue.add(ScrollingText("Scrolling text", y=12, color=0x00AAFF))
 ```
 
 ### HTTP Client
 
 ```python
-from scrollkit import HttpClient
+from scrollkit.network.http_client import HttpClient
+from scrollkit.exceptions import NetworkError
 
 client = HttpClient()
-response = await client.get("https://api.example.com/data")
-data = response.json()
+try:
+    response = await client.get("https://api.example.com/data")
+    data = response.json()
+except NetworkError as e:
+    print("fetch failed:", e)
 ```
 
 ### Settings
 
 ```python
-from scrollkit import SettingsManager
+from scrollkit.config.settings_manager import SettingsManager
 
 settings = SettingsManager("app_settings.json",
     defaults={"hostname": "mydevice", "brightness": "0.5"},
@@ -125,17 +118,17 @@ settings.save_settings()
 ### Utilities
 
 ```python
-from scrollkit import ErrorHandler, Timer
+from scrollkit.utils.error_handler import ErrorHandler
 from scrollkit.utils.color_utils import ColorUtils
+from scrollkit.network.wifi_manager import is_dev_mode
 
 logger = ErrorHandler("app.log")
 logger.info("Application started")
 
-timer = Timer(300)  # 5 minutes
-if timer.finished():
-    timer.reset()
+color = ColorUtils.scale_color("0xff0000", 0.5)  # Dim red to 50%
 
-color = ColorUtils.scale_color(0xff0000, 0.5)  # Dim red to 50%
+if is_dev_mode():
+    print("running on desktop, not CircuitPython")
 ```
 
 ## Platform Support

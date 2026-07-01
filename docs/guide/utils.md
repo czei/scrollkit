@@ -5,21 +5,19 @@ library.
 
 | Module | What it offers |
 |--------|----------------|
-| `utils.color_utils` | RGB ↔ hex conversion, brightness scaling, colour matching |
+| `utils.color_utils` | Named colours + hex-string ↔ RGB conversion, brightness scaling |
 | `utils.error_handler` | `ErrorHandler` — centralised logging with file persistence |
-| `utils.system_utils` | free-memory info, uptime, timestamp formatting |
-| `utils.timer` | a small `Timer` for common timing patterns |
+| `utils.system_utils` | NTP / HTTP-Date system clock sync (`set_system_clock`) |
 | `utils.url_utils` | credential loading from `secrets.py` |
-| `utils.image_processor` | basic image scaling/cropping helpers |
 
 ## Colour helpers
 
 ```python
-from scrollkit.utils.color_utils import rgb_to_hex, hex_to_rgb, scale_brightness
+from scrollkit.utils.color_utils import ColorUtils
 
-rgb_to_hex((255, 0, 128))      # 0xFF0080
-hex_to_rgb(0x00FF88)           # (0, 255, 136)
-scale_brightness((255, 255, 255), 0.5)
+ColorUtils.to_rgb("0x00FF88")            # (0, 255, 136)
+ColorUtils.from_rgb(255, 0, 128)         # "0xFF0080"
+ColorUtils.scale_color("0xFFFFFF", 0.5)  # dim white to 50%
 ```
 
 ## Error logging
@@ -27,7 +25,7 @@ scale_brightness((255, 255, 255), 0.5)
 ```python
 from scrollkit.utils.error_handler import ErrorHandler
 
-log = ErrorHandler()
+log = ErrorHandler("error_log")
 log.error(exception, "context message")
 ```
 
