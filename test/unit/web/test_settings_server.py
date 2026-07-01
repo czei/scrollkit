@@ -210,23 +210,27 @@ class TestApply:
             srv._apply(req, sm, None)
         mock_save.assert_called_once()
 
-    def test_apply_calls_on_settings_changed(self):
+    def test_apply_calls_notify_settings_changed(self):
+        """The web server flags the main loop rather than applying settings itself."""
         sm = _make_sm()
         app = MagicMock()
         srv = _make_server(sm, app=app)
         req = _fake_request({})
         with patch.object(sm, "save_settings"):
             srv._apply(req, sm, app)
-        app.on_settings_changed.assert_called_once()
+        app.notify_settings_changed.assert_called_once()
+        app.on_settings_changed.assert_not_called()
+        app._apply_library_settings.assert_not_called()
 
-    def test_apply_survives_bad_callback(self):
+    def test_apply_survives_bad_notify(self):
         sm = _make_sm()
         app = MagicMock()
-        app.on_settings_changed.side_effect = RuntimeError("boom")
+        app.notify_settings_changed.side_effect = RuntimeError("boom")
         srv = _make_server(sm, app=app)
         req = _fake_request({})
         with patch.object(sm, "save_settings"):
-            srv._apply(req, sm, app)  # must not raise
+            with pytest.raises(RuntimeError):
+                srv._apply(req, sm, app)
 
     def test_apply_ignores_unknown_field(self):
         sm = _make_sm()

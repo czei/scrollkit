@@ -98,7 +98,7 @@ class TestHttpClient:
         mock_session.get.side_effect = Exception("Connection error")
 
         with patch('asyncio.sleep', new_callable=AsyncMock):
-            with patch('scrollkit.network.http_client.logger'):
+            with patch('scrollkit.network.http_client._logger'):
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
 

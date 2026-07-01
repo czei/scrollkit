@@ -14,8 +14,15 @@ if not is_circuitpython:
     import platform
 
 from scrollkit.config.settings_manager import SettingsManager
-from scrollkit.utils.error_handler import ErrorHandler
 from scrollkit.utils.url_utils import load_credentials
+
+
+def _logger():
+    # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
+    # not run merely from importing this module. Its own __new__ singleton
+    # guard makes repeat calls cheap.
+    from scrollkit.utils.error_handler import ErrorHandler
+    return ErrorHandler("error_log")
 
 
 def is_dev_mode():
@@ -32,9 +39,6 @@ def is_dev_mode():
         return False
     except ImportError:
         return True
-
-# Initialize logger
-logger = ErrorHandler("error_log")
 
 class WiFiManager:
     """
@@ -62,7 +66,7 @@ class WiFiManager:
             # Check if in development mode
             if is_dev_mode():
                 # In dev mode, simulate WiFi capabilities
-                logger.info("Running in development mode, using simulated WiFi")
+                _logger().info("Running in development mode, using simulated WiFi")
                 self.wifi = None
                 self.HAS_WIFI = False
                 # Set dummy values for development
@@ -86,7 +90,7 @@ class WiFiManager:
             # Mock for non-CircuitPython environments
             self.wifi = None
             self.HAS_WIFI = False
-            logger.debug(f"WiFi module not available or incomplete: {e}")
+            _logger().debug(f"WiFi module not available or incomplete: {e}")
 
     async def reset(self):
         """Reset the microcontroller after delay"""
@@ -96,7 +100,7 @@ class WiFiManager:
                 import microcontroller
                 microcontroller.reset()
             except ImportError:
-                logger.debug("Microcontroller module not available, skipping reset")
+                _logger().debug("Microcontroller module not available, skipping reset")
                 # In non-hardware environments, just simulate a reset
                 os._exit(0)
 
@@ -111,16 +115,16 @@ class WiFiManager:
             True if connected, False otherwise
         """
         if is_dev_mode() or not self.HAS_WIFI:
-            logger.debug("WiFi not available or in dev mode, simulating connection")
+            _logger().debug("WiFi not available or in dev mode, simulating connection")
             self.is_connected = True
             return True
             
         try:
             if not self.ssid or not self.password:
-                logger.error(ValueError("Missing WiFi credentials"), "WiFi credentials not found")
+                _logger().error(ValueError("Missing WiFi credentials"), "WiFi credentials not found")
                 return False
                 
-            logger.info(f"Connecting to WiFi network: {self.ssid}")
+            _logger().info(f"Connecting to WiFi network: {self.ssid}")
             
             # Maximum connection attempts
             max_attempts = 3
@@ -133,7 +137,7 @@ class WiFiManager:
                 except Exception as conn_err:
                     # Only log on final attempt, otherwise just try again
                     if attempt == max_attempts - 1:
-                        logger.error(conn_err, f"Failed to connect to WiFi after {max_attempts} attempts")
+                        _logger().error(conn_err, f"Failed to connect to WiFi after {max_attempts} attempts")
                     
                     # Update display if callback provided
                     if display_callback:
@@ -145,22 +149,22 @@ class WiFiManager:
             if self.is_connected:
                 # Log connection info
                 ip_address = self.wifi.radio.ipv4_address
-                logger.info(f"Connected to WiFi. IP address: {ip_address}")
+                _logger().info(f"Connected to WiFi. IP address: {ip_address}")
                 
                 # Now that we're connected, create the HTTP session
                 # This should only happen AFTER a successful WiFi connection
                 try:
                     session = self.create_http_session()
-                    logger.info("Created HTTP session after WiFi connection")
+                    _logger().info("Created HTTP session after WiFi connection")
                 except Exception as session_error:
-                    logger.error(session_error, "Failed to create HTTP session after WiFi connection")
+                    _logger().error(session_error, "Failed to create HTTP session after WiFi connection")
                 
                 return True
             else:
                 return False
             
         except Exception as e:
-            logger.error(e, "Error connecting to WiFi")
+            _logger().error(e, "Error connecting to WiFi")
             self.is_connected = False
             return False
             
@@ -173,7 +177,7 @@ class WiFiManager:
             A new adafruit_requests.Session or None if not available
         """
         if is_dev_mode() or not self.HAS_WIFI or not self.is_connected:
-            logger.debug("Cannot create HTTP session without WiFi connection or in dev mode")
+            _logger().debug("Cannot create HTTP session without WiFi connection or in dev mode")
             return None
             
         try:
@@ -192,7 +196,7 @@ class WiFiManager:
             return session
 
         except Exception as e:
-            logger.error(e, "Error creating HTTP session")
+            _logger().error(e, "Error creating HTTP session")
             return None
 
     async def disconnect(self):
@@ -201,14 +205,14 @@ class WiFiManager:
             return
             
         try:
-            logger.info("Disconnecting from WiFi")
+            _logger().info("Disconnecting from WiFi")
             # Some CircuitPython versions may not have the disconnect method
             if hasattr(self.wifi.radio, 'disconnect'):
                 self.wifi.radio.disconnect()
             self.is_connected = False
             
         except Exception as e:
-            logger.error(e, "Error disconnecting from WiFi")
+            _logger().error(e, "Error disconnecting from WiFi")
             
     async def reconnect(self):
         """
@@ -263,15 +267,15 @@ class WiFiManager:
 
                 # Save settings to disk
                 self.settings_manager.save_settings()
-                logger.info(f"Saved WiFi credentials to settings manager")
+                _logger().info(f"Saved WiFi credentials to settings manager")
 
             except Exception as e:
-                logger.error(e, "Failed to save WiFi credentials to settings manager")
+                _logger().error(e, "Failed to save WiFi credentials to settings manager")
 
     def start_access_point(self,port=80):
         """Start the WiFi access point"""
         if is_dev_mode() or not self.HAS_WIFI:
-            logger.debug("Cannot start access point in dev mode or without WiFi hardware")
+            _logger().debug("Cannot start access point in dev mode or without WiFi hardware")
             self.ap_enabled = True
             return
             
@@ -287,7 +291,7 @@ class WiFiManager:
     def stop_access_point(self):
         """Stop the WiFi access point"""
         if is_dev_mode() or not self.HAS_WIFI:
-            logger.debug("Cannot stop access point in dev mode or without WiFi hardware")
+            _logger().debug("Cannot stop access point in dev mode or without WiFi hardware")
             self.ap_enabled = False
             return
             
@@ -302,7 +306,7 @@ class WiFiManager:
             List of network info (SSID, RSSI, channel, security)
         """
         if is_dev_mode() or not self.HAS_WIFI:
-            logger.debug("WiFi not available or in dev mode, returning mock networks")
+            _logger().debug("WiFi not available or in dev mode, returning mock networks")
             # Return mock data for testing
             return [
                 {"ssid": "HomeNetwork", "rssi": -65, "channel": 6},
@@ -310,7 +314,7 @@ class WiFiManager:
             ]
             
         try:
-            logger.debug("Scanning for WiFi networks...")
+            _logger().debug("Scanning for WiFi networks...")
             networks = []
             
             # Scan for networks
@@ -330,11 +334,11 @@ class WiFiManager:
             networks.sort(key=lambda x: x["rssi"], reverse=True)
             
             self.wifi.radio.stop_scanning_networks()
-            logger.debug(f"Found {len(networks)} WiFi networks")
+            _logger().debug(f"Found {len(networks)} WiFi networks")
             return networks
             
         except Exception as e:
-            logger.error(e, "Error scanning for WiFi networks")
+            _logger().error(e, "Error scanning for WiFi networks")
             # Return empty list on error
             return []
 

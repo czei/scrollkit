@@ -2,11 +2,34 @@
 Tests for the SettingsManager class.
 """
 import json
+import os
+import pathlib
+import subprocess
+import sys
+
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 
 from scrollkit.config.settings_manager import SettingsManager
 from scrollkit.utils.color_utils import ColorUtils
+
+
+def test_importing_module_creates_no_error_log_file(tmp_path):
+    """0.8.2: ErrorHandler("error_log") must not run merely from importing this
+    module — its __init__ does a filesystem write-test that used to create/touch
+    an error_log file the instant anything imported settings_manager. Run in a
+    subprocess chdir'd to an empty tmp_path so the assertion is unaffected by
+    whatever CWD/error_log state other tests in this process have left behind.
+    """
+    src = pathlib.Path(__file__).resolve().parents[3] / "src"
+    result = subprocess.run(
+        [sys.executable, "-c", "import scrollkit.config.settings_manager"],
+        cwd=str(tmp_path),
+        env={**os.environ, "PYTHONPATH": str(src), "PYTHONSAFEPATH": "1"},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / "error_log").exists()
 
 class TestSettingsManager:
     def test_initialization(self):
@@ -144,19 +167,20 @@ class TestSettingsManager:
         mock_file = mock_open()
         mock_file.side_effect = OSError("File not found")
         
-        # Mock logger
-        with patch('scrollkit.config.settings_manager.logger') as mock_logger:
+        # Mock the lazy _logger() factory; the ErrorHandler it returns is
+        # mock_logger.return_value.
+        with patch('scrollkit.config.settings_manager._logger') as mock_logger:
             # Mock open function to raise the error
             with patch('builtins.open', mock_file):
                 # Initialize settings manager
                 manager = SettingsManager("test_settings.json")
-                
+
                 # Call load_settings directly
                 result = manager.load_settings()
-                
+
                 # Verify log message
-                mock_logger.info.assert_called_with("Loading settings test_settings.json")
-                
+                mock_logger.return_value.info.assert_called_with("Loading settings test_settings.json")
+
                 # Verify result is an empty dict on failure
                 assert result == {}
     
@@ -187,19 +211,20 @@ class TestSettingsManager:
         mock_file = mock_open()
         mock_file.side_effect = OSError("Permission denied")
         
-        # Mock logger
-        with patch('scrollkit.config.settings_manager.logger') as mock_logger:
+        # Mock the lazy _logger() factory; the ErrorHandler it returns is
+        # mock_logger.return_value.
+        with patch('scrollkit.config.settings_manager._logger') as mock_logger:
             # Mock open function to raise the error
             with patch('builtins.open', mock_file):
                 # Initialize settings manager
                 manager = SettingsManager("test_settings.json")
-                
+
                 # Call save_settings
                 manager.save_settings()
-                
+
                 # Verify error was logged
-                mock_logger.error.assert_called_once()
-                assert "Error saving settings" in mock_logger.error.call_args[0][1]
+                mock_logger.return_value.error.assert_called_once()
+                assert "Error saving settings" in mock_logger.return_value.error.call_args[0][1]
     
     def test_get_settings(self):
         """Test getting a setting with default value"""

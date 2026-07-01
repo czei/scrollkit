@@ -203,15 +203,57 @@ class TestSLDKAppIntegration:
                 self.content_queue.add_content(text)
         
         app = IntegrationApp(enable_web=False)
-        
+
         # Mock the display creation
         with patch.object(app, 'create_display', return_value=mock_display):
             display = await app.create_display()
-            
+
             assert display == mock_display
             assert display.width == 64
             assert display.height == 32
-    
+
+    @pytest.mark.asyncio
+    async def test_settings_dirty_flag_applied_on_display_loop(
+            self, mock_circuitpython_imports, mock_display):
+        """The display loop — not the web server — applies pending settings.
+
+        Sets _settings_dirty (as notify_settings_changed() would), drives one
+        _display_process iteration, and confirms _apply_library_settings() and
+        on_settings_changed() both ran, the flag was cleared, and a raising
+        on_settings_changed() doesn't crash the loop.
+        """
+        class FlakyApp(SLDKApp):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, **kw)
+                self.applied = False
+                self.changed_calls = 0
+
+            async def setup(self):
+                pass
+
+            def _apply_library_settings(self):
+                self.applied = True
+
+            def on_settings_changed(self):
+                self.changed_calls += 1
+                raise RuntimeError("boom")  # must not crash the display loop
+
+            async def prepare_display_content(self):
+                # Stop the loop after this one iteration.
+                self.running = False
+                return None
+
+        app = FlakyApp(enable_web=False)
+        app.display = mock_display
+        app.running = True
+        app._settings_dirty = True
+
+        await app._display_process()
+
+        assert app.applied is True
+        assert app.changed_calls == 1
+        assert app._settings_dirty is False
+
     def test_app_version_access(self, mock_circuitpython_imports):
         """Test accessing SLDK version through app."""
         app = SLDKApp(enable_web=False)

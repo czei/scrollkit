@@ -119,7 +119,7 @@ class TestWiFiManager:
                 mock_load_credentials.return_value = ('', '')
                 
                 # Mock logger to prevent actual logging
-                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager._logger') as mock_logger:
                     # Mock the import statement
                     with patch.dict('sys.modules', {'wifi': mock_wifi}):
                         # Create WiFiManager
@@ -147,7 +147,7 @@ class TestWiFiManager:
                 mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                 
                 # Mock logger to prevent actual logging
-                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager._logger') as mock_logger:
                     # Mock the import statement
                     with patch.dict('sys.modules', {'wifi': mock_wifi}):
                         # Create WiFiManager with connect method mocked
@@ -217,7 +217,7 @@ class TestWiFiManager:
             # Mock load_credentials
             with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 # Mock logger to prevent actual logging
-                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager._logger') as mock_logger:
                     mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
                     
                     # Mock the import statement
@@ -249,7 +249,7 @@ class TestWiFiManager:
             # Mock load_credentials
             with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
                 # Mock logger to prevent actual logging
-                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
+                with patch('scrollkit.network.wifi_manager._logger') as mock_logger:
                     mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
 
                     # Mock the import statement

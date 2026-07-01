@@ -4,11 +4,15 @@ Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import json
 
-from scrollkit.utils.error_handler import ErrorHandler
 from scrollkit.config.transition_names import TRANSITION_NAMES
 
-# Initialize logger
-logger = ErrorHandler("error_log")
+
+def _logger():
+    # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
+    # not run merely from importing this module. Its own __new__ singleton
+    # guard makes repeat calls cheap.
+    from scrollkit.utils.error_handler import ErrorHandler
+    return ErrorHandler("error_log")
 
 
 class SettingsManager:
@@ -159,7 +163,7 @@ class SettingsManager:
         Returns:
             A dictionary of settings
         """
-        logger.info(f"Loading settings {self.filename}")
+        _logger().info(f"Loading settings {self.filename}")
         try:
             with open(self.filename, 'r') as f:
                 return json.load(f)
@@ -168,12 +172,12 @@ class SettingsManager:
 
     def save_settings(self):
         """Save settings to the settings file"""
-        logger.info(f"Saving settings {self.filename}")
+        _logger().info(f"Saving settings {self.filename}")
         try:
             with open(self.filename, 'w') as f:
                 json.dump(self.settings, f)
         except OSError as e:
-            logger.error(e, f"Error saving settings to {self.filename}")
+            _logger().error(e, f"Error saving settings to {self.filename}")
 
     def get(self, key, default=None):
         """

@@ -68,12 +68,13 @@ class TestMockResponse:
         response = MockResponse(200, '{"invalid": json}')
         
         # Mock the logger to avoid actual error logging
-        with patch('scrollkit.network.http_client.logger') as mock_logger:
+        with patch('scrollkit.network.http_client._logger') as mock_logger:
             with pytest.raises(ValueError) as excinfo:
                 response.json()
             
             # Verify the error message contains "syntax error in JSON"
             assert "syntax error in JSON" in str(excinfo.value)
             
-            # Verify logger was called to log the error
-            assert mock_logger.error.called
+            # Verify logger was called to log the error (mock_logger patches the
+            # _logger() factory; the ErrorHandler it returns is mock_logger.return_value)
+            assert mock_logger.return_value.error.called

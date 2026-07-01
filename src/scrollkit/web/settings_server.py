@@ -13,8 +13,10 @@ memory gate in ``_web_server_process()`` clears.
 
 Routes:
     GET  /      — render the settings form
-    POST /save  — apply + persist settings, call ``app.on_settings_changed()``,
-                  redirect 303 to /
+    POST /save  — persist settings, call ``app.notify_settings_changed()``
+                  (a flag the display loop applies at its next frame — this
+                  server never mutates display/queue state itself), redirect
+                  303 to /
 
 Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
@@ -304,17 +306,11 @@ class SettingsWebServer:
 
         sm.save_settings()
 
-        if app is not None:
-            if hasattr(app, "_apply_library_settings"):
-                try:
-                    app._apply_library_settings()
-                except Exception as e:
-                    print("_apply_library_settings error:", e)
-            if hasattr(app, "on_settings_changed"):
-                try:
-                    app.on_settings_changed()
-                except Exception as e:
-                    print("on_settings_changed error:", e)
+        # The web server must never mutate display/queue state itself (see
+        # notify_settings_changed()) — it may only write settings and flag the
+        # main display loop to apply them at a safe frame boundary.
+        if app is not None and hasattr(app, "notify_settings_changed"):
+            app.notify_settings_changed()
 
     # ------------------------------------------------------------------ #
     # ScrollKitApp web contract

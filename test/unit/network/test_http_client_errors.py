@@ -22,7 +22,7 @@ class TestHttpClientErrors:
         
         # Mock asyncio.sleep to avoid actual waiting
         with patch('asyncio.sleep', new=AsyncMock()) as mock_sleep:
-            with patch('scrollkit.network.http_client.logger') as mock_logger:
+            with patch('scrollkit.network.http_client._logger') as mock_logger:
                 # Create client and make request
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
@@ -46,7 +46,7 @@ class TestHttpClientErrors:
         
         # Mock asyncio.sleep to avoid actual waiting
         with patch('asyncio.sleep', new=AsyncMock()) as mock_sleep:
-            with patch('scrollkit.network.http_client.logger') as mock_logger:
+            with patch('scrollkit.network.http_client._logger') as mock_logger:
                 # Create client and make request
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
@@ -73,7 +73,7 @@ class TestHttpClientErrors:
         mock_session.get.side_effect = OutOfRetries("Socket failures")
 
         with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-            with patch('scrollkit.network.http_client.logger'):
+            with patch('scrollkit.network.http_client._logger'):
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
 
@@ -94,15 +94,16 @@ class TestHttpClientErrors:
         mock_session = MagicMock()
         mock_session.post.side_effect = Exception("Connection error")
         
-        with patch('scrollkit.network.http_client.logger') as mock_logger:
+        with patch('scrollkit.network.http_client._logger') as mock_logger:
             # Create client and make request
             client = HttpClient(session=mock_session)
             client.using_adafruit = True
             
             response = await client.post("https://example.com/api/test", data={"test": "data"})
             
-            # Verify error was logged
-            assert mock_logger.error.called
+            # Verify error was logged (mock_logger patches the _logger() factory;
+            # the ErrorHandler instance it returns is mock_logger.return_value)
+            assert mock_logger.return_value.error.called
             # Verify error response
             assert response.status_code == 500
             assert "Connection error" in response.text

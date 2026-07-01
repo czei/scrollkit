@@ -144,6 +144,11 @@ class SLDKApp:
         # content can't ghost over the status frame. Default off: existing apps and
         # the dev harness are unaffected.
         self._render_suspended: bool = False
+        # Web-server -> main-loop handoff: the web server (which runs in its own
+        # cooperative task) must never mutate display/queue state itself — see
+        # notify_settings_changed(). The display loop applies pending settings at
+        # a safe frame boundary instead.
+        self._settings_dirty: bool = False
         self.display: Optional[DisplayInterface] = None
         self.content_queue = ContentQueue()
         self._tasks: List[asyncio.Task] = []
@@ -272,6 +277,18 @@ class SLDKApp:
                 # that froze the whole event loop) stops feeding and triggers a
                 # self-healing reset. A caught render error just continues + refeeds.
                 self._feed_watchdog()
+
+                if self._settings_dirty:
+                    self._settings_dirty = False
+                    try:
+                        self._apply_library_settings()
+                    except Exception as e:
+                        print("_apply_library_settings error:", e)
+                    try:
+                        self.on_settings_changed()
+                    except Exception as e:
+                        print("on_settings_changed error:", e)
+
                 content = await self.prepare_display_content()
                 self._current_content = content
 
@@ -385,10 +402,11 @@ class SLDKApp:
     def _apply_library_settings(self):
         """Apply display-level settings to the live display and content queue.
 
-        Called by SettingsWebServer immediately after saving, before
-        on_settings_changed().  Handles settings the library owns: brightness
-        (pushed to the display hardware) and scroll speed (propagated to every
-        queue item that exposes a .speed attribute).
+        Called by the display loop (see _display_process) when a web save sets
+        _settings_dirty, immediately before on_settings_changed(). Handles
+        settings the library owns: brightness (pushed to the display hardware)
+        and scroll speed (propagated to every queue item that exposes a .speed
+        attribute). Runs on the display-loop task, never from the web server.
         """
         if self.display is not None:
             try:
@@ -438,11 +456,25 @@ class SLDKApp:
             print("Unknown transition_style %r; using None" % (style,))
         return t
 
-    def on_settings_changed(self):
-        """Called synchronously after the web UI saves settings.
+    def notify_settings_changed(self):
+        """Web-server -> main-loop handoff: request that saved settings be applied.
 
-        Override to immediately rebuild display content. Must be synchronous —
-        it is called from an adafruit_httpserver route handler.
+        This is the ONLY thing a web server may do besides writing settings —
+        it must never mutate display/queue state itself (that's owned solely by
+        the display-loop task). Sets a flag; the display loop applies the
+        settings (and calls on_settings_changed()) at its next frame boundary.
+        Safe to call from a synchronous route handler, and safe to call more
+        than once before the loop next runs (multiple saves coalesce into one
+        apply — settings are re-read from disk, not queued).
+        """
+        self._settings_dirty = True
+
+    def on_settings_changed(self):
+        """Called by the display loop after a web-saved settings change is applied.
+
+        Override to immediately rebuild display content. Must be synchronous
+        and fast — it runs on the display-loop task, not in its own task, so it
+        blocks rendering while it runs.
         """
         pass
 

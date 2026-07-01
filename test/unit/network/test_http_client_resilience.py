@@ -32,7 +32,7 @@ class TestSessionRebuild:
 
         with patch.object(client, "_rebuild_session", return_value=True) as rebuild:
             with patch("asyncio.sleep", new=AsyncMock()):
-                with patch("scrollkit.network.http_client.logger"):
+                with patch("scrollkit.network.http_client._logger"):
                     resp = await client.get("https://example.com/api", max_retries=3)
 
         # threshold=2: attempt1 -> count 1, attempt2 -> count 2 -> rebuild fires.
@@ -51,7 +51,7 @@ class TestSessionRebuild:
 
         with patch.object(client, "_rebuild_session", return_value=True) as rebuild:
             with patch("asyncio.sleep", new=AsyncMock()):
-                with patch("scrollkit.network.http_client.logger"):
+                with patch("scrollkit.network.http_client._logger"):
                     resp = await client.get("https://example.com/api", max_retries=3)
 
         assert not rebuild.called
@@ -83,7 +83,7 @@ class TestSessionRebuild:
             "adafruit_requests": adafruit_requests,
         }
         with patch.dict(sys.modules, injected):
-            with patch("scrollkit.network.http_client.logger"):
+            with patch("scrollkit.network.http_client._logger"):
                 ok = client._rebuild_session()
 
         assert ok is True
@@ -112,7 +112,7 @@ class TestErrorSurfaced:
 
         with patch.object(client, "_rebuild_session", return_value=True):
             with patch("asyncio.sleep", new=AsyncMock()):
-                with patch("scrollkit.network.http_client.logger"):
+                with patch("scrollkit.network.http_client._logger"):
                     resp = await client.get("https://example.com/api", max_retries=3)
 
         assert resp.status_code == 500
@@ -130,7 +130,7 @@ class TestErrorSurfaced:
 
         assert client.seconds_since_last_success() is None
         with patch("asyncio.sleep", new=AsyncMock()):
-            with patch("scrollkit.network.http_client.logger"):
+            with patch("scrollkit.network.http_client._logger"):
                 resp = await client.get("https://example.com/api", max_retries=3)
 
         assert resp.status_code == 200
@@ -153,7 +153,7 @@ class TestSocketRelease:
         session.get.return_value = native
         client = _adafruit_client(session)
 
-        with patch("scrollkit.network.http_client.logger"):
+        with patch("scrollkit.network.http_client._logger"):
             resp = await client.get("https://example.com/api", max_retries=1)
 
         # Socket released: the native response was closed exactly once.
@@ -170,7 +170,7 @@ class TestSocketRelease:
         session.get.return_value = native
         client = _adafruit_client(session)
 
-        with patch("scrollkit.network.http_client.logger"):
+        with patch("scrollkit.network.http_client._logger"):
             resp = client.get_sync("https://example.com/api", max_retries=1)
 
         native.close.assert_called_once()
@@ -187,7 +187,7 @@ class TestSocketRelease:
         session.get.side_effect = natives
         client = _adafruit_client(session)
 
-        with patch("scrollkit.network.http_client.logger"):
+        with patch("scrollkit.network.http_client._logger"):
             for _ in range(10):
                 await client.get("https://example.com/api", max_retries=1)
 
@@ -202,7 +202,7 @@ class TestSocketRelease:
         session.post.return_value = native
         client = _adafruit_client(session)
 
-        with patch("scrollkit.network.http_client.logger"):
+        with patch("scrollkit.network.http_client._logger"):
             resp = await client.post("https://example.com/api", data={"a": 1})
 
         native.close.assert_called_once()
@@ -221,7 +221,7 @@ class TestSocketRelease:
         session.post.side_effect = boom
         client = _adafruit_client(session, session_rebuild_threshold=99)
 
-        with patch("scrollkit.network.http_client.logger"):
+        with patch("scrollkit.network.http_client._logger"):
             resp = await client.post("https://example.com/api", data={"a": 1})
 
         assert resp.status_code == 500
@@ -249,7 +249,7 @@ class TestWedgeRecovery:
 
         with patch.object(client, "_rebuild_session", side_effect=fake_rebuild):
             with patch("asyncio.sleep", new=AsyncMock()):
-                with patch("scrollkit.network.http_client.logger"):
+                with patch("scrollkit.network.http_client._logger"):
                     # First call wedged -> after 2 failures the session is rebuilt;
                     # the 3rd attempt in the same call uses the working session.
                     resp = await client.get("https://example.com/api", max_retries=3)

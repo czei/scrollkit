@@ -5,10 +5,14 @@ Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import json
 import gc
-from scrollkit.utils.error_handler import ErrorHandler
 
-# Initialize logger
-logger = ErrorHandler("error_log")
+
+def _logger():
+    # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
+    # not run merely from importing this module. Its own __new__ singleton
+    # guard makes repeat calls cheap.
+    from scrollkit.utils.error_handler import ErrorHandler
+    return ErrorHandler("error_log")
 
 class BaseResponse:
     """Base class for all response types with common functionality"""
@@ -46,7 +50,7 @@ class BaseResponse:
                     return self._json_cache
                 self._json_cache = json.loads(text_to_parse)
             except (ValueError, AttributeError) as e:
-                logger.error(e, f"JSON parse error: {str(e)}")
+                _logger().error(e, f"JSON parse error: {str(e)}")
                 raise ValueError(f"syntax error in JSON: {str(e)}")
         return self._json_cache
 
@@ -143,7 +147,7 @@ class HttpClient:
 
         # Platform detection
         try:
-            from scrollkit.display.display_factory import is_dev_mode
+            from scrollkit.network.wifi_manager import is_dev_mode
             dev_mode = is_dev_mode()
         except ImportError:
             dev_mode = False
@@ -208,7 +212,7 @@ class HttpClient:
                 self._note_success()
                 return resp
             except Exception as outer_error:
-                logger.error(outer_error, f"HTTP GET error (attempt {retry_count+1})")
+                _logger().error(outer_error, f"HTTP GET error (attempt {retry_count+1})")
                 last_error = outer_error
                 # Count the failure and, on a repeated failure, rebuild the
                 # (likely wedged) session so the NEXT retry uses a fresh socket
@@ -219,7 +223,7 @@ class HttpClient:
                 await _asyncio.sleep(0.5 + retry_count * 0.5)
 
         error_msg = str(last_error) if last_error else "Unknown error"
-        logger.error(None, f"All {max_retries} GET attempts to {url} failed: {error_msg}")
+        _logger().error(None, f"All {max_retries} GET attempts to {url} failed: {error_msg}")
         # Surface the real cause instead of an opaque empty body: the synthesized
         # 500 carries the exception on .error, and self.last_error stays set, so
         # the app can record why the outage happened and show it for diagnosis.
@@ -328,10 +332,10 @@ class HttpClient:
             ssl_context = ssl.create_default_context()
             self.session = adafruit_requests.Session(pool, ssl_context)
             gc.collect()
-            logger.info("Recreated HTTP session after repeated failures")
+            _logger().info("Recreated HTTP session after repeated failures")
             return True
         except Exception as e:
-            logger.error(e, "HTTP session rebuild failed")
+            _logger().error(e, "HTTP session rebuild failed")
             return False
 
     def seconds_since_last_success(self):
@@ -405,14 +409,14 @@ class HttpClient:
                 with self.urllib.urlopen(request, timeout=self.timeout) as response:
                     return UrllibResponse(response)
         except Exception as e:
-            logger.error(e, f"Error making POST request to {url}")
+            _logger().error(e, f"Error making POST request to {url}")
             self._note_failure(e)
             return MockResponse(status_code=500, text=str(e), error=e)
 
     def set_use_live_data(self, use_live_data):
         """Set whether to use live data or mock data."""
         self.use_live_data = use_live_data
-        logger.info(f"HTTP client: {'live' if use_live_data else 'mock'} data")
+        _logger().info(f"HTTP client: {'live' if use_live_data else 'mock'} data")
 
     def get_sync(self, url, headers=None, max_retries=3):
         """Synchronous wrapper for GET requests (CircuitPython compatible)."""
@@ -429,7 +433,7 @@ class HttpClient:
                     gc.collect()
                     resp = None
                     try:
-                        logger.debug(f"Sync GET: {url}")
+                        _logger().debug(f"Sync GET: {url}")
                         resp = self.session.get(url, headers=headers, timeout=self.timeout)
                         # Detach BEFORE _note_success/return so the native socket
                         # is freed by the finally on the success path too — leaking
@@ -453,7 +457,7 @@ class HttpClient:
                 else:
                     return MockResponse(status_code=500, text="No HTTP client available")
             except Exception as e:
-                logger.error(e, f"Sync GET error (attempt {retry_count+1})")
+                _logger().error(e, f"Sync GET error (attempt {retry_count+1})")
                 last_error = e
                 # Same repeated-failure session rebuild as the async path, so a
                 # wedged session self-recovers whichever entry point the app uses.
@@ -465,5 +469,5 @@ class HttpClient:
                     time.sleep(2 * retry_count)
 
         error_msg = str(last_error) if last_error else "Unknown error"
-        logger.error(None, f"All {max_retries} sync GET attempts to {url} failed: {error_msg}")
+        _logger().error(None, f"All {max_retries} sync GET attempts to {url} failed: {error_msg}")
         return MockResponse(status_code=500, text=f"Error: {error_msg}", error=last_error)
