@@ -13,6 +13,8 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 
 
+__all__ = ['DisplayInterface']
+
 class DisplayInterface:
     """Base interface for all display implementations."""
 

@@ -17,6 +17,8 @@ per-frame loop. Every function takes/returns packed ``0xRRGGBB`` ints.
 """
 
 
+__all__ = ['wheel', 'spectrum', 'lerp', 'gradient', 'multi_gradient', 'scale', 'depth_palette', 'hsv']
+
 def _clamp8(v):
     if v < 0:
         return 0

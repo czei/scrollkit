@@ -9,6 +9,8 @@ import gc
 from scrollkit.exceptions import NetworkError
 
 
+__all__ = ['HttpClient', 'BaseResponse', 'UrllibResponse', 'MockResponse']
+
 def _logger():
     # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
     # not run merely from importing this module. Its own __new__ singleton

@@ -3,6 +3,96 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.2] - 2026-07-01
+
+A pre-1.0 legacy-cleanup release: remove dead code and trap APIs, fix real bugs,
+and lock down the public surface before a 1.0 freeze. Contains breaking removals
+(pre-1.0 semver permits them); the one downstream app (ThemeParkWaits) is
+migrated in lockstep.
+
+### Removed
+
+- The entire dead pre-consolidation display pipeline: `scrollkit.content_classes`,
+  the top-level `scrollkit.content` shim, `scrollkit.display.strategy` (its
+  `DisplayStrategy`/`StrategyRegistry`/`DisplayItem`/`*Strategy` classes),
+  `scrollkit.display.queue` (`DisplayQueue`), and `scrollkit.display.manager`
+  (`DisplayManager`). These had zero production consumers; `content_classes`'
+  `create_*`/`example_usage()` were a *trap* (they built `DisplayItem`s the live
+  `ContentQueue` never consumed). **`Priority` survives, relocated to
+  `scrollkit.display.content`.**
+- `scrollkit.app.minimal` (`MinimalLEDApp`) — disjoint from `ScrollKitApp`,
+  nothing built on it, and its desktop fallback was broken.
+- `scrollkit.ota.updater` (`OTAUpdater`) and `scrollkit.ota.server` (`OTAServer`)
+  — unused duplicates of `ota.client` / `ota.publish`.
+- Zero-importer orphans: `scrollkit.utils.timer`, `scrollkit.utils.image_processor`,
+  `scrollkit.simulator.devices.generic_matrix`,
+  `scrollkit.simulator.adafruit_display_text.bitmap_label`,
+  `scrollkit.simulator.terminalio.font_scaler`.
+- `wifi_manager`'s unused captive-portal web server, `_save_to_secrets_file`, the
+  no-op `update_http_clients`, and the unreachable (shadowed) `is_connected()`
+  method.
+- `DisplayInterface.scroll_text` / `SimulatorDisplay.scroll_text` — no callers;
+  silently no-op'd on hardware.
+- Nine caught-but-never-raised / dead exception classes (see below).
+
+### Changed / Renamed
+
+- `scrollkit.display.gradient_text._GradientTextLayer` → public `GradientTextLayer`
+  (old name kept as an alias through 0.9.x).
+- Exception base `SLDKError` → `ScrollKitError` (old name kept as an alias). The
+  hierarchy is collapsed to only what the library raises: `ScrollKitError`,
+  `NetworkError`, `OTAError`, `FeasibilityError`. `DisplayError`, `ContentError`,
+  `ConfigurationError`, `WebServerError`, `DeploymentError`, `SimulatorError`,
+  `ResourceNotFoundError`, `UpdateError`, `ValidationError` are removed.
+- `HttpClient.get` / `get_sync` / `post` now **raise `NetworkError`** when every
+  retry fails, instead of returning a synthesized `500` response.
+  `HttpClient.last_error` retains the raw underlying cause. `OTAClient` raises
+  `NetworkError`/`OTAError` internally but preserves its public `(ok, reason)`
+  tuple contract.
+- `scrollkit.dev.performance.as_text` → `performance_text` (removes a name
+  collision with `dev.capabilities.as_text`).
+- `MinimalLEDApp.COLORS` → `scrollkit.utils.color_utils.NAMED_COLORS`.
+- `scrollkit.effects` is now import-free: import each effect from its submodule
+  (`effects.transitions`, `effects.reveal_splash`, `effects.particles`, …) — a
+  no-splash app no longer loads the particle/splash modules just to use a
+  transition. No plugin/registry was added.
+
+### Fixed
+
+- The settings web server no longer mutates display/queue state from the request
+  handler; it sets a flag the display loop applies via the new
+  `ScrollKitApp.notify_settings_changed()`.
+- `HttpClient` platform detection imported a retired module
+  (`display.display_factory.is_dev_mode`), silently always falling back to
+  production mode; it now uses `network.wifi_manager.is_dev_mode`.
+- Import-time side effects removed: `config.settings_manager`,
+  `network.http_client`, and `network.wifi_manager` no longer construct an
+  `ErrorHandler` (which write-tests the filesystem) merely on import.
+- Two banned `json.JSONDecodeError` uses in `ota.client` / `ota.manifest` (would
+  raise `AttributeError` on CircuitPython) → `ValueError`.
+
+### Internal
+
+- `__all__` added to every public module; a new `test/unit/docs/` gate executes
+  every `import` shown in the README/docs so advertised APIs can't drift.
+- Simulator device setup shared between `UnifiedDisplay` and `SimulatorDisplay`
+  via `display/_sim_backend.py`.
+- Device deploy (`make copy-to-circuitpy` / `make mpy`) now excludes the
+  desktop-only `dev/` and `simulator/` trees and the host-only `ota/publish.py`.
+
+### Migration
+
+| Old | New |
+|-----|-----|
+| `from scrollkit.app.minimal import MinimalLEDApp` | `from scrollkit.app.base import ScrollKitApp` |
+| `from scrollkit.content import ...` | `from scrollkit.display.content import ...` |
+| `from scrollkit.display.strategy import Priority` | `from scrollkit.display.content import Priority` |
+| `from scrollkit.display.queue import DisplayQueue` | `from scrollkit.display.content import ContentQueue` |
+| `from scrollkit.display.gradient_text import _GradientTextLayer` | `... import GradientTextLayer` |
+| `from scrollkit.effects import SwarmReveal` | `from scrollkit.effects.swarm_reveal import SwarmReveal` |
+| `from scrollkit.exceptions import SLDKError` | `... import ScrollKitError` (alias still works) |
+| `resp = await client.get(url)` then check `resp.status_code == 500` | `try: resp = await client.get(url)` / `except NetworkError:` |
+
 ## [0.8.1] - 2026-06-28
 
 ### Added

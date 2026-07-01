@@ -29,6 +29,8 @@ from __future__ import annotations
 import os
 
 
+__all__ = ['OTAProgressDisplay']
+
 class OTAProgressDisplay:
     """Display-progress adapter + staged-install flow over an ``OTAClient``."""
 

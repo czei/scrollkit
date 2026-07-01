@@ -59,6 +59,8 @@ from ._graphics import GraphicsMixin
 from .boards import resolve_board
 
 
+__all__ = ['UnifiedDisplay', 'IS_CIRCUITPYTHON']
+
 class UnifiedDisplay(GraphicsMixin, DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
     

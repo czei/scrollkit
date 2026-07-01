@@ -43,6 +43,8 @@ except ImportError:
     random = SimpleRandom()
 
 
+__all__ = ['ParticleEngine', 'Particle', 'Sparkle', 'RainDrop', 'Ember', 'Snow']
+
 class ParticleEngine:
     """Lightweight particle engine for ESP32."""
     

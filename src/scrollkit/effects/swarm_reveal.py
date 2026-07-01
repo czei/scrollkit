@@ -49,6 +49,8 @@ _MAX_NUDGE = 0.10         # random per-frame jitter (organic wander)
 _CAPTURE_DIST = 0.9       # a bird captures its target once this close to it
 
 
+__all__ = ['SwarmReveal', 'show_swarm_splash']
+
 class _Bird:
     def __init__(self, x, y, vx, vy):
         self.x = x

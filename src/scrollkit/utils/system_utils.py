@@ -57,6 +57,8 @@ _MONTHS = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
            "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
 
 
+__all__ = ['set_system_clock', 'set_system_clock_ntp', 'DEFAULT_NTP_SERVERS', 'DEFAULT_HTTP_DATE_HOSTS']
+
 async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
                                socket_timeout=5):
     """

@@ -10,6 +10,8 @@ Python loop, never a per-frame allocation. Runs unchanged on device and simulato
 """
 
 
+__all__ = ['OverlayMask']
+
 class OverlayMask:
     """A reusable full-screen mask layer for cover -> swap -> reveal transitions.
 

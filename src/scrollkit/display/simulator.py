@@ -42,6 +42,8 @@ from ._graphics import GraphicsMixin
 from .boards import resolve_board
 
 
+__all__ = ['SimulatorDisplay']
+
 class SimulatorDisplay(GraphicsMixin, DisplayInterface):
     """Simulator display implementation for desktop development."""
 

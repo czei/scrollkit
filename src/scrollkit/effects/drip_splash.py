@@ -45,6 +45,8 @@ Typical usage::
 import asyncio
 
 
+__all__ = ['DripReveal', 'show_drip_splash']
+
 class DripReveal:
     """Frame-driven drip-in of a fixed set of target pixels from an edge.
 

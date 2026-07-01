@@ -30,6 +30,8 @@ LOOP_FPS = 20
 _settings = None
 
 
+__all__ = ['Priority', 'DisplayContent', 'StaticText', 'ScrollingText', 'ContentQueue', 'LOOP_FPS']
+
 def _resolve_color(color):
     """Resolve a color argument to an int.
 

@@ -58,8 +58,13 @@ install-lint-deps:
 # An application's own code.py/boot.py live in the app, not in this repo.
 copy-to-circuitpy: lint-errors
 	@test -d "$(CIRCUITPY)" || { echo "CIRCUITPY not mounted at $(CIRCUITPY)"; exit 1; }
-	rsync -av --update --progress \
+	# --delete (dedicated lib/scrollkit dir) so retired modules disappear from the
+	# device on redeploy. dev/ and simulator/ are desktop-only (their imports from
+	# device code are guarded/lazy) and ota/publish.py is host/CI-only, so none
+	# ship to the RAM/flash-constrained board.
+	rsync -av --delete --progress \
 		--exclude='__pycache__' --exclude='*.pyc' --exclude='.DS_Store' \
+		--exclude='dev/' --exclude='simulator/' --exclude='ota/publish.py' \
 		$(SRC_DIR)/scrollkit/ "$(CIRCUITPY)/lib/scrollkit/"
 
 # Cross-compile scrollkit to .mpy (smaller RAM + faster boot on device).
@@ -69,7 +74,11 @@ mpy:
 	@command -v $(MPY_CROSS) >/dev/null 2>&1 || { echo "mpy-cross not found. Install one matching your CircuitPython version: pip install mpy-cross"; exit 1; }
 	@echo "Compiling src/scrollkit -> build/scrollkit (.mpy)..."
 	@rm -rf build/scrollkit
-	@find src/scrollkit -name '*.py' | while read f; do \
+	@# Prune the desktop-only dev/ and simulator/ trees and the host-only
+	@# ota/publish.py — they never run on the device, so don't cross-compile them.
+	@find src/scrollkit \
+		\( -path 'src/scrollkit/dev' -o -path 'src/scrollkit/simulator' \) -prune -o \
+		-name '*.py' ! -path 'src/scrollkit/ota/publish.py' -print | while read f; do \
 		out="build/$${f#src/}"; out="$${out%.py}.mpy"; \
 		mkdir -p "$$(dirname "$$out")"; \
 		$(MPY_CROSS) "$$f" -o "$$out" || exit 1; \

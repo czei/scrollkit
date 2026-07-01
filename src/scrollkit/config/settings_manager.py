@@ -7,6 +7,8 @@ import json
 from scrollkit.config.transition_names import TRANSITION_NAMES
 
 
+__all__ = ['SettingsManager']
+
 def _logger():
     # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
     # not run merely from importing this module. Its own __new__ singleton

@@ -68,6 +68,8 @@ EXCLUDED_RELPATHS = frozenset({"logs/error_log"})
 EXCLUDED_SUFFIXES = (".pyc",)
 
 
+__all__ = ['build_manifest', 'publish_to_branch', 'PublishPlan', 'main']
+
 def _is_excluded(rel_posix, extra=()):
     """Return True if a file (path relative to ``src``, posix) must not ship."""
     extra = set(extra)

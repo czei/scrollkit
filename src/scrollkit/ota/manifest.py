@@ -14,6 +14,8 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 
 
+__all__ = ['UpdateManifest']
+
 class UpdateManifest:
     """Manages update manifest for OTA system.
 

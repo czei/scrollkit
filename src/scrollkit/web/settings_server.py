@@ -26,6 +26,8 @@ _SEE_OTHER = (303, "See Other")
 _POLL_INTERVAL = 0.05   # seconds between poll() calls (~20×/s, matches display loop)
 
 
+__all__ = ['SettingsWebServer']
+
 def _url_decode(s):
     """Decode application/x-www-form-urlencoded value.
 

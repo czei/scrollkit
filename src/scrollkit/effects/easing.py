@@ -27,6 +27,8 @@ ELASTIC = "elastic"
 CURVES = (LINEAR, EASE_OUT_QUAD, EASE_IN_OUT, OVERSHOOT, BOUNCE, ELASTIC)
 
 
+__all__ = ['ease', 'interp', 'CURVES', 'LINEAR', 'EASE_OUT_QUAD', 'EASE_IN_OUT', 'OVERSHOOT', 'BOUNCE', 'ELASTIC']
+
 def _clamp_byte(v):
     if v < 0:
         return 0

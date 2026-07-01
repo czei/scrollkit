@@ -30,6 +30,8 @@ DEFAULT_PALETTE_STEPS = 8
 MAX_PALETTE_STEPS = 15
 
 
+__all__ = ['gradient_directions', 'normalize_direction', 'clamp_palette_steps', 'GRADIENT_DIRECTIONS', 'DEFAULT_PALETTE_STEPS', 'MAX_PALETTE_STEPS']
+
 def gradient_directions():
     """The supported gradient ``direction`` values, as a tuple of strings."""
     return GRADIENT_DIRECTIONS

@@ -38,6 +38,8 @@ else:
         PLATFORM = 'unknown'
 
 
+__all__ = ['OTAClient']
+
 class OTAClient:
     """OTA update client for CircuitPython devices.
 

@@ -17,6 +17,8 @@ from scrollkit.config.settings_manager import SettingsManager
 from scrollkit.utils.url_utils import load_credentials
 
 
+__all__ = ['WiFiManager', 'is_dev_mode']
+
 def _logger():
     # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
     # not run merely from importing this module. Its own __new__ singleton

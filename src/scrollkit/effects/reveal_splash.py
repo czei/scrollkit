@@ -27,6 +27,8 @@ import asyncio
 import random
 
 
+__all__ = ['show_reveal_splash', 'pixels_from_text']
+
 def _simple_shuffle(lst):
     """In-place Fisher-Yates shuffle — random.shuffle is not on CircuitPython."""
     for i in range(len(lst) - 1, 0, -1):

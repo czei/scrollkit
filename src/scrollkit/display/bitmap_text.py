@@ -103,6 +103,8 @@ _RAINBOW = spectrum(RAMP)
 RAINBOW = _RAINBOW
 
 
+__all__ = ['BitmapText', 'RainbowChase', 'NeonTubeCrawl', 'ChromeSheen', 'HazardStripes', 'MonoChase', 'palette_effects_for', 'rainbow_color', 'FONT_5x7']
+
 def rainbow_color(step):
     """A flowing rainbow colour for integer ``step`` (wraps around the ramp)."""
     return _RAINBOW[step % RAMP]

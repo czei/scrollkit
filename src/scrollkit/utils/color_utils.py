@@ -27,6 +27,8 @@ NAMED_COLORS = {
 }
 
 
+__all__ = ['ColorUtils', 'NAMED_COLORS']
+
 class ColorUtils:
     """Utilities for handling colors and conversions"""
     

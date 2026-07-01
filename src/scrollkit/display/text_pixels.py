@@ -40,6 +40,8 @@ compatibility.
 _MISSING_ADVANCE = 4
 
 
+__all__ = ['pixels_from_font_text', 'font_text_width', 'font_text_ascent']
+
 def _glyph_fields(glyph):
     """Normalise a glyph (dict on simulator, object on device) to a tuple.
 

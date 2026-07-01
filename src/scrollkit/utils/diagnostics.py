@@ -60,6 +60,8 @@ _REASON_NAMES = ("UNKNOWN", "POWER_ON", "BROWNOUT", "SOFTWARE",
                  "DEEP_SLEEP_ALARM", "RESET_PIN", "WATCHDOG")
 
 
+__all__ = ['Diagnostics', 'open', 'read_reset_reason', 'MSG_MAX', 'RAPID_BOOT_LIMIT']
+
 class Diagnostics:
     """Compact NVM-backed boot/crash record. All methods are failure-tolerant."""
 

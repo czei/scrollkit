@@ -30,6 +30,8 @@ import gc
 DESKTOP_FREE_BYTES = 100_000
 
 
+__all__ = ['free_memory', 'DESKTOP_FREE_BYTES']
+
 def free_memory():
     """Best estimate of free RAM in bytes.
 

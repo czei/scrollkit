@@ -32,6 +32,8 @@ DEFAULT_BOARD_ID = MATRIXPORTAL_S3
 # Each returns the triple UnifiedDisplay stores: (hardware, display, matrix).
 # Imports are function-local on purpose — see the module docstring.
 
+__all__ = ['BoardSpec', 'BOARDS', 'resolve_board', 'detect_board_id', 'DEFAULT_BOARD_ID', 'MATRIXPORTAL_S3', 'INTERSTATE75_W']
+
 def _make_matrix_s3(spec, width, height, bit_depth):
     """Adafruit MatrixPortal S3: the adafruit_matrixportal wrapper (unchanged)."""
     from adafruit_matrixportal.matrix import Matrix

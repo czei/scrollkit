@@ -9,6 +9,8 @@ from __future__ import annotations
 import asyncio
 
 
+__all__ = ['SLDKApp', 'ScrollKitApp']
+
 def create_task(coro):
     """Schedule a coroutine as a Task.
 

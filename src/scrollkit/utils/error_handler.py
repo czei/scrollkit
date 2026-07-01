@@ -13,6 +13,8 @@ except (ImportError, AttributeError):
     # `storage is not None`, and tests patch this name).
     storage = None
 
+__all__ = ['ErrorHandler']
+
 class ErrorHandler:
     """
     Centralized error handling and logging facility.

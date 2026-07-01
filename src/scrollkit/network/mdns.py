@@ -18,6 +18,8 @@ name resolution fails (intermittently — after the first cached query expires):
 from __future__ import annotations
 
 
+__all__ = ['advertise']
+
 def advertise(hostname, *, port=80, service_type="_http", protocol="_tcp"):
     """Advertise ``<hostname>.local`` over mDNS and register a service.
 

@@ -26,3 +26,6 @@ TRANSITION_NAMES = (
     "CRT Collapse",
     "Light Slit",
 )
+
+
+__all__ = ['TRANSITION_NAMES']

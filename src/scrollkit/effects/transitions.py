@@ -17,6 +17,8 @@ from .easing import ease, EASE_IN_OUT
 from .overlay import OverlayMask
 
 
+__all__ = ['Transition', 'transition_factory', 'supported_names', 'transitions_for', 'IrisSnap', 'VenetianShutters', 'MosaicResolve', 'CRTCollapse', 'LightSlitRewrite', 'PixelDissolve', 'ColumnRain', 'GradualReveal', 'ScanFold', 'HorizontalWipe', 'GlitchBars', 'DiagonalWipe', 'DropFromSky']
+
 def _shuffle(lst):
     """In-place Fisher-Yates — random.shuffle is absent on CircuitPython."""
     import random
