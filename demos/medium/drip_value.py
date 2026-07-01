@@ -36,7 +36,8 @@ except (AttributeError, ImportError):
 import asyncio
 
 from scrollkit.app.base import ScrollKitApp
-from scrollkit.effects import DripReveal, pixels_from_font_text, font_text_width
+from scrollkit.effects.drip_splash import DripReveal
+from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 
 # Values to cycle through (think: successive ride wait times, in minutes).
 VALUES = ["5", "25", "60", "120", "15"]

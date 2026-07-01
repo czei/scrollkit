@@ -120,14 +120,30 @@ def _priorities():
 
 
 def _effects():
-    from .. import effects as _fx
-    names = getattr(_fx, "__all__", None) or [n for n in dir(_fx)
-                                              if not n.startswith("_")]
+    """``[{name, doc}]`` for the standalone splash/particle effect classes.
+
+    Deep-imports each submodule directly (``effects/__init__.py`` is
+    deliberately import-free — see its docstring) so this catalog build never
+    loads a heavier module than the one it's cataloging.
+    """
     out = []
-    for name in names:
-        obj = getattr(_fx, name, None)
-        if inspect.isclass(obj) and not inspect.isabstract(obj):
+    try:
+        from ..effects.particles import ParticleEngine, Sparkle, Snow
+        for name, obj in (("ParticleEngine", ParticleEngine),
+                          ("Sparkle", Sparkle), ("Snow", Snow)):
             out.append({"name": name, "doc": _first_line(obj)})
+    except ImportError:
+        pass
+    try:
+        from ..effects.drip_splash import DripReveal
+        out.append({"name": "DripReveal", "doc": _first_line(DripReveal)})
+    except ImportError:
+        pass
+    try:
+        from ..effects.swarm_reveal import SwarmReveal
+        out.append({"name": "SwarmReveal", "doc": _first_line(SwarmReveal)})
+    except ImportError:
+        pass
     return out
 
 

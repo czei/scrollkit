@@ -7,9 +7,12 @@ gradient text-fill renderer in ``display/`` can share the one glyph→pixel
 function without ``display`` importing ``effects`` (which would form a cycle and
 pull the RAM-heavy particle/splash modules in just to render text).
 
-Every existing import path keeps working unchanged:
-``from scrollkit.effects import pixels_from_font_text`` and
-``from .text_render import pixels_from_font_text`` both still resolve here.
+Import from either this module or the real implementation directly:
+``from scrollkit.effects.text_render import pixels_from_font_text`` and
+``from scrollkit.display.text_pixels import pixels_from_font_text`` both
+resolve to the same function. (``scrollkit.effects`` itself is deliberately
+import-free — see its ``__init__.py`` — so the package-level
+``from scrollkit.effects import pixels_from_font_text`` no longer works.)
 """
 
 from ..display.text_pixels import (  # noqa: F401  (re-export)

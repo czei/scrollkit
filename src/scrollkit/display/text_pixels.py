@@ -142,7 +142,7 @@ def pixels_from_font_text(font, text, x=0, y=0, scale=1):
 
     Example — a 2x wait-time number, centred on a 64-wide display::
 
-        from scrollkit.effects import pixels_from_font_text
+        from scrollkit.display.text_pixels import pixels_from_font_text
         # width is len*advance*scale; centre it, then drip these pixels in.
         px = pixels_from_font_text(display.font, "45", x=20, y=8, scale=2)
     """

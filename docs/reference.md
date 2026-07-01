@@ -45,7 +45,8 @@ from scrollkit.display.content import DisplayContent, StaticText, ScrollingText,
 
 ```python
 from scrollkit.effects.transitions import transition_factory, Transition
-from scrollkit.effects import ParticleEngine, show_reveal_splash
+from scrollkit.effects.particles import ParticleEngine
+from scrollkit.effects.reveal_splash import show_reveal_splash
 ```
 
 ## Web

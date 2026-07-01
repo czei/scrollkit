@@ -88,7 +88,8 @@ def test_removed_module_is_gone(modname):
 
 @pytest.mark.parametrize("name", REMOVED_NAMES)
 def test_removed_name_not_exported(name):
-    assert name not in (fx.__all__ or [])
+    # effects/__init__.py is import-free (0.8.2) and carries no __all__ at all.
+    assert name not in (getattr(fx, "__all__", None) or [])
     with pytest.raises(AttributeError):
         getattr(fx, name)
 

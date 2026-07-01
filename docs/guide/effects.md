@@ -60,7 +60,8 @@ for splash screens and a frame-driven class (`DripReveal` / `SwarmReveal`) for u
 inside a running loop.
 
 ```python
-from scrollkit.effects import pixels_from_text, show_drip_splash
+from scrollkit.effects.reveal_splash import pixels_from_text
+from scrollkit.effects.drip_splash import show_drip_splash
 
 px = pixels_from_text("PIXEL", x=17, y=8) + pixels_from_text("RAIN", x=20, y=20)
 await show_drip_splash(display, px, color=0x00CCFF)

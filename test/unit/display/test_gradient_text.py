@@ -464,9 +464,8 @@ def test_feasibility_metadata_on_public_classes():
 def test_text_render_shim_re_exports_relocated_helpers():
     from scrollkit.display import text_pixels as tp
     from scrollkit.effects import text_render as tr
-    from scrollkit.effects import pixels_from_font_text as pkg_level
     # Same objects via every historical import path (no behavioural drift).
-    assert tr.pixels_from_font_text is tp.pixels_from_font_text is pkg_level
+    assert tr.pixels_from_font_text is tp.pixels_from_font_text
     assert tr.font_text_width is tp.font_text_width
     assert tr._glyph_fields is tp._glyph_fields
     assert tr._MISSING_ADVANCE == tp._MISSING_ADVANCE

@@ -371,10 +371,9 @@ def _splash_body(slug):
     text, _ = SPLASHES[slug]
 
     async def body(display):
-        from scrollkit.effects import (
-            pixels_from_text, show_reveal_splash, show_drip_splash,
-            show_swarm_splash,
-        )
+        from scrollkit.effects.reveal_splash import pixels_from_text, show_reveal_splash
+        from scrollkit.effects.drip_splash import show_drip_splash
+        from scrollkit.effects.swarm_reveal import show_swarm_splash
         px = pixels_from_text(text, x=_center_x_pixels(text), y=12)
         if slug == "reveal":
             await show_reveal_splash(display, px, color=0xFFEE33,

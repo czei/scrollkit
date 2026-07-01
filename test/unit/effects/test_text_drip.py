@@ -12,13 +12,12 @@ import pytest
 pygame = pytest.importorskip("pygame")
 
 from scrollkit.display.simulator import SimulatorDisplay
-from scrollkit.effects import (
-    DripReveal,
-    show_drip_splash,
+from scrollkit.effects.drip_splash import DripReveal, show_drip_splash
+from scrollkit.effects.text_render import (
     pixels_from_font_text,
     font_text_width,
+    _glyph_fields,
 )
-from scrollkit.effects.text_render import _glyph_fields
 
 
 def test_feasibility_lives_on_the_class_not_the_function():

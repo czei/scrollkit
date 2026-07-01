@@ -34,7 +34,8 @@ Two ways to use it:
 
 Typical usage::
 
-    from scrollkit.effects import show_drip_splash, pixels_from_text
+    from scrollkit.effects.drip_splash import show_drip_splash
+    from scrollkit.effects.reveal_splash import pixels_from_text
 
     px = pixels_from_text("PIXEL", x=17, y=8)
     px += pixels_from_text("RAIN", x=20, y=20)

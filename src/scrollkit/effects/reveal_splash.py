@@ -12,7 +12,7 @@ desktop and the hardware one on CircuitPython.
 
 Typical usage::
 
-    from scrollkit.effects import show_reveal_splash, pixels_from_text
+    from scrollkit.effects.reveal_splash import show_reveal_splash, pixels_from_text
 
     # Build a pixel list from text using the built-in 5x7 font.
     px = pixels_from_text("SCROLL", x=14, y=8)

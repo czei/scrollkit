@@ -33,7 +33,8 @@ except (AttributeError, ImportError):
 import asyncio
 
 from scrollkit.app.base import ScrollKitApp
-from scrollkit.effects import SwarmReveal, pixels_from_text
+from scrollkit.effects.swarm_reveal import SwarmReveal
+from scrollkit.effects.reveal_splash import pixels_from_text
 
 # "SCROLL" / "KIT" on two lines (same layout as the reveal/drip demos).
 LOGO_PIXELS = (

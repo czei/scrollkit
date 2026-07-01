@@ -12,7 +12,8 @@ import pytest
 pygame = pytest.importorskip("pygame")
 
 from scrollkit.display.simulator import SimulatorDisplay
-from scrollkit.effects import SwarmReveal, show_swarm_splash, pixels_from_text
+from scrollkit.effects.swarm_reveal import SwarmReveal, show_swarm_splash
+from scrollkit.effects.reveal_splash import pixels_from_text
 
 
 def test_feasibility_lives_on_the_class_not_the_function():

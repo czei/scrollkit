@@ -30,7 +30,7 @@ import asyncio
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText
-from scrollkit.effects import show_reveal_splash, pixels_from_text
+from scrollkit.effects.reveal_splash import show_reveal_splash, pixels_from_text
 
 
 # ---------------------------------------------------------------------------
