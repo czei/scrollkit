@@ -248,28 +248,23 @@ class TestWiFiManager:
             
             # Mock load_credentials
             with patch('scrollkit.network.wifi_manager.load_credentials') as mock_load_credentials:
-                # Mock _save_to_secrets_file method
-                with patch.object(WiFiManager, '_save_to_secrets_file', MagicMock()) as mock_save_to_secrets:
-                    # Mock logger to prevent actual logging
-                    with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
-                        mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
-                        
-                        # Mock the import statement
-                        with patch.dict('sys.modules', {'wifi': mock_wifi}):
-                            # Create WiFiManager
-                            wifi_manager = WiFiManager(mock_sm)
-                            
-                            # Update credentials
-                            wifi_manager.ssid = "NewSSID"
-                            wifi_manager.password = "NewPassword"
-                            
-                            # Save credentials
-                            wifi_manager.save_credentials()
-                            
-                            # Verify credentials were saved to settings manager
-                            assert mock_sm.settings["wifi_ssid"] == "NewSSID"
-                            assert mock_sm.settings["wifi_password"] == "NewPassword"
-                            assert mock_sm.save_settings.called
-                            
-                            # Verify attempt to save to secrets.py file
-                            assert mock_save_to_secrets.called
+                # Mock logger to prevent actual logging
+                with patch('scrollkit.network.wifi_manager.logger') as mock_logger:
+                    mock_load_credentials.return_value = ('TestSSID', 'TestPassword')
+
+                    # Mock the import statement
+                    with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                        # Create WiFiManager
+                        wifi_manager = WiFiManager(mock_sm)
+
+                        # Update credentials
+                        wifi_manager.ssid = "NewSSID"
+                        wifi_manager.password = "NewPassword"
+
+                        # Save credentials
+                        wifi_manager.save_credentials()
+
+                        # Verify credentials were saved to settings manager
+                        assert mock_sm.settings["wifi_ssid"] == "NewSSID"
+                        assert mock_sm.settings["wifi_password"] == "NewPassword"
+                        assert mock_sm.save_settings.called

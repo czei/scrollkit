@@ -10,8 +10,8 @@ feedback instead of a stack trace, and can decide whether the app is ready.
 
 Design note: this reports the *real* behavior of the imperative content classes.
 A color name string, for example, is flagged as an error (it would crash
-``draw_text``) rather than being quietly "fixed" — only ``MinimalLEDApp`` maps
-names to colors. Honest root-cause feedback over papering over the problem.
+``draw_text``, which expects an int) rather than being quietly "fixed". Honest
+root-cause feedback over papering over the problem.
 
 Desktop-only (imported via ``scrollkit.dev``).
 """

@@ -164,8 +164,6 @@ boot/OTA flow.
 | `ota.manifest` | `UpdateManifest` — version, file list, checksums, requirements |
 | `ota.display_progress` | `OTAProgressDisplay` — display-progress + staged-install UI over a client (device) |
 | `ota.publish` | `build_manifest` / `publish_to_branch` — produce + publish a release (**desktop / CI only**) |
-| `ota.server` | `OTAServer` — host manifests/packages (desktop / CI) |
-| `ota.updater` | thin orchestration over the client |
 
 ## Pre/post-update scripts (trust model)
 

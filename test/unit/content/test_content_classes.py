@@ -4,7 +4,8 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from scrollkit.content import StaticText, ScrollingText, RainbowText
+from scrollkit.display.content import StaticText, ScrollingText
+from test.helpers import RainbowText
 import scrollkit.display.content as _cnt
 
 

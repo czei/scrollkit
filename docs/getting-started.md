@@ -28,51 +28,43 @@ import asyncio
 import sys
 sys.path.insert(0, "src")
 
-from scrollkit.app.minimal import MinimalLEDApp
+from scrollkit.app.base import ScrollKitApp
+from scrollkit.display.content import ScrollingText
 
-MinimalLEDApp().scroll_text("Hello, World!", color=(0, 255, 128))
+class HelloWorldApp(ScrollKitApp):
+    async def setup(self):
+        self.content_queue.add(
+            ScrollingText("Hello, World!", y=12, color=(0, 255, 128)))
+
+asyncio.run(HelloWorldApp().run())
 ```
 
 On desktop this opens a window showing the simulated 64×32 matrix. On a supported
 CircuitPython board (the MatrixPortal S3 or the Interstate 75 W) the identical
 code drives the physical panel.
 
-## Two ways to write an app
+## Writing an app
 
-=== "MinimalLEDApp (simple)"
+Subclass `ScrollKitApp` and override the hooks you need; the framework runs
+them as cooperative async tasks.
 
-    Best for quick scripts and the lowest memory footprint.
+```python
+import asyncio
+from scrollkit.app.base import ScrollKitApp
+from scrollkit.display.content import ScrollingText
 
-    ```python
-    from scrollkit.app.minimal import MinimalLEDApp
+class MyApp(ScrollKitApp):
+    def __init__(self):
+        super().__init__(enable_web=False, update_interval=60)
 
-    app = MinimalLEDApp()
-    app.show_text("Ready", color="green")
-    app.scroll_text("Live in 3... 2... 1...")
-    ```
+    async def setup(self):
+        self.content_queue.add(ScrollingText("Hello from ScrollKit"))
 
-=== "ScrollKitApp (full)"
+    async def update_data(self):
+        ...  # fetch fresh data every update_interval seconds
 
-    Subclass it for real applications. Override the hooks you need; the
-    framework runs them as cooperative async tasks.
-
-    ```python
-    import asyncio
-    from scrollkit.app.base import ScrollKitApp
-    from scrollkit.display.content import ScrollingText
-
-    class MyApp(ScrollKitApp):
-        def __init__(self):
-            super().__init__(enable_web=False, update_interval=60)
-
-        async def setup(self):
-            self.content_queue.add(ScrollingText("Hello from ScrollKit"))
-
-        async def update_data(self):
-            ...  # fetch fresh data every update_interval seconds
-
-    asyncio.run(MyApp().run())
-    ```
+asyncio.run(MyApp().run())
+```
 
 ## Deploying to hardware
 

@@ -1,7 +1,7 @@
 # Display
 
 `scrollkit.display` is the heart of the library: the display abstraction, the
-content types, and the priority queue.
+content types, and the content queue.
 
 ## UnifiedDisplay
 
@@ -45,24 +45,25 @@ fills pass a `palette` — see [Gradient Text](gradient-text.md).
 <figure markdown="span">![ScrollingText static](../assets/reference/content/scrollingtext-static.gif){ width="280" }<figcaption>`ScrollingText(..., speed=0)` — centred static</figcaption></figure>
 </div>
 
-## Priority & eviction
+## ContentQueue
 
-`scrollkit.display.queue.DisplayQueue` is a priority-ordered queue with the
-high-level API `add`, `peek`, `pop`, `expire`, `len()`. Priorities come from
-`scrollkit.display.strategy.Priority`: `IDLE < LOW < NORMAL < HIGH < SYSTEM`.
+`scrollkit.display.content.ContentQueue` is the queue `ScrollKitApp.content_queue`
+uses. It's a simple **looping** queue, not priority-ordered: `add(content)`
+appends; the display loop calls `await get_current()` each frame, which shows
+the current item until `is_complete`, then advances to the next and loops back
+to the start when `loop=True` (the default). `clear()` empties it (and defers
+the abandoned item's async `stop()` to the next frame, so any layer it added —
+e.g. a transition overlay — gets detached cleanly).
 
-When the queue is full, `add()` follows this eviction policy:
+```python
+from scrollkit.display.content import ContentQueue, StaticText, ScrollingText
 
-- **SYSTEM** items are always admitted — they evict the lowest-priority, oldest
-  non-SYSTEM item to make room, and are themselves never evicted by `add()`.
-- A higher-priority item displaces the lowest-priority item present.
-- An item lower-or-equal priority than everything present is rejected
-  (`add()` returns `False`).
+queue = ContentQueue()
+queue.add(StaticText("Hi!", x=20, y=12, duration=2))
+queue.add(ScrollingText("Rotates after the static message", y=12))
+```
 
-`expire()` drops items whose `duration` has elapsed and returns how many were
-removed.
-
-!!! info "Two queue APIs"
-    `DisplayQueue` also exposes a `DisplayItem`/strategy API (`add_item`,
-    `process_next`) used internally by `DisplayManager`. Most apps use the
-    simple `DisplayContent` queue shown above, or the app's `content_queue`.
+Every `DisplayContent` carries a `priority` (`scrollkit.display.content.Priority`:
+`IDLE < LOW < NORMAL < HIGH < URGENT < SYSTEM`, default `NORMAL`) — metadata your
+app can read to build its own admission/eviction logic on top of the queue;
+`ContentQueue` itself doesn't act on it.

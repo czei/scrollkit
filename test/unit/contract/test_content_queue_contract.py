@@ -1,6 +1,6 @@
 """
 Contract: Display Content Queue
-Public API for priority-based display content management.
+Public API for display content management (ContentQueue + DisplayContent).
 """
 
 
@@ -22,33 +22,25 @@ class DisplayContentContract:
         raise NotImplementedError
 
 
-class DisplayQueueContract:
+class ContentQueueContract:
     """
-    Priority-sorted queue of DisplayContent items.
-    Higher priority items are shown before lower priority items.
-    Items with duration expire automatically.
+    Looping queue of DisplayContent items, cycled by the display loop.
     """
 
-    def add(self, content) -> bool:
-        """
-        Add content to the queue.
-        Returns False if queue is full and content priority is too low to displace anything.
-        """
+    def add(self, content) -> None:
+        """Add content to the queue."""
         raise NotImplementedError
 
-    def peek(self):
-        """Return the highest-priority non-expired item without removing it."""
+    def get_content_count(self) -> int:
+        """Number of items currently queued."""
         raise NotImplementedError
 
-    def pop(self):
-        """Remove and return the highest-priority non-expired item."""
+    def clear(self) -> None:
+        """Remove all queued content."""
         raise NotImplementedError
 
-    def expire(self) -> int:
-        """Remove completed items. Returns count removed."""
-        raise NotImplementedError
-
-    def __len__(self) -> int:
+    async def get_current(self):
+        """Return the content that should be shown this frame, advancing on completion."""
         raise NotImplementedError
 
 
@@ -84,41 +76,27 @@ def test_content_completes_after_duration():
     assert content.is_complete is True
 
 
-def test_queue_respects_priority_order():
-    """Higher priority items are returned first."""
-    from scrollkit.display.queue import DisplayQueue
-    from scrollkit.display.content import StaticText
-    from scrollkit.display.strategy import Priority
-
-    queue = DisplayQueue()
-    low = StaticText("low", priority=Priority.LOW)
-    high = StaticText("high", priority=Priority.HIGH)
-    queue.add(low)
-    queue.add(high)
-
-    first = queue.pop()
-    assert first.priority == Priority.HIGH
+def test_content_default_priority_is_normal():
+    """DisplayContent defaults to Priority.NORMAL, not a bare magic number."""
+    from scrollkit.display.content import StaticText, Priority
+    content = StaticText("Hello")
+    assert content.priority == Priority.NORMAL
 
 
-def test_queue_len():
-    from scrollkit.display.queue import DisplayQueue
-    from scrollkit.display.content import StaticText
+def test_queue_add_increments_count():
+    from scrollkit.display.content import ContentQueue, StaticText
 
-    queue = DisplayQueue()
+    queue = ContentQueue()
     queue.add(StaticText("a"))
     queue.add(StaticText("b"))
-    assert len(queue) == 2
+    assert queue.get_content_count() == 2
 
 
-def test_queue_expire_removes_completed():
-    """expire() removes items whose duration has elapsed."""
-    import time
-    from scrollkit.display.queue import DisplayQueue
-    from scrollkit.display.content import StaticText
+def test_queue_clear_empties_it():
+    from scrollkit.display.content import ContentQueue, StaticText
 
-    queue = DisplayQueue()
-    queue.add(StaticText("a", duration=0.01))
-    time.sleep(0.02)
-    removed = queue.expire()
-    assert removed == 1
-    assert len(queue) == 0
+    queue = ContentQueue()
+    queue.add(StaticText("a"))
+    queue.clear()
+    assert queue.get_content_count() == 0
+    assert queue.is_empty

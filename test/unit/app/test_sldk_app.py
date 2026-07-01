@@ -144,7 +144,7 @@ class TestSLDKAppContentManagement:
             
             async def update_data(self):
                 # Add some test content
-                from scrollkit.content import StaticText, ScrollingText
+                from scrollkit.display.content import StaticText, ScrollingText
                 
                 static = StaticText("Test", x=10, y=10, color=0xFF0000, duration=5)
                 scroll = ScrollingText("Scroll Test", y=20, color=0x00FF00)
@@ -177,7 +177,7 @@ class TestSLDKAppContentManagement:
         assert app.content_queue.get_content_count() == 0
         
         # Add content directly
-        from scrollkit.content import StaticText
+        from scrollkit.display.content import StaticText
         text = StaticText("Direct", x=0, y=0, color=0xFFFFFF, duration=1)
         app.content_queue.add_content(text)
         
@@ -198,7 +198,7 @@ class TestSLDKAppIntegration:
                 pass
             
             async def update_data(self):
-                from scrollkit.content import StaticText
+                from scrollkit.display.content import StaticText
                 text = StaticText("Integration Test", x=5, y=5, color=0x00FFFF, duration=3)
                 self.content_queue.add_content(text)
         

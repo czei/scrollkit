@@ -6,10 +6,18 @@ client.
 ## WiFiManager
 
 `scrollkit.network.wifi_manager.WiFiManager` handles CircuitPython WiFi:
-connecting (with retries), reconnecting, scanning networks, and a web-based
-first-run setup flow (access-point mode + a config page) so a user can enter
-credentials without editing files. It creates the `adafruit_requests` session
-the HTTP client uses.
+connecting (with retries), reconnecting, scanning networks, and creating the
+`adafruit_requests` session the HTTP client uses after a successful connection
+(`create_http_session()`). `start_access_point()` / `stop_access_point()` bring
+up the device's own AP radio; pairing that with a captive-portal config page is
+left to the application (an earlier built-in web-based WiFi setup flow was
+removed as unused legacy code in 0.8.2 — see `docs/guide/web.md` for the
+settings web UI, which is the maintained config-page path).
+
+`scrollkit.network.wifi_manager.is_dev_mode()` reports whether a real WiFi
+radio is available (always `False` on CircuitPython; `True` on desktop unless
+the test suite mocks a `wifi` module) — the canonical desktop-vs-device check
+for network code.
 
 ## HttpClient
 

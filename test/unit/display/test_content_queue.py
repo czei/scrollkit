@@ -5,7 +5,8 @@ import pytest
 from unittest.mock import MagicMock
 
 from scrollkit.display import ContentQueue
-from scrollkit.content import StaticText, ScrollingText, RainbowText
+from scrollkit.display.content import StaticText, ScrollingText
+from test.helpers import RainbowText
 
 
 class TestContentQueue:

@@ -9,7 +9,6 @@ metadata and performs NO eager submodule imports. On CircuitPython every importe
 module costs RAM (a globals dict + bytecode), so callers import exactly what they
 need from submodules, e.g.::
 
-    from scrollkit.app.minimal import MinimalLEDApp
     from scrollkit.app.base import ScrollKitApp
     from scrollkit.display.unified import UnifiedDisplay
 """

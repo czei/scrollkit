@@ -1,6 +1,6 @@
 """
 Contract: App Framework
-Public API for ScrollKitApp (full-featured) and MinimalLEDApp (lightweight).
+Public API for ScrollKitApp.
 """
 
 
@@ -42,55 +42,7 @@ class ScrollKitAppContract:
         raise NotImplementedError
 
 
-class MinimalLEDAppContract:
-    """
-    Lightweight one-shot display interface.
-    Suitable for simple scripts and low-memory devices.
-    """
-
-    def show_text(self, text: str, color=(255, 255, 255)) -> None:
-        """Display static text. color is (r, g, b) or a color name string."""
-        raise NotImplementedError
-
-    def scroll_text(
-        self, text: str, color=(255, 255, 255), delay: float = 0.05
-    ) -> None:
-        """Scroll text across the display."""
-        raise NotImplementedError
-
-    def clear(self) -> None:
-        """Clear the display."""
-        raise NotImplementedError
-
-
 # --- Contract tests ---
-
-def test_minimal_app_can_be_created():
-    """MinimalLEDApp must instantiate without arguments."""
-    from scrollkit.app.minimal import MinimalLEDApp
-    app = MinimalLEDApp()
-    assert app is not None
-
-
-def test_minimal_app_has_show_text():
-    """MinimalLEDApp must have show_text method."""
-    from scrollkit.app.minimal import MinimalLEDApp
-    app = MinimalLEDApp()
-    assert hasattr(app, 'show_text')
-    assert callable(app.show_text)
-
-
-def test_minimal_app_has_scroll_text():
-    from scrollkit.app.minimal import MinimalLEDApp
-    app = MinimalLEDApp()
-    assert hasattr(app, 'scroll_text')
-
-
-def test_minimal_app_has_clear():
-    from scrollkit.app.minimal import MinimalLEDApp
-    app = MinimalLEDApp()
-    assert hasattr(app, 'clear')
-
 
 def test_scrollkit_app_can_be_subclassed():
     """ScrollKitApp must support subclassing with async overrides."""

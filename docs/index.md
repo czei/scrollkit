@@ -25,10 +25,16 @@ panel pixel for pixel and exports its own GIFs and videos, like the one above.
 *Built by [Michael Czeiszperger](http://czei.org)*
 
 ```python
-from scrollkit.app.minimal import MinimalLEDApp
+import asyncio
+from scrollkit.app.base import ScrollKitApp
+from scrollkit.display.content import ScrollingText
 
-app = MinimalLEDApp()
-app.scroll_text("Hello, World!", color=(0, 255, 128))
+class HelloWorldApp(ScrollKitApp):
+    async def setup(self):
+        self.content_queue.add(
+            ScrollingText("Hello, World!", y=12, color=(0, 255, 128)))
+
+asyncio.run(HelloWorldApp().run())
 ```
 
 ## Why ScrollKit
@@ -44,8 +50,8 @@ app.scroll_text("Hello, World!", color=(0, 255, 128))
 - **Memory-aware.** Built for the tight RAM budgets of embedded boards (the
   MatrixPortal S3, the RP2350-based Interstate 75 W): a lightweight import
   surface and graduated feature degradation when memory is low.
-- **Batteries included.** Priority content queue, an effects/transitions engine,
-  a configuration web UI, manifest-based OTA updates from GitHub, WiFi and HTTP
+- **Batteries included.** A content queue, an effects/transitions engine, a
+  configuration web UI, manifest-based OTA updates from GitHub, WiFi and HTTP
   helpers, and JSON settings persistence.
 
 ## What you can build
@@ -70,9 +76,9 @@ every demo, recorded from the simulator.
 your app  ──▶  scrollkit.app.ScrollKitApp        (async lifecycle: display + data + web)
                  │
                  ├─ scrollkit.display   UnifiedDisplay ─▶ hardware (displayio) | simulator (pygame)
-                 │                      DisplayQueue (priority + expiry), DisplayContent
+                 │                      ContentQueue, DisplayContent, Priority
                  ├─ scrollkit.effects   Transition (content swaps), particles, splash reveals
-                 ├─ scrollkit.web       ScrollKitWebServer (config UI; adafruit_httpserver | async)
+                 ├─ scrollkit.web       SettingsWebServer (config UI; adafruit_httpserver | async)
                  ├─ scrollkit.ota       OTAClient + UpdateManifest (GitHub-hosted)
                  ├─ scrollkit.network   WiFiManager, HttpClient
                  ├─ scrollkit.config    SettingsManager (JSON persistence)

@@ -11,11 +11,9 @@ metadata only) so importing it costs almost no RAM on CircuitPython.
 ## App
 
 ```python
-from scrollkit.app.minimal import MinimalLEDApp
 from scrollkit.app.base import ScrollKitApp     # alias: SLDKApp
 ```
 
-- **`MinimalLEDApp`** — `show_text(text, color)`, `scroll_text(text, color, delay)`, `clear()`
 - **`ScrollKitApp`** — `__init__(enable_web=True, update_interval=300,
   enable_watchdog=False, watchdog_timeout=8)`; override `setup()`, `update_data()`,
   `prepare_display_content()`, `cleanup()`; run with `await app.run()`; `stop()`. Has
@@ -29,9 +27,7 @@ from scrollkit.app.base import ScrollKitApp     # alias: SLDKApp
 ```python
 from scrollkit.display.unified import UnifiedDisplay
 from scrollkit.display.interface import DisplayInterface
-from scrollkit.display.content import DisplayContent, StaticText, ScrollingText
-from scrollkit.display.queue import DisplayQueue
-from scrollkit.display.content import Priority
+from scrollkit.display.content import DisplayContent, StaticText, ScrollingText, ContentQueue, Priority
 ```
 
 - **`DisplayInterface`** — `width`, `height`, `initialize()`, `clear()`,
@@ -41,8 +37,9 @@ from scrollkit.display.content import Priority
 - **`StaticText(text, x, y, color, duration, priority)`**,
   **`ScrollingText(text, y, color, speed, priority)`** — `is_complete`,
   `elapsed`, `update()`, `await render(display)`
-- **`DisplayQueue`** — `add(content)`, `peek()`, `pop()`, `expire()`, `len()`
-- **`Priority`** — `IDLE, LOW, NORMAL, HIGH, SYSTEM`
+- **`ContentQueue`** — `add(content)`, `get_content_count()`, `clear()`,
+  `await get_current()` — a looping queue the display loop cycles through
+- **`Priority`** — `IDLE, LOW, NORMAL, HIGH, URGENT, SYSTEM`
 
 ## Effects
 

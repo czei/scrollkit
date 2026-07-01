@@ -1,21 +1,6 @@
 # App Framework
 
-`scrollkit.app` provides the two entry points for building applications.
-
-## MinimalLEDApp
-
-`scrollkit.app.minimal.MinimalLEDApp` — a lightweight, synchronous-feeling
-wrapper for simple scripts and the lowest memory footprint. It auto-detects the
-environment and delegates to a CircuitPython or desktop implementation.
-
-```python
-from scrollkit.app.minimal import MinimalLEDApp
-
-app = MinimalLEDApp()
-app.show_text("Ready", color="green")     # static text; color name or (r,g,b)
-app.scroll_text("Hello!", color=(0, 170, 255))
-app.clear()
-```
+`scrollkit.app.base.ScrollKitApp` is the entry point for building applications.
 
 ## ScrollKitApp
 
