@@ -5,8 +5,8 @@ content types, and the content queue.
 
 ## UnifiedDisplay
 
-`scrollkit.display.unified.UnifiedDisplay` implements `DisplayInterface` and
-auto-selects its backend:
+`scrollkit.display.unified.UnifiedDisplay` is **the** display an app uses. It
+implements `DisplayInterface` and auto-selects its backend:
 
 - **CircuitPython** → real `displayio` hardware, auto-detecting the board (the
   Adafruit MatrixPortal S3 or the Pimoroni Interstate 75 W). Pass `board="..."`
@@ -15,6 +15,11 @@ auto-selects its backend:
 
 Your app talks to one interface — `set_pixel`, `fill`, `draw_text`, `show`,
 `clear`, `set_brightness` — and never branches on platform.
+
+(The desktop-only `SimulatorDisplay` shares the same rendering but adds
+recording/screenshot helpers and constructor-flag hardware-timing; it's for
+tests, demos, and the dev harness — see [Simulator](simulator.md). Ship apps
+against `UnifiedDisplay`.)
 
 ```python
 from scrollkit.display.unified import UnifiedDisplay

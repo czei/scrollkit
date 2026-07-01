@@ -75,7 +75,7 @@ class DisplayInterface:
     
     async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display.
-        
+
         Args:
             text: Text to display
             x: Starting X coordinate
@@ -83,20 +83,10 @@ class DisplayInterface:
             color: Text color as 24-bit RGB
             font: Font to use (implementation specific)
         """
-        # Subclasses should override with proper text rendering
-        pass
-    
-    async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
-        """Scroll text across display.
-
-        Args:
-            text: Text to scroll
-            y: Y coordinate for text
-            color: Text color as 24-bit RGB
-            speed: Scroll speed in seconds per pixel
-        """
-        # Subclasses should override with efficient scrolling
-        pass
+        # Not a silent no-op: a DisplayInterface that can't draw text is a bug,
+        # and the concrete displays (Unified/Simulator via GraphicsMixin) all
+        # override this.
+        raise NotImplementedError("Subclass must implement draw_text()")
 
     # --- bounded painters + graphics bridge (see display/_graphics.py) --------
     # Real displays mix in GraphicsMixin, which provides concrete implementations

@@ -34,9 +34,10 @@ if IS_CIRCUITPYTHON:
         bitmap_font = None
     from adafruit_display_text.label import Label
 else:
-    # SLDK Simulator imports - these will be optional
+    # SLDK Simulator imports - these will be optional. The simulator device itself
+    # is built inside _sim_backend.create_sim_device; here we just probe that the
+    # simulator rendering stack (displayio/Label/terminalio) is importable.
     try:
-        from scrollkit.simulator.devices.matrixportal_s3 import MatrixPortalS3
         from scrollkit.simulator import displayio
         from scrollkit.simulator.adafruit_bitmap_font import bitmap_font
         from scrollkit.simulator.adafruit_display_text.label import Label
@@ -180,64 +181,25 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                     "LED simulator not available. "
                     "Install with: pip install sldk[simulator]"
                 )
-            
-            # Create MatrixPortal S3 device
-            self.device = MatrixPortalS3(width=self._width, height=self._height)
-            # Wire hardware-timing simulation BEFORE initialize() (LEDMatrix reads
-            # device.performance_manager there). Opt-in via env var.
-            self._maybe_enable_hardware_timing()
-            self.device.initialize()
-            
-            # Get references to the display components
-            self.matrix = self.device.matrix
-            self.display = self.device.display
+
+            # Build + initialize the simulator device (and its hardware-timing
+            # model, opt-in via SCROLLKIT_HW_* env vars) through the backend
+            # helper shared with SimulatorDisplay.
+            from ._sim_backend import create_sim_device
+            self.device, self.matrix, self.display, self._perf = create_sim_device(
+                self._width, self._height, self._board_id)
             self.hardware = self.device  # For compatibility
-            
-            # Initialize surface for simulator
-            if hasattr(self.matrix, 'initialize_surface'):
-                self.matrix.initialize_surface()
-
-    def _maybe_enable_hardware_timing(self) -> None:
-        """Model real-hardware timing/RAM on desktop, like SimulatorDisplay.
-
-        Opt-in via SCROLLKIT_HW_SIM=1 (estimate/feasibility),
-        SCROLLKIT_HW_THROTTLE=1 (also crawl at the modeled speed), or
-        SCROLLKIT_HW_STRICT=1 (enforce the feasibility gate — raise
-        FeasibilityError on a sustained over-budget run). This whole method only
-        runs on the desktop simulator path; it is a no-op on CircuitPython, where
-        the device runs at real speed and there is no model to gate.
-        """
-        import os
-        env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
-        env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
-        env_strict = os.environ.get("SCROLLKIT_HW_STRICT") == "1"
-        if not (env_sim or env_throttle or env_strict):
-            return
-        try:
-            from scrollkit.simulator.core.hardware_profile import profile_for
-            from scrollkit.simulator.core.performance_manager import (
-                PerformanceManager, set_active)
-        except ImportError:
-            return
-        self._perf = PerformanceManager(profile_for(self._board_id), enabled=True,
-                                        throttle=env_throttle, strict=env_strict)
-        self.device.performance_manager = self._perf   # read by LEDMatrix
-        set_active(self._perf)                          # read by the Label rebuild hook
 
     def feasibility_report(self):
         """Estimate how this app would perform on the real hardware.
 
         Mirrors SimulatorDisplay.feasibility_report(); returns a disabled stub
-        unless hardware timing was enabled (via the env vars above).
+        unless hardware timing was enabled (via the SCROLLKIT_HW_* env vars).
         """
         if self._perf is None:
-            from scrollkit.simulator.core.feasibility import FeasibilityReport
-            return FeasibilityReport(
-                "hardware timing disabled", "DISABLED",
-                "enable with SCROLLKIT_HW_SIM=1 or SCROLLKIT_HW_THROTTLE=1",
-                False, None, 0.0, 0.0, {}, 0, 0,
-                ["Hardware timing is off — no feasibility data. Enable with "
-                 "SCROLLKIT_HW_SIM=1."])
+            from ._sim_backend import disabled_feasibility_report
+            return disabled_feasibility_report(
+                "enable with SCROLLKIT_HW_SIM=1 or SCROLLKIT_HW_THROTTLE=1")
         return self._perf.report()
 
     async def clear(self) -> None:

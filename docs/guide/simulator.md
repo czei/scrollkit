@@ -7,14 +7,23 @@ It is what lets you develop, test, and demo ScrollKit apps with no hardware.
 
 - **`displayio`** — `Bitmap`, `Palette`, `TileGrid`, `Group`, `Display`,
   `FourWire`, `OnDiskBitmap`.
-- **`adafruit_display_text`** — `Label`, `BitmapLabel`, `ScrollingLabel`.
+- **`adafruit_display_text`** — `Label`, `ScrollingLabel`.
 - **`adafruit_bitmap_font`** — BDF font loading (the same `.bdf` fonts the
   hardware uses).
 - **`terminalio`** — the built-in terminal font.
-- **Devices** — `MatrixPortalS3` and a generic matrix.
+- **Devices** — `MatrixPortalS3`.
 
 A pygame window renders the virtual LED matrix pixel-for-pixel, so what you see
 on screen matches what the panel shows.
+
+!!! tip "Two display classes"
+    [`UnifiedDisplay`](display.md) is **the** display an app uses — it
+    auto-selects the real `displayio` backend on CircuitPython and the simulator
+    on desktop, so your app code never branches on platform. `SimulatorDisplay`
+    is the desktop-only **recording / verification** display: same rendering,
+    plus `screenshot()` / `save_gif()` / `save_video()` and constructor-flag
+    hardware-timing. Reach for it in tests, demos, and the dev harness when you
+    need those extras; ship apps against `UnifiedDisplay`.
 
 ```python
 from scrollkit.display.simulator import SimulatorDisplay

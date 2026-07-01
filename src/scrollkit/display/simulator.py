@@ -21,10 +21,11 @@ try:
 except ImportError:
     raise ImportError("Simulator requires asyncio")
 
+# The simulator device itself is built inside _sim_backend.create_sim_device;
+# these imports probe the simulator rendering stack and provide the Label/font
+# used directly by this module.
 try:
-    from scrollkit.simulator.devices.matrixportal_s3 import MatrixPortalS3
     from scrollkit.simulator import displayio
-    from scrollkit.simulator.adafruit_bitmap_font import bitmap_font
     from scrollkit.simulator.adafruit_display_text.label import Label
     from scrollkit.simulator.terminalio import FONT as terminalio_FONT
     from scrollkit.simulator import terminalio as simulator_terminalio
@@ -146,37 +147,27 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             return
             
         try:
-            # Create simulator device
-            self.device = MatrixPortalS3(
-                width=self._width,
-                height=self._height,
-                pitch=self._pitch
-            )
-            # Wire hardware-timing simulation onto the device BEFORE initialize()
-            # (LEDMatrix reads device.performance_manager in initialize()).
-            self._maybe_enable_hardware_timing()
-            self.device.initialize()
-            
-            # Get display components
-            self.matrix = self.device.matrix
-            self.display = self.device.display
-            
+            # Build + initialize the simulator device (and its hardware-timing
+            # model, opt-in via the constructor flags or SCROLLKIT_HW_* env vars)
+            # through the backend helper shared with UnifiedDisplay.
+            from ._sim_backend import create_sim_device
+            self.device, self.matrix, self.display, self._perf = create_sim_device(
+                self._width, self._height, self._board_id, pitch=self._pitch,
+                hardware_timing=self._hardware_timing, throttle=self._throttle,
+                strict=self._strict)
+
             # Set up display groups (content below, layers above) + cache gfx.
             self.main_group = displayio.Group()
             self.display.root_group = self.main_group
             from scrollkit.simulator import bitmaptools as _bitmaptools
             self._init_graphics(displayio, _bitmaptools)
 
-            # Initialize surface
-            if hasattr(self.matrix, 'initialize_surface'):
-                self.matrix.initialize_surface()
-            
             # Set initial brightness
             await self.set_brightness(self._brightness)
-            
+
             self._initialized = True
             print("Simulator display initialized")
-            
+
         except (ImportError, OSError) as e:
             print(f"Failed to initialize simulator: {e}")
             raise
@@ -510,32 +501,6 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             return None
         return path
 
-    def _maybe_enable_hardware_timing(self) -> None:
-        """Build a PerformanceManager if hardware timing is requested (opt-in).
-
-        Enabled by the constructor flag or ``SCROLLKIT_HW_SIM=1``. The visceral
-        "throttle" crawl is enabled by the ``throttle`` constructor flag or
-        ``SCROLLKIT_HW_THROTTLE=1`` — and turning throttle on implies hardware
-        timing (you can't crawl at a speed you aren't modeling).
-        """
-        import os
-        env_sim = os.environ.get("SCROLLKIT_HW_SIM") == "1"
-        env_throttle = os.environ.get("SCROLLKIT_HW_THROTTLE") == "1"
-        env_strict = os.environ.get("SCROLLKIT_HW_STRICT") == "1"
-        want_throttle = self._throttle or env_throttle
-        want_strict = self._strict or env_strict
-        # strict implies hardware timing — you can't gate a model you aren't running.
-        want_timing = self._hardware_timing or env_sim or want_throttle or want_strict
-        if not want_timing:
-            return
-        from scrollkit.simulator.core.hardware_profile import profile_for
-        from scrollkit.simulator.core.performance_manager import (
-            PerformanceManager, set_active)
-        self._perf = PerformanceManager(profile_for(self._board_id), enabled=True,
-                                        throttle=want_throttle, strict=want_strict)
-        self.device.performance_manager = self._perf   # read by LEDMatrix
-        set_active(self._perf)                          # read by the Label rebuild hook
-
     def feasibility_report(self):
         """Estimate how this app would perform on the real hardware.
 
@@ -544,13 +509,9 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         SCROLLKIT_HW_SIM=1); otherwise returns a clearly-labeled disabled stub.
         """
         if self._perf is None:
-            from scrollkit.simulator.core.feasibility import FeasibilityReport
-            return FeasibilityReport(
-                "hardware timing disabled", "DISABLED",
-                "enable with SimulatorDisplay(hardware_timing=True) or SCROLLKIT_HW_SIM=1",
-                False, None, 0.0, 0.0, {}, 0, 0,
-                ["Hardware timing is off — no feasibility data. Enable with "
-                 "hardware_timing=True or SCROLLKIT_HW_SIM=1."])
+            from ._sim_backend import disabled_feasibility_report
+            return disabled_feasibility_report(
+                "enable with SimulatorDisplay(hardware_timing=True) or SCROLLKIT_HW_SIM=1")
         return self._perf.report()
 
     async def set_pixel(self, x: int, y: int, color: int) -> None:
@@ -667,40 +628,6 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
         self._content_group.append(label)
         self._scaled_idx += 1
 
-    async def scroll_text(self, text: str, y: int = 0, color: int = 0xFFFFFF, speed: float = 0.05) -> None:
-        """Scroll text across display.
-        
-        Args:
-            text: Text to scroll
-            y: Y coordinate for text
-            color: Text color as 24-bit RGB
-            speed: Scroll speed in seconds per pixel
-        """
-        # Create label
-        label = Label(self.font, text=text, color=color)
-        label.x = self._width  # Start from right edge
-        label.y = y
-        
-        # Create group
-        scroll_group = displayio.Group()
-        scroll_group.append(label)
-        self.main_group.append(scroll_group)
-        
-        # Estimate text width
-        if hasattr(label, 'bounding_box') and label.bounding_box:
-            text_width = label.bounding_box[2]
-        else:
-            text_width = len(text) * 6  # Fallback estimate
-        
-        # Scroll until text is off screen
-        while label.x > -text_width:
-            label.x -= 1
-            await self.show()
-            await asyncio.sleep(speed)
-        
-        # Remove the group
-        self.main_group.remove(scroll_group)
-    
     async def create_window(self, title: str = "SLDK Simulator") -> None:
         """Create the simulator window.
         
