@@ -45,6 +45,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Demo Gallery: demos.md
+  - Visual Reference: guide/visual-reference.md
   - Tutorials:
       - "Easy: Hello World": tutorials/easy.md
       - "Medium: Live Data": tutorials/medium.md

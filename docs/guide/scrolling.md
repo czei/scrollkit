@@ -29,6 +29,8 @@ KineticMarquee("SCROLLKIT IN MOTION.", y=12, speed=34,
                pause_chars=".,!?;:", overshoot=True)
 ```
 
+![KineticMarquee sample](../assets/reference/scrollers/kinetic-marquee.gif){ width="300" }
+
 ## WaveRider
 
 Characters ride a precomputed integer sine path as the message scrolls; only the
@@ -39,6 +41,8 @@ Characters ride a precomputed integer sine path as the message scrolls; only the
 WaveRider("RIDING THE WAVE", y=14, speed=30, amplitude=5, wavelength=16)
 ```
 
+![WaveRider sample](../assets/reference/scrollers/wave-rider.gif){ width="300" }
+
 ## SplitFlap
 
 A split-flap board: each cell flips through `flip_steps` (2–4) **deterministic**
@@ -48,6 +52,8 @@ landing on its real character, staggered left-to-right.
 ```python
 SplitFlap("SPLIT FLAP", y=12, speed=30, flip_steps=3, seed=4)
 ```
+
+![SplitFlap sample](../assets/reference/scrollers/split-flap.gif){ width="300" }
 
 ## Hardware budget
 

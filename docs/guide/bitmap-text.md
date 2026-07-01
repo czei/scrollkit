@@ -40,13 +40,13 @@ A `palette_effect` rewrites a few `palette[i] = color` entries per frame to anim
 the same rendered glyphs. They are plain strategy objects with an
 `apply(palette)` method:
 
-| Effect | Animation | Colour |
-|--------|-----------|--------|
-| `RainbowChase` | Rotates a 6-hue rainbow ramp so a rainbow travels through the letters. | multi-hue (the rainbow) |
-| `MonoChase` | A single bright band of one colour chases through the letters — RainbowChase, but monochrome. | `color` (default white) |
-| `NeonTubeCrawl` | A bright pulse crawls along an otherwise-dim neon tube — one glowing slot moving. | `color` (or set `glow`/`base`) |
-| `ChromeSheen` | A dark→bright ramp of one colour with a highlight band that sweeps across — a metallic sheen. | `color` (default silver) |
-| `HazardStripes` | An accent colour alternating with a dark ground, marching one slot per step. | `color` + `dark` (or set `a`/`b`) |
+| Effect | Animation | Colour | Sample |
+|--------|-----------|--------|--------|
+| `RainbowChase` | Rotates a full-spectrum ramp so a rainbow travels through the letters. | multi-hue (the rainbow) | ![](../assets/reference/palette/rainbow-chase.gif){ width="180" } |
+| `MonoChase` | A single bright band of one colour chases through the letters — RainbowChase, but monochrome. | `color` (default white) | ![](../assets/reference/palette/mono-chase.gif){ width="180" } |
+| `NeonTubeCrawl` | A bright pulse crawls along an otherwise-dim neon tube — one glowing slot moving. | `color` (or set `glow`/`base`) | ![](../assets/reference/palette/neon-tube-crawl.gif){ width="180" } |
+| `ChromeSheen` | A dark→bright ramp of one colour with a highlight band that sweeps across — a metallic sheen. | `color` (default silver) | ![](../assets/reference/palette/chrome-sheen.gif){ width="180" } |
+| `HazardStripes` | An accent colour alternating with a dark ground, marching one slot per step. | `color` + `dark` (or set `a`/`b`) | ![](../assets/reference/palette/hazard-stripes.gif){ width="180" } |
 
 All except `RainbowChase` take a base **`color`** and derive their shades from it
 (e.g. `ChromeSheen(0x3060FF)`, `MonoChase(0xFF4060)`), computed once so there's no

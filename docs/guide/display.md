@@ -34,9 +34,16 @@ await display.show()
   and an `is_complete` property derived from elapsed time.
 - **`StaticText(text, x, y, color, duration, priority)`** — fixed text.
 - **`ScrollingText(text, y, color, speed, priority)`** — scrolls until it leaves
-  the screen.
+  the screen. With `speed=0` it holds the text **centred** for `static_duration`
+  seconds instead (so a transition can still fire between repeats).
 
-`color` accepts a 24-bit int (`0xFF0000`) or an `(r, g, b)` tuple.
+`color` accepts a 24-bit int (`0xFF0000`) or an `(r, g, b)` tuple. For gradient
+fills pass a `palette` — see [Gradient Text](gradient-text.md).
+
+<div class="grid" markdown>
+<figure markdown="span">![ScrollingText scrolling](../assets/reference/content/scrollingtext-scroll.gif){ width="280" }<figcaption>`ScrollingText(...)` — scrolling</figcaption></figure>
+<figure markdown="span">![ScrollingText static](../assets/reference/content/scrollingtext-static.gif){ width="280" }<figcaption>`ScrollingText(..., speed=0)` — centred static</figcaption></figure>
+</div>
 
 ## Priority & eviction
 

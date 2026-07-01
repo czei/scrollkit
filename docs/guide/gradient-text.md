@@ -55,6 +55,15 @@ ramp yourself with `gradient`, `multi_gradient`, `hsv`, or `spectrum` (see
 | `"horizontal"` | left → right across the whole phrase | a colour sweep / decoration |
 | `"diagonal"` | top-left → bottom-right | something between the two |
 
+The same word filled along each axis (a vivid 3-stop ramp, so the direction is
+obvious — in practice two close colours read as subtle depth):
+
+<div class="grid" markdown>
+<figure markdown="span">![vertical](../assets/reference/gradient/vertical.png){ width="220" }<figcaption>`"vertical"`</figcaption></figure>
+<figure markdown="span">![horizontal](../assets/reference/gradient/horizontal.png){ width="220" }<figcaption>`"horizontal"`</figcaption></figure>
+<figure markdown="span">![diagonal](../assets/reference/gradient/diagonal.png){ width="220" }<figcaption>`"diagonal"`</figcaption></figure>
+</div>
+
 To **reverse** a direction, reverse the `palette` tuple (e.g.
 `palette=(shadow, highlight)`) — there is no `"vertical_reverse"` name on purpose.
 

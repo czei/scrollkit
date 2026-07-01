@@ -52,6 +52,47 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
 
+## Splash reveals
+
+Setup-time reveals that assemble a word or logo from a pixel list (build one with
+`pixels_from_text` / `pixels_from_font_text`). Each has a blocking `show_*` helper
+for splash screens and a frame-driven class (`DripReveal` / `SwarmReveal`) for use
+inside a running loop.
+
+```python
+from scrollkit.effects import pixels_from_text, show_drip_splash
+
+px = pixels_from_text("PIXEL", x=17, y=8) + pixels_from_text("RAIN", x=20, y=20)
+await show_drip_splash(display, px, color=0x00CCFF)
+```
+
+<div class="grid" markdown>
+<figure markdown="span">![reveal](../assets/reference/splashes/reveal.gif){ width="220" }<figcaption>`show_reveal_splash` — wink off non-text pixels</figcaption></figure>
+<figure markdown="span">![drip](../assets/reference/splashes/drip.gif){ width="220" }<figcaption>`show_drip_splash` — pixels fall into place</figcaption></figure>
+<figure markdown="span">![swarm](../assets/reference/splashes/swarm.gif){ width="220" }<figcaption>`show_swarm_splash` — a flock assembles the image</figcaption></figure>
+</div>
+
+## Particles
+
+`scrollkit.effects.particles.ParticleEngine` drives a small pool of particles
+(keep the count low on-device). `Sparkle` and `Snow` are exported; `Ember` (a
+fire-ramp ember) and `RainDrop` are also available.
+
+```python
+from scrollkit.effects.particles import ParticleEngine, Snow
+
+engine = ParticleEngine(max_particles=8)
+engine.add_particle(Snow(x=20, y=0))
+# each frame:
+await engine.update(display)
+```
+
+<div class="grid" markdown>
+<figure markdown="span">![sparkle](../assets/reference/particles/sparkle.gif){ width="220" }<figcaption>`Sparkle` — flares then fades</figcaption></figure>
+<figure markdown="span">![snow](../assets/reference/particles/snow.gif){ width="220" }<figcaption>`Snow` — falls with a gentle sway</figcaption></figure>
+<figure markdown="span">![ember](../assets/reference/particles/ember.gif){ width="220" }<figcaption>`Ember` — rises along a fire ramp</figcaption></figure>
+</div>
+
 ## Pairing effects to content
 
 Some effects read best on **static** (held) text, some on **scrolling** text, and

@@ -10,7 +10,7 @@ PIP := python -m pip
 PYTEST := PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) -m pytest
 
 .PHONY: all test test-unit test-all test-coverage lint lint-errors test-with-lint \
-        format clean mpy copy-to-circuitpy hero docs-gifs deploy-docs \
+        format clean mpy copy-to-circuitpy hero docs-gifs docs-reference deploy-docs \
         install-test-deps install-dev-deps install-lint-deps
 
 all: test
@@ -85,6 +85,13 @@ hero:
 # Pass demo names to render only some, e.g.:  make docs-gifs ARGS="hello_world showcase"
 docs-gifs:
 	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_gifs.py $(ARGS)
+
+# Regenerate the per-API Visual Reference samples (-> docs/assets/reference/):
+# one isolated GIF/PNG for every transition, scroller, palette effect, splash,
+# particle, gradient direction and colour ramp. Pass slugs to render only some,
+# e.g.:  make docs-reference ARGS="iris-snap wave-rider"
+docs-reference:
+	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_reference.py $(ARGS)
 
 # Build and publish the docs to https://scrollkit.dev (static MkDocs on the
 # shared EC2 host). The upload step (host/key/docroot) lives in the gitignored
