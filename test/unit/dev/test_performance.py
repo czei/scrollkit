@@ -13,7 +13,7 @@ import pytest
 pygame = pytest.importorskip("pygame")
 
 from scrollkit.dev import performance_guide, capabilities
-from scrollkit.dev.performance import as_text
+from scrollkit.dev.performance import performance_text
 
 
 def test_guide_is_available_with_expected_sections():
@@ -51,7 +51,7 @@ def test_capabilities_includes_performance():
     assert perf.get("available") is True
 
 
-def test_as_text_is_readable():
-    text = as_text()
+def test_performance_text_is_readable():
+    text = performance_text()
     assert "performance" in text.lower()
     assert "refresh" in text.lower()

@@ -101,6 +101,24 @@ each frame. The two are deliberately separate concepts:
 | Font | your normal display font (terminalio) | the ScrollKit 5×7 block font |
 | Use it for | subtle depth, tasteful two-tone | rainbow chase, neon, chrome sheen |
 
+## Building it directly: `GradientTextLayer`
+
+`StaticText` / `ScrollingText` drive `GradientTextLayer` internally via their
+`palette=` argument — that covers the common case. Reach for the class directly
+when you need custom positioning or animation that those two don't expose (for
+example, driving `.x` from your own scroll/physics loop instead of a fixed speed):
+
+```python
+from scrollkit.display.gradient_text import GradientTextLayer
+
+layer = GradientTextLayer("NEXT TRAIN", y=12, palette=(0x66CCFF, 0x1C3D66),
+                           direction="vertical", palette_steps=8)
+layer.build(display)          # rasterise once, add as a layer
+layer.x = 40                  # reposition any frame (no rebuild)
+print(layer.width)            # rasterised width in pixels
+layer.detach(display)         # remove when done (idempotent)
+```
+
 ## Colours (no named palettes)
 
 The colour helpers in `scrollkit.display.colors` are continuous generators — sample

@@ -3,6 +3,29 @@ Color utilities for handling color conversions and manipulations.
 Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 
+# Color name to (r, g, b) tuple mapping, for quick prototyping/tooling. Distinct
+# from ColorUtils.colors below (Title-case names -> hex *strings*, used as
+# settings defaults) -- different names, different value format, both kept.
+NAMED_COLORS = {
+    'red': (255, 0, 0),
+    'green': (0, 255, 0),
+    'blue': (0, 0, 255),
+    'yellow': (255, 255, 0),
+    'purple': (128, 0, 128),
+    'cyan': (0, 255, 255),
+    'white': (255, 255, 255),
+    'orange': (255, 165, 0),
+    'pink': (255, 192, 203),
+    'magenta': (255, 0, 255),
+    'lime': (0, 255, 0),
+    'teal': (0, 128, 128),
+    'navy': (0, 0, 128),
+    'brown': (165, 42, 42),
+    'gray': (128, 128, 128),
+    'grey': (128, 128, 128),
+    'black': (0, 0, 0),
+}
+
 
 class ColorUtils:
     """Utilities for handling colors and conversions"""
@@ -97,34 +120,6 @@ class ColorUtils:
         return r, g, b
 
     @staticmethod
-    def convert_3bit_bitmap_to_4bit(bitmap_3_bit, palette):
-        # 3-bit max value is 8 and 6-bit max value is 64
-        scale_factor = 16 / 8   # 2 to the 18th power = 262,144
-        scale_factor = 1.0
-
-        # Calculate new width and height
-        width = bitmap_3_bit.width
-        height = bitmap_3_bit.height
-
-        # Create 4-bit bitmap with same dimensions
-        # TODO Need to fix
-        # bitmap_4_bit = displayio.Bitmap(width, height, 4096)
-        bitmap_4_bit = None
-
-        # Copy and scale pixel values from 3-bit to 6-bit bitmap
-        for y in range(height):
-            for x in range(width):
-                old_value = bitmap_3_bit[x, y]
-                hex_value = ColorUtils.pad_hex(old_value)
-                #print(f"Old Value = {old_value} Hex = {hex_value}")
-                new_value = ColorUtils.hex_str_to_number(ColorUtils.scale_color(hex_value, scale_factor))
-                # new_value = round(old_value * scale_factor)
-                #print(f"Old Value = {old_value} Scaled = {new_value}")
-                bitmap_4_bit[x, y] = new_value
-
-        return bitmap_4_bit
-
-    @staticmethod
     def pad_hex(num):
         hex_val = hex(num)[2:]  # remove '0x'
         # return hex_val.zfill(6)
@@ -132,24 +127,6 @@ class ColorUtils:
         for i in range(0, 6 - length):
             hex_val = "0" + hex_val
         return hex_val
-
-    @staticmethod
-    def html_color_chooser(name, hex_num_str):
-        """
-        :param name: Name of the HTML select field
-        :param hex_num_str:  A string representation of the selected color
-        :return:
-        """
-        html = ""
-        html += f"<select name=\"{name}\" id=\"{id}\">\n"
-        for color in ColorUtils.colors:
-            if ColorUtils.colors[color] == hex_num_str:
-                html += f"<option value=\"{ColorUtils.colors[color]}\" selected>{color}</option>\n"
-            else:
-                html += f"<option value=\"{ColorUtils.colors[color]}\">{color}</option>\n"
-
-        html += "</select>"
-        return html
 
     @staticmethod
     def hex_str_to_number(hex_string):

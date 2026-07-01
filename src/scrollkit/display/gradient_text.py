@@ -21,6 +21,8 @@ from .colors import gradient, multi_gradient
 from .text_fill import clamp_palette_steps, normalize_direction
 from .text_pixels import font_text_ascent, font_text_width, pixels_from_font_text
 
+__all__ = ["GradientTextLayer"]
+
 # The Label path positions a line's baseline at screen row ``y + 4`` (the
 # simulator's adafruit_display_text.Label applies a device-compat offset so the
 # sim matches hardware). pixels_from_font_text rasterises with the run's baseline
@@ -46,12 +48,22 @@ def _build_ramp(palette, steps):
     return multi_gradient(stops, steps)
 
 
-class _GradientTextLayer:
+class GradientTextLayer:
     """Owns the indexed bitmap, palette and TileGrid for one gradient string.
 
     Build once (rasterise + positional index map, paid on the first frame), then
-    reposition by setting :attr:`x`; :meth:`detach` removes the layer. Internal —
-    ``StaticText`` / ``ScrollingText`` drive it; apps use those classes.
+    reposition by setting :attr:`x`; :meth:`detach` removes the layer.
+    ``StaticText`` / ``ScrollingText`` drive it via their ``palette=`` argument for
+    the common case; use this class directly for custom positioning/animation.
+
+    Args:
+        text: The string to rasterise.
+        y: Baseline row (screen coordinates; matches ``StaticText``/``ScrollingText``).
+        palette: A tuple of ``0xRRGGBB`` gradient stops (1 = flat fill, 2 = a
+            straight gradient, 3+ = a multi-stop gradient across the run).
+        direction: ``"vertical"`` (default), ``"horizontal"``, or ``"diagonal"``.
+        palette_steps: Ramp resolution (2..``MAX_PALETTE_STEPS``); ignored for a
+            single-colour palette.
     """
 
     def __init__(self, text, y, palette, direction="vertical", palette_steps=8):
@@ -148,3 +160,8 @@ class _GradientTextLayer:
         if self._tile is not None:
             display.remove_layer(self._tile)
             self._tile = None
+
+
+# 0.8.x compatibility alias: themeparkwaits (and any other pre-0.8.2 caller)
+# imports the old private name directly. Kept until a future 0.9.0.
+_GradientTextLayer = GradientTextLayer

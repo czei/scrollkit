@@ -21,8 +21,10 @@ isolated glyph rebuilds these produce).
 
 import math
 
-from ..display.content import DisplayContent, LOOP_FPS
+from ..display.content import DisplayContent, LOOP_FPS, Priority
 from .easing import interp, ease, EASE_OUT_QUAD
+
+__all__ = ["KineticMarquee", "WaveRider", "SplitFlap", "scrollers_for"]
 
 
 def _delta_q(speed):
@@ -53,7 +55,7 @@ class KineticMarquee(DisplayContent):
     SPRING_FRAMES = 3       # frames to spring back from the overshoot
 
     def __init__(self, text, y=0, color=0xFFFFFF, speed=30,
-                 pause_chars=".,!?;:", overshoot=True, priority=2):
+                 pause_chars=".,!?;:", overshoot=True, priority=Priority.NORMAL):
         super().__init__(duration=None, priority=priority)
         self.text = text
         self.y = y
@@ -164,7 +166,7 @@ class WaveRider(DisplayContent):
     PHASE_STEP = 8          # wave phase advance per frame (cycles every 32 frames)
 
     def __init__(self, text, y=0, color=0xFFFFFF, speed=30,
-                 amplitude=4, wavelength=16, priority=2):
+                 amplitude=4, wavelength=16, priority=Priority.NORMAL):
         super().__init__(duration=None, priority=priority)
         self.text = text
         self.y = y
@@ -263,7 +265,7 @@ class SplitFlap(DisplayContent):
     _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
     def __init__(self, text, y=0, color=0xFFFFFF, speed=30,
-                 flip_steps=3, seed=1, priority=2):
+                 flip_steps=3, seed=1, priority=Priority.NORMAL):
         super().__init__(duration=None, priority=priority)
         self.text = text
         self.y = y

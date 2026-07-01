@@ -44,7 +44,7 @@ useful for alerts. Normal content is evicted to make room when the queue is full
 (see the [eviction policy](../guide/display.md#priority-eviction)).
 
 ```python
-from scrollkit.display.strategy import Priority
+from scrollkit.display.content import Priority
 
 self.content_queue.add(StaticText("ScrollKit", x=6, y=12, color=0x00FF88,
                                   duration=2, priority=Priority.SYSTEM))

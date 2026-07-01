@@ -152,7 +152,7 @@ def _ratio_note(set_px, blit_px, fill_px):
             % (round(set_px / blit_px), round(set_px / fill_px)))
 
 
-def as_text(guide=None):
+def performance_text(guide=None):
     """Render the performance guide as a compact human/AI summary."""
     guide = guide or performance_guide()
     if not guide.get("available"):

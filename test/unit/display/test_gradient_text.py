@@ -1,7 +1,7 @@
 """Gradient / multi-colour text fill on StaticText & ScrollingText.
 
 A ``palette`` switches the Label-based text classes to an indexed-bitmap renderer
-(``_GradientTextLayer``) that paints each lit pixel a palette index by its position
+(``GradientTextLayer``) that paints each lit pixel a palette index by its position
 along an axis, then scrolls by moving a TileGrid — zero per-frame pixel writes.
 Mono content (``palette=None``) is untouched.
 """
@@ -15,8 +15,13 @@ pygame = pytest.importorskip("pygame")
 
 from scrollkit.display.content import StaticText, ScrollingText
 from scrollkit.display.colors import depth_palette, scale, gradient
-from scrollkit.display.gradient_text import _GradientTextLayer, _build_ramp
+from scrollkit.display.gradient_text import GradientTextLayer, _GradientTextLayer, _build_ramp
 from scrollkit.display import text_fill
+
+
+def test_underscore_alias_is_the_public_class():
+    # 0.8.x compatibility: themeparkwaits still imports the old private name.
+    assert _GradientTextLayer is GradientTextLayer
 
 
 # --- helpers ----------------------------------------------------------------
@@ -91,7 +96,7 @@ def test_directions_and_clamp():
 # --- positional index mapping (font-independent math) -----------------------
 
 def test_ramp_index_vertical_spans_top_to_bottom():
-    layer = _GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "vertical", 8)
+    layer = GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "vertical", 8)
     last = 7
     assert layer._ramp_index(0, 0, 0, 10, 10, last) == 0       # top row -> stop 0
     assert layer._ramp_index(0, 10, 0, 10, 10, last) == last   # bottom -> stop N
@@ -99,14 +104,14 @@ def test_ramp_index_vertical_spans_top_to_bottom():
 
 
 def test_ramp_index_horizontal_spans_left_to_right():
-    layer = _GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "horizontal", 8)
+    layer = GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "horizontal", 8)
     last = 7
     assert layer._ramp_index(0, 3, 0, 10, 10, last) == 0       # left -> stop 0
     assert layer._ramp_index(10, 3, 0, 10, 10, last) == last   # right -> stop N
 
 
 def test_ramp_index_diagonal_combines_axes():
-    layer = _GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "diagonal", 8)
+    layer = GradientTextLayer("A", 0, (0xFF0000, 0x0000FF), "diagonal", 8)
     last = 7
     assert layer._ramp_index(0, 0, 0, 10, 10, last) == 0
     assert layer._ramp_index(10, 10, 0, 10, 10, last) == last
@@ -299,10 +304,10 @@ def test_full_cell_font_baseline_from_ink_not_cell_height():
 
 @pytest.mark.asyncio
 async def test_gradient_full_cell_font_does_not_clip_top():
-    from scrollkit.display.gradient_text import _GradientTextLayer
+    from scrollkit.display.gradient_text import GradientTextLayer
     d = await _make_display()
     d.font = _FullCellFont()                        # pretend the device font
-    layer = _GradientTextLayer("Apx", y=5, palette=(0xFFFFFF, 0x808080))
+    layer = GradientTextLayer("Apx", y=5, palette=(0xFFFFFF, 0x808080))
     layer.build(d)
     assert layer._tile.y == -1                      # y + 4 - baseline(10)
     top = min(y for x in range(layer.width) for y in range(layer._bitmap.height)

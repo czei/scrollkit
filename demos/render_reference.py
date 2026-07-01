@@ -516,9 +516,9 @@ async def _gen_color_ramp(slug, out):
 
 
 async def _gen_named_colors(out):
-    from scrollkit.app.minimal import MinimalLEDApp
+    from scrollkit.utils.color_utils import NAMED_COLORS
     # Distinct entries, in declaration order, skipping the 'grey' duplicate of 'gray'.
-    items = [(k, v) for k, v in MinimalLEDApp.COLORS.items() if k != "grey"]
+    items = [(k, v) for k, v in NAMED_COLORS.items() if k != "grey"]
     disp = await _make_display()
     await disp.clear()
     cols, rows = 4, 4

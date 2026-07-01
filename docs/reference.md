@@ -31,7 +31,7 @@ from scrollkit.display.unified import UnifiedDisplay
 from scrollkit.display.interface import DisplayInterface
 from scrollkit.display.content import DisplayContent, StaticText, ScrollingText
 from scrollkit.display.queue import DisplayQueue
-from scrollkit.display.strategy import Priority
+from scrollkit.display.content import Priority
 ```
 
 - **`DisplayInterface`** — `width`, `height`, `initialize()`, `clear()`,

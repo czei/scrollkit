@@ -8,7 +8,7 @@ named colors, and the display drawing API — plus a pointer at the headless
 verification loop.
 
 Everything is **introspected from live code** (the real ``Priority`` class, the
-``effects`` package's ``__all__``, ``MinimalLEDApp.COLORS``, the
+``effects`` package's ``__all__``, ``NAMED_COLORS``, the
 ``DisplayInterface`` methods, and the ``DisplayContent`` subclasses), so the
 catalog can't silently drift out of sync with the library. Each lookup is
 defensive: if a piece can't be imported, that section is simply omitted rather
@@ -111,7 +111,7 @@ def _color_utilities():
 
 
 def _priorities():
-    from ..display.strategy import Priority
+    from ..display.content import Priority
     levels = {}
     for name in dir(Priority):
         if name.isupper() and isinstance(getattr(Priority, name), int):
@@ -190,10 +190,10 @@ def _palette_effects():
 
 
 def _named_colors():
-    """name -> 0xRRGGBB int, from the simple API's color table (deduped)."""
-    from ..app.minimal import MinimalLEDApp
+    """name -> 0xRRGGBB int, from the tooling color table (deduped)."""
+    from ..utils.color_utils import NAMED_COLORS
     colors = {}
-    for name, rgb in MinimalLEDApp.COLORS.items():
+    for name, rgb in NAMED_COLORS.items():
         try:
             r, g, b = rgb
             colors[name] = (int(r) << 16) | (int(g) << 8) | int(b)

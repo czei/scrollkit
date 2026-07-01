@@ -66,22 +66,32 @@ def _resolve_speed(speed):
     return speed
 
 
+class Priority:
+    """Priority levels for display content, highest wins ties in ContentQueue."""
+    IDLE: int = 0
+    LOW: int = 1
+    NORMAL: int = 2
+    HIGH: int = 3
+    URGENT: int = 4
+    SYSTEM: int = 5
+
+
 class DisplayContent:
     """Base class for displayable content."""
 
-    def __init__(self, duration: Optional[float] = None, priority: int = 2):
+    def __init__(self, duration: Optional[float] = None, priority: int = Priority.NORMAL):
         """Initialize display content.
 
         Args:
             duration: How long to display in seconds (None = forever)
-            priority: Queue priority (default 2 == Priority.NORMAL). Higher
-                values are shown first by DisplayQueue.
+            priority: Queue priority (default Priority.NORMAL). Higher
+                values are shown first by ContentQueue.
         """
         self.duration: Optional[float] = duration
         self.priority: int = priority
         # Stamp the clock at creation so duration-based completion works even
         # when the content is used outside the async start()/render() loop
-        # (e.g. added straight to a DisplayQueue). async start() re-stamps it.
+        # (e.g. added straight to a ContentQueue). async start() re-stamps it.
         self._start_time: Optional[float] = get_time()
         self._is_complete: bool = False
 
@@ -146,7 +156,7 @@ class _GradientFillMixin:
     """Shared gradient text-fill state for the Label-based text content classes.
 
     When ``self.palette`` is set, the text is rendered through an indexed-bitmap
-    ``_GradientTextLayer`` (built once, scrolled by moving its TileGrid) instead of
+    ``GradientTextLayer`` (built once, scrolled by moving its TileGrid) instead of
     the flat single-colour displayio ``Label``. Mono content (``palette is None``)
     never touches any of this — and the renderer module is imported lazily on the
     gradient path only, so the boot/mono path pays no extra RAM.
@@ -158,7 +168,7 @@ class _GradientFillMixin:
         self.palette = tuple(palette) if palette else None
         self.direction = normalize_direction(direction)
         self.palette_steps = palette_steps
-        self._grad = None            # lazily-built _GradientTextLayer
+        self._grad = None            # lazily-built GradientTextLayer
         self._grad_display = None
         self._grad_key = None
 
@@ -169,14 +179,14 @@ class _GradientFillMixin:
 
     def _ensure_grad(self, display) -> None:
         """Build (or rebuild on change) the gradient layer; idempotent per frame."""
-        from .gradient_text import _GradientTextLayer  # lazy: gradient path only
+        from .gradient_text import GradientTextLayer  # lazy: gradient path only
         key = (self.text, self.palette, self.direction, self.palette_steps,
                self.y, id(getattr(display, "font", None)))
         if (self._grad is not None and self._grad_key == key
                 and self._grad_display is display):
             return
         self._detach_grad()
-        self._grad = _GradientTextLayer(self.text, self.y, self.palette,
+        self._grad = GradientTextLayer(self.text, self.y, self.palette,
                                         self.direction, self.palette_steps)
         self._grad.build(display)
         self._grad_display = display
@@ -198,7 +208,7 @@ class StaticText(_GradientFillMixin, DisplayContent):
     """Static text display content."""
 
     def __init__(self, text: str, x: int = 0, y: int = 0, color=None,
-                 duration: Optional[float] = None, priority: int = 2,
+                 duration: Optional[float] = None, priority: int = Priority.NORMAL,
                  palette=None, direction: str = "vertical",
                  palette_steps: int = DEFAULT_PALETTE_STEPS):
         """Initialize static text.
@@ -268,7 +278,7 @@ class ScrollingText(_GradientFillMixin, DisplayContent):
     DEFAULT_STATIC_DURATION = 5.0
 
     def __init__(self, text: str, x: Optional[int] = None, y: int = 0,
-                 color=None, speed=None, priority: int = 2,
+                 color=None, speed=None, priority: int = Priority.NORMAL,
                  static_duration: float = DEFAULT_STATIC_DURATION,
                  palette=None, direction: str = "vertical",
                  palette_steps: int = DEFAULT_PALETTE_STEPS):

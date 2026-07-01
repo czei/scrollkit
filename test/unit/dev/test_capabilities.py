@@ -46,7 +46,7 @@ def test_panel_is_64x32():
 
 
 def test_priorities_match_the_live_Priority_class():
-    from scrollkit.display.strategy import Priority
+    from scrollkit.display.content import Priority
     pr = capabilities()["priorities"]
     assert pr == {"IDLE": Priority.IDLE, "LOW": Priority.LOW,
                   "NORMAL": Priority.NORMAL, "HIGH": Priority.HIGH,
