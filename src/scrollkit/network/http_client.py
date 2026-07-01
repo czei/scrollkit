@@ -6,6 +6,8 @@ Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 import json
 import gc
 
+from scrollkit.exceptions import NetworkError
+
 
 def _logger():
     # Lazy: constructing ErrorHandler does a filesystem write-test, so it must
@@ -17,8 +19,7 @@ def _logger():
 class BaseResponse:
     """Base class for all response types with common functionality"""
 
-    def __init__(self, status_code=200, text="", content=None, headers=None,
-                 error=None):
+    def __init__(self, status_code=200, text="", content=None, headers=None):
         self.status_code = status_code
         self.text = text
         self.content = content if content is not None else text.encode('utf-8')
@@ -26,11 +27,6 @@ class BaseResponse:
         # The native adafruit_requests response already exposes .headers; these
         # wrappers carry it through so the same code works on desktop and device.
         self.headers = headers if headers is not None else {}
-        # The underlying exception when this response is a synthesized failure
-        # (a 500 the client manufactured after every retry failed). None on a
-        # real response. Lets callers record WHY a fetch failed instead of seeing
-        # an opaque empty body — see HttpClient.get()/HttpClient.last_error.
-        self.error = error
         self._json_cache = None
         self._read_position = 0
 
@@ -188,8 +184,14 @@ class HttpClient:
             A socket-free Response object: a detached ``BaseResponse`` (device
             path; the native ``adafruit_requests`` response is read and closed so
             its socket returns to the pool), a ``UrllibResponse`` (desktop), or a
-            ``MockResponse`` (mock provider / synthesized failure). Callers never
-            need to ``.close()`` it.
+            ``MockResponse`` (from a mock provider). Callers never need to
+            ``.close()`` it.
+
+        Raises:
+            NetworkError: after all ``max_retries`` attempts fail (each attempt
+                still counts toward the consecutive-failure session rebuild).
+                ``self.last_error`` retains the raw underlying exception for
+                diagnostics (e.g. ``note_refresh_result``).
         """
         if headers is None:
             headers = {"User-Agent": "Mozilla/5.0 (CircuitPython)"}
@@ -224,10 +226,13 @@ class HttpClient:
 
         error_msg = str(last_error) if last_error else "Unknown error"
         _logger().error(None, f"All {max_retries} GET attempts to {url} failed: {error_msg}")
-        # Surface the real cause instead of an opaque empty body: the synthesized
-        # 500 carries the exception on .error, and self.last_error stays set, so
-        # the app can record why the outage happened and show it for diagnosis.
-        return MockResponse(status_code=500, text="{}", error=last_error)
+        # Raise a typed error so callers can catch scrollkit.exceptions.NetworkError
+        # at the boundary. self.last_error still holds the RAW underlying exception
+        # (set by _note_failure) so the app can record why the outage happened.
+        # No `raise ... from` chaining: retaining the cause traceback fragments the
+        # heap on CircuitPython.
+        raise NetworkError("GET %s failed after %d attempts: %s"
+                           % (url, max_retries, error_msg))
 
     @staticmethod
     def _detach_response(resp):
@@ -356,7 +361,9 @@ class HttpClient:
 
     def _get_urllib(self, url, headers):
         if not self.urllib:
-            return MockResponse(status_code=500, text="No HTTP client available")
+            # Raise (not return a synthesized 500): a returned failure here was
+            # counted as a success by get() (which called _note_success on it).
+            raise NetworkError("No HTTP client available")
         request = self.urllib.Request(url)
         for key, value in headers.items():
             request.add_header(key, value)
@@ -411,7 +418,9 @@ class HttpClient:
         except Exception as e:
             _logger().error(e, f"Error making POST request to {url}")
             self._note_failure(e)
-            return MockResponse(status_code=500, text=str(e), error=e)
+            # self.last_error holds the raw cause (set by _note_failure). Plain
+            # raise, no `from e` chaining (heap fragmentation on CircuitPython).
+            raise NetworkError("POST %s failed: %s: %s" % (url, type(e).__name__, e))
 
     def set_use_live_data(self, use_live_data):
         """Set whether to use live data or mock data."""
@@ -455,7 +464,7 @@ class HttpClient:
                         self._note_success()
                         return UrllibResponse(response)
                 else:
-                    return MockResponse(status_code=500, text="No HTTP client available")
+                    raise NetworkError("No HTTP client available")
             except Exception as e:
                 _logger().error(e, f"Sync GET error (attempt {retry_count+1})")
                 last_error = e
@@ -470,4 +479,6 @@ class HttpClient:
 
         error_msg = str(last_error) if last_error else "Unknown error"
         _logger().error(None, f"All {max_retries} sync GET attempts to {url} failed: {error_msg}")
-        return MockResponse(status_code=500, text=f"Error: {error_msg}", error=last_error)
+        # Raise a typed error at the boundary (self.last_error keeps the raw cause).
+        raise NetworkError("sync GET %s failed after %d attempts: %s"
+                           % (url, max_retries, error_msg))

@@ -1,48 +1,44 @@
 # Copyright (c) 2024-2026 Michael Winslow Czeiszperger
-"""SLDK exception hierarchy.
+"""ScrollKit exception hierarchy.
 
-All exceptions are plain Exception subclasses for CircuitPython compatibility.
-Use specific exception types to enable precise error handling.
+Intentionally minimal: only exceptions the library ACTUALLY raises live here.
+An earlier hierarchy shipped 13 classes of which the library raised exactly one
+(FeasibilityError) — every ``except NetworkError`` etc. could only ever fire if
+a *caller* raised it, giving downstream users a false contract. This release
+keeps just the four that are raised at a real boundary.
+
+All are plain ``Exception`` subclasses for CircuitPython compatibility.
 """
 
 
-class SLDKError(Exception):
-    """Base exception for all SLDK errors."""
+class ScrollKitError(Exception):
+    """Base exception for all ScrollKit errors."""
 
 
-class DisplayError(SLDKError):
-    """Display-related errors (initialization, rendering, hardware)."""
+# 0.8.x compatibility alias: the base was named SLDKError before the rename.
+# Kept until a future 0.9.0.
+SLDKError = ScrollKitError
 
 
-class ContentError(SLDKError):
-    """Content-related errors (invalid data, rendering failures)."""
+class NetworkError(ScrollKitError):
+    """A network request failed at the HttpClient boundary.
+
+    Raised by ``HttpClient.get`` / ``get_sync`` / ``post`` after retries are
+    exhausted (or when no HTTP client is available). ``HttpClient.last_error``
+    retains the raw underlying exception for diagnostics.
+    """
 
 
-class ConfigurationError(SLDKError):
-    """Configuration and settings errors."""
+class OTAError(ScrollKitError):
+    """An OTA update step failed (server error, size or checksum mismatch).
+
+    Raised internally by ``OTAClient`` at its download/verify boundary; the
+    public ``OTAClient`` methods catch it and return their ``(ok, reason)``
+    tuple, so it does not escape the public API.
+    """
 
 
-class NetworkError(SLDKError):
-    """Network connectivity and request errors."""
-
-
-class WebServerError(SLDKError):
-    """Web server errors (startup, routing, request handling)."""
-
-
-class OTAError(SLDKError):
-    """OTA update errors."""
-
-
-class DeploymentError(SLDKError):
-    """Deployment and packaging errors."""
-
-
-class SimulatorError(SLDKError):
-    """Simulator-related errors."""
-
-
-class FeasibilityError(SLDKError):
+class FeasibilityError(ScrollKitError):
     """A modeled frame busts the device time or RAM budget under strict mode.
 
     Raised only by the desktop simulator's ``PerformanceManager`` when strict
@@ -55,13 +51,5 @@ class FeasibilityError(SLDKError):
     """
 
 
-class ResourceNotFoundError(SLDKError):
-    """Resource not found (files, configuration, devices)."""
-
-
-class UpdateError(SLDKError):
-    """Update process errors."""
-
-
-class ValidationError(SLDKError):
-    """Data validation errors."""
+__all__ = ["ScrollKitError", "SLDKError", "NetworkError", "OTAError",
+           "FeasibilityError"]

@@ -14,7 +14,7 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import NetworkError, OTAError, UpdateError
+from ..exceptions import NetworkError, OTAError
 from .manifest import UpdateManifest
 
 import sys
@@ -161,9 +161,15 @@ class OTAClient:
         ``adafruit_requests`` is Session-based and exposes no module-level
         ``get``); otherwise the module-level ``requests.get`` is used (desktop).
         """
-        if self.session is not None:
-            return self.session.get(url, timeout=self.download_timeout)
-        return requests.get(url, timeout=self.download_timeout)
+        try:
+            if self.session is not None:
+                return self.session.get(url, timeout=self.download_timeout)
+            return requests.get(url, timeout=self.download_timeout)
+        except Exception as e:
+            # Typed boundary error (no `from e` chaining: heap fragmentation on
+            # CircuitPython). The public check/download methods catch it and
+            # return their (ok, reason) tuple.
+            raise NetworkError("OTA GET %s failed: %s: %s" % (url, type(e).__name__, e))
 
     def check_for_updates(self) -> Tuple[bool, Union[str, UpdateManifest]]:
         """Check if updates are available.
@@ -184,7 +190,7 @@ class OTAClient:
             try:
                 manifest_data = response.json()
                 manifest = UpdateManifest.from_dict(manifest_data)
-            except (ValueError, json.JSONDecodeError) as e:
+            except ValueError as e:  # CircuitPython: json.loads raises ValueError
                 return False, f"Invalid manifest: {e}"
 
             is_valid, error = manifest.validate()
@@ -199,11 +205,9 @@ class OTAClient:
 
             return False, "No updates available"
 
-        except OTAError:
-            raise
-        except NetworkError:
-            raise
         except Exception as e:
+            # A NetworkError from _http_get on an unreachable server lands here and
+            # becomes the (False, reason) tuple the public contract promises.
             error_msg = f"Update check failed: {e}"
             if self.on_update_error:
                 self.on_update_error(error_msg)
@@ -259,9 +263,10 @@ class OTAClient:
                     progress = (completed_files / total_files) * 0.8
                     self.on_update_progress(f"Downloading {file_path}", progress)
 
-                success, error = self._download_file(file_path, file_info)
-                if not success:
-                    return False, f"Failed to download {file_path}: {error}"
+                try:
+                    self._download_file(file_path, file_info)
+                except (NetworkError, OTAError) as e:
+                    return False, f"Failed to download {file_path}: {e}"
 
                 completed_files += 1
                 gc.collect()
@@ -278,8 +283,6 @@ class OTAClient:
 
             return True, ""
 
-        except OTAError:
-            raise
         except Exception as e:
             error_msg = f"Download failed: {e}"
             if self.on_update_error:
@@ -288,46 +291,45 @@ class OTAClient:
         finally:
             gc.collect()
 
-    def _download_file(self, file_path: str, file_info: Dict[str, Any]) -> Tuple[bool, str]:
-        """Download a single file.
+    def _download_file(self, file_path: str, file_info: Dict[str, Any]) -> None:
+        """Download and verify a single file.
+
+        Returns None on success. Raises ``OTAError`` on a server error, size
+        mismatch, or checksum mismatch, and propagates ``NetworkError`` from the
+        HTTP GET. ``download_update`` catches both and turns them into its
+        ``(False, reason)`` tuple. The native response is always closed
+        (``finally``) so its socket is released.
 
         Args:
             file_path: Target file path
             file_info: File metadata dict
-
-        Returns:
-            tuple: (success, error_message)
         """
+        response = None
         try:
             url = f"{self.server_url}/files/{file_path.lstrip('/')}"
             response = self._http_get(url)
 
             if response.status_code != 200:
-                return False, f"Server error: {response.status_code}"
+                raise OTAError("Server error %d for %s"
+                               % (response.status_code, file_path))
 
             content = response.content
 
             if len(content) != file_info['size']:
-                return False, f"Size mismatch: {len(content)} != {file_info['size']}"
+                raise OTAError("Size mismatch for %s: %d != %d"
+                               % (file_path, len(content), file_info['size']))
 
             actual_checksum = hashlib.sha256(content).hexdigest()
             if actual_checksum != file_info['checksum']:
-                return False, "Checksum mismatch"
+                raise OTAError("Checksum mismatch for %s" % file_path)
 
             local_path = f"{self.update_dir}/{file_path.lstrip('/')}"
             self._ensure_directory_for_file(local_path)
 
             with open(local_path, 'wb') as f:
                 f.write(content)
-
-            return True, ""
-
-        except OTAError:
-            raise
-        except Exception as e:
-            return False, str(e)
         finally:
-            if 'response' in locals():
+            if response is not None:
                 try:
                     response.close()
                 except Exception:
@@ -393,10 +395,6 @@ class OTAClient:
 
             return True, ""
 
-        except OTAError:
-            raise
-        except UpdateError:
-            raise
         except Exception as e:
             error_msg = f"Update failed: {e}"
             if self.on_update_error:

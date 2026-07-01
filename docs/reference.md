@@ -55,6 +55,27 @@ from scrollkit.effects.reveal_splash import show_reveal_splash
 from scrollkit.web.settings_server import SettingsWebServer
 ```
 
+## Exceptions
+
+```python
+from scrollkit.exceptions import ScrollKitError, NetworkError, OTAError, FeasibilityError
+```
+
+- **`ScrollKitError`** — base class for every ScrollKit exception (alias
+  `SLDKError`, kept for backward compatibility).
+- **`NetworkError`** — raised by `HttpClient.get` / `get_sync` / `post` after
+  retries are exhausted (or when no HTTP client is available);
+  `HttpClient.last_error` keeps the raw underlying exception.
+- **`OTAError`** — raised internally by `OTAClient` on a server / size / checksum
+  failure; the public `OTAClient` methods catch it and return `(ok, reason)`, so
+  it does not escape their tuple contract.
+- **`FeasibilityError`** — raised by the desktop simulator's strict feasibility
+  gate (`run_headless(app, strict=True)`) when a frame busts the device time or
+  RAM budget. Never raised on hardware.
+
+Only these four are ever raised by the library — there is no aspirational
+hierarchy of types the library never uses.
+
 ## OTA
 
 ```python

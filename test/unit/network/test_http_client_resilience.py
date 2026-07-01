@@ -12,6 +12,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from scrollkit.network.http_client import HttpClient
+from scrollkit.exceptions import NetworkError
 
 
 def _adafruit_client(session, **kw):
@@ -33,11 +34,11 @@ class TestSessionRebuild:
         with patch.object(client, "_rebuild_session", return_value=True) as rebuild:
             with patch("asyncio.sleep", new=AsyncMock()):
                 with patch("scrollkit.network.http_client._logger"):
-                    resp = await client.get("https://example.com/api", max_retries=3)
+                    with pytest.raises(NetworkError):
+                        await client.get("https://example.com/api", max_retries=3)
 
         # threshold=2: attempt1 -> count 1, attempt2 -> count 2 -> rebuild fires.
         assert rebuild.called
-        assert resp.status_code == 500
 
     @pytest.mark.asyncio
     async def test_single_failure_does_not_rebuild(self):
@@ -102,9 +103,9 @@ class TestSessionRebuild:
 
 class TestErrorSurfaced:
     @pytest.mark.asyncio
-    async def test_failure_response_carries_cause(self):
-        """The synthesized 500 carries the real exception on .error and
-        client.last_error stays set — no more opaque empty 'Last error'."""
+    async def test_failure_raises_network_error_retaining_cause(self):
+        """A failed GET raises NetworkError whose message carries the cause, and
+        client.last_error retains the RAW exception — no opaque empty 'Last error'."""
         boom = OSError("mbedtls handshake failed")
         session = MagicMock()
         session.get.side_effect = boom
@@ -113,10 +114,10 @@ class TestErrorSurfaced:
         with patch.object(client, "_rebuild_session", return_value=True):
             with patch("asyncio.sleep", new=AsyncMock()):
                 with patch("scrollkit.network.http_client._logger"):
-                    resp = await client.get("https://example.com/api", max_retries=3)
+                    with pytest.raises(NetworkError) as exc:
+                        await client.get("https://example.com/api", max_retries=3)
 
-        assert resp.status_code == 500
-        assert resp.error is boom
+        assert "mbedtls handshake failed" in str(exc.value)
         assert client.last_error is boom
 
     @pytest.mark.asyncio
@@ -222,10 +223,9 @@ class TestSocketRelease:
         client = _adafruit_client(session, session_rebuild_threshold=99)
 
         with patch("scrollkit.network.http_client._logger"):
-            resp = await client.post("https://example.com/api", data={"a": 1})
+            with pytest.raises(NetworkError):
+                await client.post("https://example.com/api", data={"a": 1})
 
-        assert resp.status_code == 500
-        assert resp.error is boom
         assert client.last_error is boom
         assert client._failures_since_rebuild == 1
 

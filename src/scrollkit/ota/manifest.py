@@ -185,7 +185,7 @@ class UpdateManifest:
         try:
             data = json.loads(json_str)
             return cls.from_dict(data)
-        except (ValueError, json.JSONDecodeError) as e:
+        except ValueError as e:  # CircuitPython: json.loads raises ValueError
             raise ValueError(f"Invalid manifest JSON: {e}")
 
     def validate(self) -> Tuple[bool, str]:

@@ -11,7 +11,6 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import ContentError
 from .text_fill import DEFAULT_PALETTE_STEPS, normalize_direction
 
 import time

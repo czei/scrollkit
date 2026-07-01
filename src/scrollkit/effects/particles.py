@@ -11,7 +11,6 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import DisplayError
 from ..display.colors import multi_gradient
 
 # Default ember fire ramp: a smooth 24-step gradient (deep red -> orange -> yellow ->

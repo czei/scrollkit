@@ -7,6 +7,7 @@ import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from scrollkit.network.http_client import HttpClient, MockResponse
+from scrollkit.exceptions import NetworkError
 
 class TestHttpClient:
     @pytest.mark.asyncio
@@ -93,7 +94,7 @@ class TestHttpClient:
     
     @pytest.mark.asyncio
     async def test_error_handling(self):
-        """Test error handling in the client"""
+        """A GET that fails every retry raises NetworkError."""
         mock_session = MagicMock()
         mock_session.get.side_effect = Exception("Connection error")
 
@@ -102,8 +103,8 @@ class TestHttpClient:
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
 
-                response = await client.get("https://example.com/api/test", max_retries=2)
-                assert response.status_code == 500
+                with pytest.raises(NetworkError):
+                    await client.get("https://example.com/api/test", max_retries=2)
                 assert mock_session.get.call_count == 2
     
     @pytest.mark.asyncio

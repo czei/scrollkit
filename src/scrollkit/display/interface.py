@@ -12,8 +12,6 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import DisplayError
-
 
 class DisplayInterface:
     """Base interface for all display implementations."""

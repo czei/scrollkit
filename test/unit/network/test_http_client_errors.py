@@ -7,6 +7,7 @@ import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock, call
 
 from scrollkit.network.http_client import HttpClient
+from scrollkit.exceptions import NetworkError
 
 
 class TestHttpClientErrors:
@@ -39,27 +40,26 @@ class TestHttpClientErrors:
     
     @pytest.mark.asyncio
     async def test_get_request_max_retries_exceeded(self):
-        """Test behavior when max retries are exceeded"""
+        """After all retries fail, get() raises NetworkError (not a synthesized 500)."""
         # Set up the mock session to always fail
         mock_session = MagicMock()
         mock_session.get.side_effect = Exception("Connection error")
-        
+
         # Mock asyncio.sleep to avoid actual waiting
         with patch('asyncio.sleep', new=AsyncMock()) as mock_sleep:
             with patch('scrollkit.network.http_client._logger') as mock_logger:
                 # Create client and make request
                 client = HttpClient(session=mock_session)
                 client.using_adafruit = True
-                
+
                 # Use a lower max_retries for faster testing
-                response = await client.get("https://example.com/api/test", max_retries=2)
-                
+                with pytest.raises(NetworkError):
+                    await client.get("https://example.com/api/test", max_retries=2)
+
                 # Verify that all retries were attempted
                 assert mock_session.get.call_count == 2
                 # Verify sleep was called between retries
                 assert mock_sleep.call_count == 2
-                # Verify the final response is an error
-                assert response.status_code == 500
     
     @pytest.mark.asyncio
     async def test_out_of_retries_exception_handling(self):
@@ -82,28 +82,30 @@ class TestHttpClientErrors:
                     with patch('scrollkit.network.http_client.socketpool', create=True):
                         with patch('scrollkit.network.http_client.wifi', create=True):
                             with patch('scrollkit.network.http_client.ssl', create=True):
-                                response = await client.get("https://example.com/api/test", max_retries=2)
+                                with pytest.raises(NetworkError):
+                                    await client.get("https://example.com/api/test", max_retries=2)
 
                                 # Verify sleep was called during retry cycle
                                 assert mock_sleep.call_count > 0
     
     @pytest.mark.asyncio
     async def test_post_request_error(self):
-        """Test error handling in POST request"""
+        """A failed POST raises NetworkError (whose message carries the cause)."""
         # Set up the mock session to fail
         mock_session = MagicMock()
         mock_session.post.side_effect = Exception("Connection error")
-        
+
         with patch('scrollkit.network.http_client._logger') as mock_logger:
             # Create client and make request
             client = HttpClient(session=mock_session)
             client.using_adafruit = True
-            
-            response = await client.post("https://example.com/api/test", data={"test": "data"})
-            
+
+            with pytest.raises(NetworkError) as exc:
+                await client.post("https://example.com/api/test", data={"test": "data"})
+
             # Verify error was logged (mock_logger patches the _logger() factory;
             # the ErrorHandler instance it returns is mock_logger.return_value)
             assert mock_logger.return_value.error.called
-            # Verify error response
-            assert response.status_code == 500
-            assert "Connection error" in response.text
+            # The cause is carried in the NetworkError message and on last_error.
+            assert "Connection error" in str(exc.value)
+            assert str(client.last_error) == "Connection error"

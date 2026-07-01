@@ -25,16 +25,27 @@ for network code.
 
 ```python
 from scrollkit.network.http_client import HttpClient
+from scrollkit.exceptions import NetworkError
 
 http = HttpClient()
-resp = await http.get("https://api.open-meteo.com/v1/forecast?...")
-data = resp.json()
+try:
+    resp = await http.get("https://api.open-meteo.com/v1/forecast?...")
+    data = resp.json()
+except NetworkError as e:
+    ...  # every retry failed; http.last_error holds the raw cause
 ```
 
 - **CircuitPython** → `adafruit_requests` (synchronous, behind `await`).
 - **Desktop** → `urllib` fallback when no session is supplied.
 
 It supports retries with backoff and a pluggable mock provider for tests.
+
+`get()`, `get_sync()`, and `post()` **raise `scrollkit.exceptions.NetworkError`**
+when every retry fails (rather than returning a synthesized 500). The raw
+underlying exception is retained on `http.last_error` for diagnostics —
+`seconds_since_last_success()` and the diagnostics `note_fetch_result` hook read
+it to decide when displayed data has gone stale. A mock provider that returns a
+response is passed through unchanged (no raise).
 
 ## Blocking I/O is real on CircuitPython
 

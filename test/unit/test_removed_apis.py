@@ -141,8 +141,26 @@ def test_wifi_is_connected_method_shadow_is_gone():
         "is_connected should only exist as an instance attribute, not a class member"
 
 
-# REMOVED_EXCEPTIONS (ConfigurationError/DeploymentError/ResourceNotFoundError/
-# DisplayError/ContentError/WebServerError/SimulatorError/UpdateError/
-# ValidationError -- the 9 caught-but-never-raised/fully-dead classes; SLDKError
-# stays as an alias for the renamed ScrollKitError base) is added in Phase 5
-# alongside the exceptions.py rewrite.
+# 0.8.2: exceptions.py collapsed to only the types the library actually raises.
+# These 9 were caught-but-never-raised or fully dead.
+REMOVED_EXCEPTIONS = [
+    "DisplayError", "ContentError", "ConfigurationError", "WebServerError",
+    "DeploymentError", "SimulatorError", "ResourceNotFoundError", "UpdateError",
+    "ValidationError",
+]
+
+
+@pytest.mark.parametrize("name", REMOVED_EXCEPTIONS)
+def test_removed_exception_is_gone(name):
+    import scrollkit.exceptions as exc
+    with pytest.raises(AttributeError):
+        getattr(exc, name)
+
+
+def test_surviving_exceptions_and_sldk_alias():
+    """The four raised types survive; SLDKError stays as the ScrollKitError alias."""
+    from scrollkit.exceptions import (
+        ScrollKitError, SLDKError, NetworkError, OTAError, FeasibilityError)
+    assert SLDKError is ScrollKitError
+    for cls in (NetworkError, OTAError, FeasibilityError):
+        assert issubclass(cls, ScrollKitError)

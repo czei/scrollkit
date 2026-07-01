@@ -12,8 +12,6 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import SimulatorError
-
 # Verify we're NOT on CircuitPython
 if hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython':
     raise ImportError("Simulator display cannot be used on CircuitPython")
@@ -179,7 +177,7 @@ class SimulatorDisplay(GraphicsMixin, DisplayInterface):
             self._initialized = True
             print("Simulator display initialized")
             
-        except (ImportError, OSError, SimulatorError) as e:
+        except (ImportError, OSError) as e:
             print(f"Failed to initialize simulator: {e}")
             raise
     

@@ -36,7 +36,6 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 from ..display.content import ContentQueue
 from ..display.interface import DisplayInterface
-from ..exceptions import DisplayError, NetworkError, WebServerError
 from .memory import free_memory
 
 
@@ -535,8 +534,6 @@ class SLDKApp:
             
         except ImportError:
             print("Web server not available - adafruit_httpserver is required")
-        except WebServerError as e:
-            print(f"Web server error: {e}")
         except Exception as e:
             print(f"Web server error: {e}")
     
@@ -635,7 +632,7 @@ class SLDKApp:
         except ImportError as e:
             print(f"Failed to initialize display: {e}")
             print("Install simulator with 'pip install sldk[simulator]' for desktop development")
-        except DisplayError as e:
+        except OSError as e:
             print(f"Display initialization failed: {e}")
 
     def _arm_watchdog(self) -> None:

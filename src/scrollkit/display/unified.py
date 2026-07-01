@@ -14,8 +14,6 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-from ..exceptions import DisplayError, SimulatorError
-
 try:
     # Desktop Python
     import asyncio
@@ -158,7 +156,7 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             self._initialized = True
             print(f"Display initialized ({'CircuitPython' if IS_CIRCUITPYTHON else 'Simulator'})")
             
-        except (DisplayError, ImportError, OSError) as e:
+        except (ImportError, OSError) as e:
             print(f"Failed to initialize display: {e}")
             raise
     
