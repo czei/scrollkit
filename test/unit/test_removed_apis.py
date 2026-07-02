@@ -223,10 +223,20 @@ def test_display_manager_and_scrolling_label_are_gone():
 
 
 def test_wifi_manager_captive_portal_residue_is_gone():
+    """The dead HELPERS stay gone — but NOT the onboarding feature itself.
+
+    start_access_point/stop_access_point were briefly deleted in the same
+    sweep and then restored on purpose: they are half of the no-file-editing
+    WiFi setup portal (a major feature that had been silently unwired since
+    the settings-server rewrite). See run_setup_portal / web/wifi_setup.py.
+    """
     from scrollkit.network.wifi_manager import WiFiManager
-    for name in ("disconnect", "is_available", "get_ip_address",
-                 "start_access_point", "stop_access_point"):
+    for name in ("disconnect", "is_available", "get_ip_address"):
         assert not hasattr(WiFiManager, name), name
+    # The restored onboarding surface must stay.
+    for name in ("start_access_point", "stop_access_point", "ap_ip_address",
+                 "run_setup_portal", "scan_networks", "save_credentials"):
+        assert hasattr(WiFiManager, name), name
 
 
 def test_color_utils_static_helpers_are_gone():

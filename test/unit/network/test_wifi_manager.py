@@ -268,3 +268,95 @@ class TestWiFiManager:
                         assert mock_sm.settings["wifi_ssid"] == "NewSSID"
                         assert mock_sm.settings["wifi_password"] == "NewPassword"
                         assert mock_sm.save_settings.called
+
+
+def _real_sm(saved):
+    with patch.object(SettingsManager, "load_settings", return_value=saved):
+        return SettingsManager("test_settings.json")
+
+
+class TestCredentialsPrecedence:
+    """The no-file-editing promise: portal-saved settings beat secrets.py."""
+
+    def test_settings_credentials_win_over_secrets(self):
+        sm = _real_sm({"wifi_ssid": "PortalNet", "wifi_password": "portalpw"})
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("SecretsNet", "secretspw")):
+            wm = WiFiManager(sm)
+        assert wm.ssid == "PortalNet"
+        assert wm.password == "portalpw"
+
+    def test_falls_back_to_secrets_when_settings_empty(self):
+        sm = _real_sm({})
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("SecretsNet", "secretspw")):
+            wm = WiFiManager(sm)
+        assert wm.ssid == "SecretsNet"
+
+    def test_non_string_settings_values_are_ignored(self):
+        sm = _real_sm({"wifi_ssid": 12345})   # garbage after a bad write
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("SecretsNet", "secretspw")):
+            wm = WiFiManager(sm)
+        assert wm.ssid == "SecretsNet"
+
+    def test_settings_ssid_with_missing_password_defaults_empty(self):
+        sm = _real_sm({"wifi_ssid": "OpenNet"})
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("SecretsNet", "secretspw")):
+            wm = WiFiManager(sm)
+        assert wm.ssid == "OpenNet"
+        assert wm.password == ""
+
+
+class TestAccessPointDevMode:
+    """The restored AP half of the onboarding feature (simulated on desktop)."""
+
+    def _wm(self):
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("", "")):
+            return WiFiManager(MagicMock())
+
+    def test_start_and_stop_toggle_ap_enabled(self):
+        wm = self._wm()
+        assert wm.ap_enabled is False
+        wm.start_access_point()
+        assert wm.ap_enabled is True
+        wm.stop_access_point()
+        assert wm.ap_enabled is False
+
+    def test_ap_ip_address_in_dev_mode(self):
+        assert self._wm().ap_ip_address() == "127.0.0.1"
+
+
+class TestRunSetupPortal:
+    @pytest.mark.asyncio
+    async def test_delegates_to_portal_and_skips_reboot_on_desktop(self):
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("", "")):
+            wm = WiFiManager(MagicMock())
+
+        portal_instance = MagicMock()
+        portal_instance.run = AsyncMock(return_value=True)
+        portal_cls = MagicMock(return_value=portal_instance)
+        wm.reset = AsyncMock()
+
+        with patch("scrollkit.web.wifi_setup.WiFiSetupPortal", portal_cls):
+            saved = await wm.run_setup_portal(display="DISPLAY", timeout_s=9)
+
+        assert saved is True
+        portal_cls.assert_called_once_with(wm, display="DISPLAY", port=80)
+        portal_instance.run.assert_awaited_once_with(timeout_s=9)
+        # Desktop never reboots — that's hardware-only behavior.
+        wm.reset.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_nothing_saved(self):
+        with patch("scrollkit.network.wifi_manager.load_credentials",
+                   return_value=("", "")):
+            wm = WiFiManager(MagicMock())
+        portal_instance = MagicMock()
+        portal_instance.run = AsyncMock(return_value=False)
+        with patch("scrollkit.web.wifi_setup.WiFiSetupPortal",
+                   MagicMock(return_value=portal_instance)):
+            assert await wm.run_setup_portal() is False

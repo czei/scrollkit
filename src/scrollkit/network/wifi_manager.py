@@ -55,7 +55,7 @@ class WiFiManager:
             settings_manager: The settings manager
         """
         self.settings_manager = settings_manager
-        self.ssid, self.password = load_credentials()
+        self.ssid, self.password = self._resolve_credentials()
         self.is_connected = False
         self.wifi_client = None
         self.ap_enabled = False
@@ -93,6 +93,26 @@ class WiFiManager:
             self.wifi = None
             self.HAS_WIFI = False
             _logger().debug(f"WiFi module not available or incomplete: {e}")
+
+    def _resolve_credentials(self):
+        """Resolve WiFi credentials: settings.json first, secrets.py fallback.
+
+        Settings win because they are what the no-file-editing setup portal
+        writes (see run_setup_portal) — the user's latest choice must beat a
+        stale secrets.py. Returns ("", "") when neither source has an SSID.
+        """
+        sm = self.settings_manager
+        if sm is not None:
+            try:
+                ssid = sm.get("wifi_ssid")
+                password = sm.get("wifi_password")
+            except Exception:
+                ssid = password = None
+            # Strict str checks: settings.json could hold garbage after a bad
+            # write, and tests hand in MagicMock settings managers.
+            if isinstance(ssid, str) and ssid:
+                return ssid, password if isinstance(password, str) else ""
+        return load_credentials()
 
     async def reset(self):
         """Reset the microcontroller after delay"""
@@ -274,4 +294,89 @@ class WiFiManager:
             _logger().error(e, "Error scanning for WiFi networks")
             # Return empty list on error
             return []
+
+    # ------------------------------------------------------------------ #
+    # Access-point mode + the no-file-editing setup portal
+    # ------------------------------------------------------------------ #
+
+    def start_access_point(self):
+        """Start the device's own WiFi access point (for the setup portal)."""
+        if is_dev_mode() or not self.HAS_WIFI:
+            _logger().debug("Simulating access point in dev mode")
+            self.ap_enabled = True
+            return
+
+        self.wifi.radio.enabled = True
+        if not self.ap_enabled:
+            authmodes = getattr(self, "AP_AUTHMODES", None)
+            open_ap = bool(authmodes) and authmodes[0] == self.wifi.AuthMode.OPEN
+            if open_ap:
+                self.wifi.radio.start_ap(ssid=self.AP_SSID, authmode=authmodes)
+            else:
+                self.wifi.radio.start_ap(ssid=self.AP_SSID,
+                                         password=self.AP_PASSWORD,
+                                         authmode=authmodes)
+            self.ap_enabled = True
+
+    def stop_access_point(self):
+        """Stop the device's WiFi access point."""
+        if is_dev_mode() or not self.HAS_WIFI:
+            self.ap_enabled = False
+            return
+        try:
+            self.wifi.radio.stop_ap()
+        except Exception as e:
+            _logger().error(e, "Error stopping access point")
+        self.ap_enabled = False
+
+    def ap_ip_address(self):
+        """The IP a phone should browse to while joined to the setup AP."""
+        if is_dev_mode() or not self.HAS_WIFI:
+            return "127.0.0.1"
+        try:
+            return str(self.wifi.radio.ipv4_address_ap)
+        except Exception:
+            # CircuitPython's soft-AP default; better than nothing on panels.
+            return "192.168.4.1"
+
+    async def run_setup_portal(self, display=None, *, port=80, reboot=True,
+                               timeout_s=None):
+        """Run the no-file-editing WiFi onboarding portal (blocking).
+
+        Starts the device's own access point and serves a setup page where
+        the user picks a network + password from a phone; credentials are
+        saved via the SettingsManager (settings.json — never a code file) and
+        the device reboots to connect. Typical wiring, at the START of an
+        app's setup() — before the display loop owns the screen::
+
+            wm = WiFiManager(self.settings)
+            if not await wm.connect():
+                await wm.run_setup_portal(display=self.display)
+                # (device reboots on save; on desktop this just returns)
+
+        Args:
+            display: Optional DisplayInterface — join instructions are
+                scrolled on the panel while the portal runs.
+            port: HTTP port for the portal (default 80).
+            reboot: Reboot the device after a successful save (hardware
+                only; desktop always just returns). A fresh boot picks the
+                saved credentials up via _resolve_credentials().
+            timeout_s: Optional give-up timeout in seconds.
+
+        Returns:
+            True when credentials were saved, else False.
+
+        Imported lazily so an already-configured boot never pays RAM for the
+        portal. Contract: the portal only writes settings; it owns the
+        display exclusively (boot phase), never the content queue.
+        """
+        from scrollkit.web.wifi_setup import WiFiSetupPortal
+        portal = WiFiSetupPortal(self, display=display, port=port)
+        saved = await portal.run(timeout_s=timeout_s)
+        if saved and reboot and is_circuitpython:
+            # Hardware only: a clean reboot re-runs boot with the new
+            # credentials. reset() sleeps ~4s first, letting the linger page
+            # note on the panel be seen.
+            await self.reset()
+        return saved
 

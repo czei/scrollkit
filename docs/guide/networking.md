@@ -6,19 +6,68 @@ client.
 ## WiFiManager
 
 `scrollkit.network.wifi_manager.WiFiManager` handles CircuitPython WiFi:
-connecting (with retries), reconnecting, scanning networks, and creating the
+connecting (with retries), reconnecting, scanning networks, creating the
 `adafruit_requests` session the HTTP client uses after a successful connection
-(`create_http_session()`). An earlier `start_access_point()` / `stop_access_point()`
-pair (plus the captive-portal web server built on it) was removed as unused
-legacy code — see `docs/guide/web.md` for the settings web UI, which is the
-maintained config-page path. `WiFiManager` today only manages station-mode
-connectivity (`connect()`, `reconnect()`, `scan_networks()`,
-`create_http_session()`); AP-mode setup is not part of the current API.
+(`create_http_session()`), and — when the device has no working credentials —
+running the [WiFi onboarding portal](#wifi-onboarding-portal-no-file-editing)
+over its own access point (`start_access_point()` / `stop_access_point()` /
+`run_setup_portal()`).
+
+Credentials are resolved **settings first, `secrets.py` second**: whatever the
+onboarding portal saved into `settings.json` (`wifi_ssid` / `wifi_password`)
+beats a stale `secrets.py`, so a device configured from a phone never needs a
+file edited.
 
 `scrollkit.network.wifi_manager.is_dev_mode()` reports whether a real WiFi
 radio is available (always `False` on CircuitPython; `True` on desktop unless
 the test suite mocks a `wifi` module) — the canonical desktop-vs-device check
 for network code.
+
+## WiFi onboarding portal (no file editing)
+
+A brand-new (or moved) device has no way onto the local network, and asking a
+user to edit `secrets.py` defeats the point of a finished product. The
+onboarding portal fixes that end-to-end:
+
+```python
+class MyApp(ScrollKitApp):
+    async def setup(self):
+        wm = WiFiManager(self.settings)
+        if not await wm.connect():
+            # Blocks here until the user configures WiFi from a phone,
+            # then reboots the device with the saved credentials.
+            await wm.run_setup_portal(display=self.display)
+        ...
+```
+
+What the user sees:
+
+1. The panel scrolls **“WiFi setup: join "WifiManager_XXXX" (password:
+   password) then open http://192.168.4.1”**.
+2. They join that access point from a phone and open the address: a page
+   lists the scanned nearby networks (with signal bars), plus a manual
+   network-name field (for hidden SSIDs) and a password field.
+3. Submitting saves `wifi_ssid`/`wifi_password` through the
+   `SettingsManager` (into `settings.json` — **never** a code file), shows a
+   confirmation page, and reboots the device, which then connects with the
+   saved credentials (they take precedence over `secrets.py`).
+
+Details worth knowing:
+
+- `run_setup_portal(display=..., port=80, reboot=True, timeout_s=None)`
+  returns `True` when credentials were saved. `reboot` applies on hardware
+  only; on desktop the call simply returns so the flow is testable.
+- The portal is a **boot-phase** flow: it owns the screen exclusively before
+  the app's display loop starts (like `OTAProgressDisplay.install_pending()`),
+  and it only ever **writes settings** — the same discipline as the settings
+  web UI (see `docs/guide/web.md`).
+- Everything is imported lazily (`scrollkit.web.wifi_setup`,
+  `adafruit_httpserver`) — a device that boots with working credentials never
+  pays a byte of RAM for the portal.
+- The network scan happens *before* AP mode starts (some radio builds can't
+  scan while running an access point).
+- The AP is WPA2 with the default password `password` (attributes
+  `AP_SSID` / `AP_PASSWORD` on `WiFiManager`, derived from the radio MAC).
 
 ## HttpClient
 
