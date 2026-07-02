@@ -103,6 +103,83 @@ def test_hardware_block_present_when_enabled():
     assert result.hardware_text and "MEASURED on device" in result.hardware_text
 
 
+# --- run_headless drives the app's OWN frame path (step_frame) ---------------
+#
+# Historically the harness hand-copied the display loop WITHOUT the transition
+# path, so run_headless(strict=True) — documented as THE feasibility gate for
+# effects — passed apps whose transitions never executed. These tests pin the
+# fix: transitions fire and render inside run_headless, and pending
+# web-settings saves are applied at the frame boundary, exactly as on device.
+
+class _ProbeTransition:
+    """Duck-typed transition (like DropFromSky) that records its lifecycle."""
+
+    def __init__(self, frames=3):
+        self.start_calls = 0
+        self.render_calls = 0
+        self.pre_render_calls = 0
+        self._frames_left = frames
+
+    async def start(self, display, swap):
+        self.start_calls += 1
+        swap()
+
+    def pre_render_hook(self, content):
+        self.pre_render_calls += 1
+
+    async def render(self, display, content=None):
+        self.render_calls += 1
+        self._frames_left -= 1
+
+    @property
+    def is_complete(self):
+        return self._frames_left <= 0
+
+
+class _TransitionApp(_ScrollApp):
+    """Two fast-cycling items so the queue advances within a short run."""
+
+    def __init__(self):
+        super().__init__()
+        self.probes = []
+
+    async def setup(self):
+        self.content_queue.add(StaticText("A", x=4, y=12, duration=0.01))
+        self.content_queue.add(StaticText("B", x=4, y=12, duration=0.01))
+
+    def _get_transition(self):
+        probe = _ProbeTransition()
+        self.probes.append(probe)
+        return probe
+
+
+def test_run_headless_exercises_transitions():
+    app = _TransitionApp()
+    result = run_headless(app, frames=40)
+    assert result.errors == []
+    assert app.probes, "queue advanced but _get_transition was never consulted"
+    assert sum(p.start_calls for p in app.probes) >= 1
+    assert sum(p.render_calls for p in app.probes) >= 1
+    assert sum(p.pre_render_calls for p in app.probes) >= 1
+
+
+class _SettingsProbeApp(_StaticApp):
+    def __init__(self):
+        super().__init__()
+        self.settings_change_seen = False
+
+    def on_settings_changed(self):
+        self.settings_change_seen = True
+
+
+def test_run_headless_applies_pending_settings():
+    app = _SettingsProbeApp()
+    app.notify_settings_changed()  # what a web save does
+    result = run_headless(app, frames=5)
+    assert result.errors == []
+    assert app.settings_change_seen is True
+
+
 def test_hardware_block_absent_when_disabled():
     result = run_headless(_ScrollApp(), frames=20, hardware=False)
     assert result.hardware is None

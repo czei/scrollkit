@@ -163,6 +163,12 @@ class SLDKApp:
         self._current_content = None
         self._run_start = None  # time.monotonic() when run() began the loop
 
+        # Per-frame display-loop state, shared by _display_process and the dev
+        # harness (both drive frames through step_frame(), so the strict
+        # feasibility gate exercises the SAME code path — transitions included —
+        # that ships on the device).
+        self._reset_frame_state()
+
         # Default settings — built-in fields (brightness_scale, scroll_speed,
         # default_color) are registered by SettingsManager.__init__ via define().
         from ..config.settings_manager import SettingsManager
@@ -259,17 +265,100 @@ class SLDKApp:
     
     # Core process implementations
     
-    async def _display_process(self) -> None:
-        """Process 1: Handle display updates."""
-        print("Display process started")
-        _prev_content = None
-        _active_transition = None
-        _prev_advance = 0   # tracks content_queue._advance_count
+    def _reset_frame_state(self) -> None:
+        """Reset the cross-frame state used by step_frame().
+
+        Called from __init__ and at the start of each frame-driving run
+        (_display_process, dev harness) so a reused app starts clean.
+        """
+        self._frame_prev_content = None
+        self._frame_active_transition = None
+        self._frame_prev_advance = 0   # tracks content_queue._advance_count
         # Survives across frames: set when content advances (queue cycle or
         # rebuild); cleared only when a transition fires (or no transition is
         # configured). This lets saves that arrive during a playing transition
         # queue up and fire when the current one finishes.
-        _wants_transition = False
+        self._frame_wants_transition = False
+
+    async def step_frame(self) -> bool:
+        """Run exactly ONE display-loop frame; the single frame implementation.
+
+        Applies pending web-settings saves, prepares content, fires/advances
+        the configured transition, renders, and shows. Both _display_process
+        (the shipping loop) and scrollkit.dev's run_headless drive frames
+        through here — never a copy — so the strict feasibility gate verifies
+        the exact code path the device runs, transitions included.
+
+        Returns False when the display reports closed (simulator window),
+        True otherwise. Exceptions propagate to the caller: the run loop logs
+        and continues; the harness surfaces FeasibilityError as a gate failure.
+        """
+        if self._settings_dirty:
+            self._settings_dirty = False
+            try:
+                self._apply_library_settings()
+            except Exception as e:
+                print("_apply_library_settings error:", e)
+            try:
+                self.on_settings_changed()
+            except Exception as e:
+                print("on_settings_changed error:", e)
+
+        content = await self.prepare_display_content()
+        self._current_content = content
+
+        # Detect queue advances (loop, multi-item advance, or rebuild).
+        # The advance counter increments on every start() call; _prev_advance > 0
+        # skips the very first play (nothing to transition from yet).
+        advance = getattr(self.content_queue, "_advance_count", 0)
+        if advance != self._frame_prev_advance and self._frame_prev_advance > 0:
+            self._frame_wants_transition = True
+        self._frame_prev_advance = advance
+
+        if content and self.display:
+            # Fallback: object identity catches custom prepare_display_content()
+            # implementations that don't use ContentQueue.
+            if (content is not self._frame_prev_content
+                    and self._frame_prev_content is not None):
+                self._frame_wants_transition = True
+
+            # Fire the deferred transition as soon as nothing is active.
+            if self._frame_wants_transition and self._frame_active_transition is None:
+                t = self._get_transition()
+                if t is not None:
+                    await t.start(self.display, lambda: None)
+                    self._frame_active_transition = t
+                self._frame_wants_transition = False
+
+            await self.display.clear()
+
+            # Let the active transition adjust content position before
+            # it renders (used by DropFromSky to animate y each frame).
+            if self._frame_active_transition is not None and hasattr(
+                    self._frame_active_transition, 'pre_render_hook'):
+                self._frame_active_transition.pre_render_hook(content)
+
+            await content.render(self.display)
+
+            if self._frame_active_transition is not None:
+                await self._frame_active_transition.render(self.display, content=content)
+                if self._frame_active_transition.is_complete:
+                    self._frame_active_transition = None
+
+            # show() returns False when the simulator window closes.
+            if await self.display.show() is False:
+                self._frame_prev_content = content
+                return False
+
+            self._frame_count += 1
+
+        self._frame_prev_content = content
+        return True
+
+    async def _display_process(self) -> None:
+        """Process 1: Handle display updates."""
+        print("Display process started")
+        self._reset_frame_state()
 
         while self.running:
             try:
@@ -279,65 +368,10 @@ class SLDKApp:
                 # self-healing reset. A caught render error just continues + refeeds.
                 self._feed_watchdog()
 
-                if self._settings_dirty:
-                    self._settings_dirty = False
-                    try:
-                        self._apply_library_settings()
-                    except Exception as e:
-                        print("_apply_library_settings error:", e)
-                    try:
-                        self.on_settings_changed()
-                    except Exception as e:
-                        print("on_settings_changed error:", e)
+                if await self.step_frame() is False:
+                    self._request_shutdown()
+                    return
 
-                content = await self.prepare_display_content()
-                self._current_content = content
-
-                # Detect queue advances (loop, multi-item advance, or rebuild).
-                # The advance counter increments on every start() call; _prev_advance > 0
-                # skips the very first play (nothing to transition from yet).
-                advance = getattr(self.content_queue, "_advance_count", 0)
-                if advance != _prev_advance and _prev_advance > 0:
-                    _wants_transition = True
-                _prev_advance = advance
-
-                if content and self.display:
-                    # Fallback: object identity catches custom prepare_display_content()
-                    # implementations that don't use ContentQueue.
-                    if content is not _prev_content and _prev_content is not None:
-                        _wants_transition = True
-
-                    # Fire the deferred transition as soon as nothing is active.
-                    if _wants_transition and _active_transition is None:
-                        t = self._get_transition()
-                        if t is not None:
-                            await t.start(self.display, lambda: None)
-                            _active_transition = t
-                        _wants_transition = False
-
-                    await self.display.clear()
-
-                    # Let the active transition adjust content position before
-                    # it renders (used by DropFromSky to animate y each frame).
-                    if _active_transition is not None and hasattr(
-                            _active_transition, 'pre_render_hook'):
-                        _active_transition.pre_render_hook(content)
-
-                    await content.render(self.display)
-
-                    if _active_transition is not None:
-                        await _active_transition.render(self.display, content=content)
-                        if _active_transition.is_complete:
-                            _active_transition = None
-
-                    # show() returns False when the simulator window closes.
-                    if await self.display.show() is False:
-                        self._request_shutdown()
-                        return
-
-                    self._frame_count += 1
-
-                _prev_content = content
                 await sleep(0.05)  # 20 FPS
                 await self._report_memory()
 

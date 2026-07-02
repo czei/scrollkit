@@ -237,20 +237,19 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             except Exception as e:
                 warnings.append("update_data() failed: %r" % (e,))
 
-        # Step the display loop deterministically (mirrors _display_process,
-        # minus the 20 FPS sleep and periodic memory report).
+        # Step the display loop deterministically through the app's OWN frame
+        # implementation (SLDKApp.step_frame — settings application, transition
+        # firing/rendering, content render, show), minus the 20 FPS sleep and
+        # periodic memory report. Never a copy of the loop: the strict gate
+        # must exercise exactly the code path that ships, transitions included.
+        app._reset_frame_state()
         for i in range(frames):
             try:
-                content = await app.prepare_display_content()
-                app._current_content = content
-                if content and app.display:
-                    await app.display.clear()
-                    await content.render(app.display)
-                    closed = await app.display.show() is False
-                    app._frame_count += 1
-                    if closed:
-                        warnings.append("display closed at frame %d" % (i + 1))
-                        break
+                closed = await app.step_frame() is False
+                if closed:
+                    warnings.append("display closed at frame %d" % (i + 1))
+                    break
+                if app._current_content is not None and app.display:
                     buf = _metrics.buffer_from_display(app.display)
                     sig = _metrics.signature(buf) if buf is not None else None
                     if first_sig is None:
