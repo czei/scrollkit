@@ -3,10 +3,16 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.9.0] - 2026-07-02
 
 The post-0.8.2 review fixes (a 4-agent + 3-model-panel code review, then five
-fix tranches) plus the restored WiFi onboarding feature.
+fix tranches) plus the restored WiFi onboarding feature. Minor-version bump
+because the review fixes changed behavior that code may have relied on
+(`ContentQueue` priority/loop are now real contracts). First release published
+to PyPI: a tag push now builds and uploads via GitHub Actions Trusted
+Publishing (`.github/workflows/publish.yml`), and the wheel/sdist now declare
+the simulator's BDF fonts and hardware-calibration JSONs as package data
+(previously only reachable via editable/source installs).
 
 ### Added
 

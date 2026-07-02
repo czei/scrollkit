@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scrollkit"
-version = "0.8.2"
+version = "0.9.0"
 description = "LED Matrix Display Framework for CircuitPython and Desktop"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -46,3 +46,11 @@ Repository = "https://github.com/czei/scrollkit"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["scrollkit*"]
+
+# Non-.py files the wheel/sdist must carry. Without this, pip installs would
+# silently drop the simulator's BDF fonts and the hardware-calibration JSONs
+# (CI's editable install can't catch that — it always sees the source tree).
+[tool.setuptools.package-data]
+"scrollkit.simulator" = ["LICENSE", "*.md"]
+"scrollkit.simulator.core" = ["*.json"]
+"scrollkit.simulator.fonts" = ["*.bdf", "*.bdf.license", "LICENSE*"]

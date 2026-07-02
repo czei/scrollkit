@@ -7,7 +7,8 @@ Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built S
 📖 **Full documentation: [scrollkit.dev](https://scrollkit.dev)**
 
 <p align="center">
-  <img src="docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold, all rendered on a 64×32 LED panel" width="640">
+  <!-- Absolute URL so the image also renders on the PyPI project page -->
+  <img src="https://raw.githubusercontent.com/czei/scrollkit/master/docs/assets/video/scrollkit-hero.gif" alt="ScrollKit hero: a swarm assembles the ScrollKit logo, sheen sweeps over it, then it colorizes to electric-blue/magenta/gold, all rendered on a 64×32 LED panel" width="640">
 </p>
 
 ## Installation
