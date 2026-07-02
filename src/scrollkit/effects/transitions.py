@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Theatrical transitions on the overlay-mask primitive (Class 2 — fresh start).
 
 The broken Wipe/Slide/Fade transitions were removed in the showcase cleanup; this

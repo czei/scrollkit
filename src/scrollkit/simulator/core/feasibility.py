@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Turn accumulated modeled frame costs into a human/AI-readable feasibility report.
 
 Answers: "would this app actually run on the real hardware?" — estimated hardware

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """NVM-backed boot/crash diagnostics + reboot-loop safe-mode breaker.
 
 The store takes an injectable bytearray backend, so the boot-loop logic is fully

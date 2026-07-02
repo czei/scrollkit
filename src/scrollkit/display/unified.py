@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Unified display implementation for SLDK.
 
 Provides a unified interface that works on both CircuitPython hardware

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """mDNS hostname advertising for the on-device config/web server.
 
 Advertises ``<hostname>.local`` plus a service record so the device is reachable

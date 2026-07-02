@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Models how slow the real CircuitPython hardware runs.
 
 It works by ACCUMULATING modeled time per frame — it does NOT actually sleep

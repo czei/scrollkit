@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """MatrixPortal S3 device simulation."""
 
 from .base_device import BaseDevice

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Update manifest for OTA updates.
 
 Manages versioning, file lists, and integrity checking.

@@ -1,6 +1,6 @@
 """
 Color utilities for handling color conversions and manipulations.
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 
 # Color name to (r, g, b) tuple mapping, for quick prototyping/tooling. Distinct

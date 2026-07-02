@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Shared desktop-simulator backend setup for the two display classes.
 
 ``UnifiedDisplay`` (the production entry point, which auto-selects hardware vs

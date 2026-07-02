@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Board registry: how ScrollKit builds a panel on each supported board.
 
 ScrollKit runs the *same* app on more than one HUB75 driver board. The boards

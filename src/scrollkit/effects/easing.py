@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Integer easing/tween lookup tables (CircuitPython-safe).
 
 Each named curve is a length-256 ``bytes`` table mapping a 0..255 progress to a

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """ScrollKit Display module.
 
 Kept lean on purpose: importing this package pulls in only the core content

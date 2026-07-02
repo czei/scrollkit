@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Desktop-only developer / AI-agent affordances for ScrollKit.
 
 Everything here exists to help a human or an AI agent build and *verify* a

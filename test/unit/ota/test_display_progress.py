@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Display-progress + staged-install adapter over an OTAClient.
 
 Uses a fake client (no network/filesystem) and the shared ``mock_display``

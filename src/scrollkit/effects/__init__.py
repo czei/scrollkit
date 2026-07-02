@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """ScrollKit Effects package.
 
 Kept deliberately empty of imports: importing ``scrollkit.effects`` must not

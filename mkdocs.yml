@@ -1,6 +1,6 @@
 site_name: ScrollKit
 site_description: LED Matrix Display Framework for CircuitPython and Desktop
-site_author: Michael Winslow Czeiszperger
+site_author: Michael Czeiszperger
 repo_url: https://github.com/czei/scrollkit
 repo_name: czei/scrollkit
 

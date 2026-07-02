@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """OTA client must use an injected Session for HTTP, not module-level requests.
 
 Regression test for the on-device OTA bug (Matrix Portal S3, CircuitPython

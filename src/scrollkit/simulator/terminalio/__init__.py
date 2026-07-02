@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """CircuitPython terminalio compatibility module for SLDK simulator.
 
 Provides the default FONT for text rendering.

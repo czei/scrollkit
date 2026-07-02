@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Hardware timing/memory profile for modeling real-device performance.
 
 Single source of truth for the (DESKTOP-ONLY) hardware-realism simulation: how

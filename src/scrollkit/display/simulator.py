@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Simulator display for SLDK — the interactive desktop entry point.
 
 ``SimulatorDisplay`` IS ``UnifiedDisplay`` (one per-frame pipeline: the same

@@ -18,7 +18,7 @@ Routes:
                   server never mutates display/queue state itself), redirect
                   303 to /
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 from __future__ import annotations
 

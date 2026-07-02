@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Back-compat shim — the implementation now lives in ``display.text_pixels``.
 
 ``pixels_from_font_text`` / ``font_text_width`` (and the private ``_glyph_fields``

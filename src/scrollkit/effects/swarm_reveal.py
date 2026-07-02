@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Swarm-reveal animation — a flock of "birds" (or bees) assembles the target image.
 
 A small flock flies in with classic boids flocking (separation / alignment /

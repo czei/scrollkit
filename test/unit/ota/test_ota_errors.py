@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """OTA client typed-error boundary (0.8.2).
 
 _http_get raises NetworkError on a transport failure; _download_file raises

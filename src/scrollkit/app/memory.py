@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Realistic free-RAM estimate shared by the run loop and the dev harness.
 
 The run loop gates optional processes on free RAM (data updates need ~20-30 KB,

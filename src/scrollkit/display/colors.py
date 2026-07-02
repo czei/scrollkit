@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Continuous 24-bit colour generators (device-safe, pure-integer math).
 
 These expose the **full** colour space as functions an app or effect samples at any

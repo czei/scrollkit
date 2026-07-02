@@ -1,6 +1,6 @@
 """
 URL utilities for handling URL encoding and decoding.
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 
 

@@ -27,7 +27,7 @@ Contract notes (same discipline as ``settings_server``):
 - Desktop CPython works too (stdlib ``socket`` as the pool, localhost) so
   the flow is testable off-device.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 from __future__ import annotations
 

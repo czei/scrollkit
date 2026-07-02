@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """mDNS advertising wrapper.
 
 On desktop the ``mdns``/``wifi`` modules don't exist, so ``advertise()`` is a

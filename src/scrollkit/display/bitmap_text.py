@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Palette-animated bitmap text (Class 3 — the proving spike for the foundation).
 
 A ScrollKit-native fixed-cell 5x7 font is rendered ONCE into an indexed Bitmap

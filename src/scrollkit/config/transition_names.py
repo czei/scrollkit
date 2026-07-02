@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Canonical list of built-in transition names — the single source of truth.
 
 This module is **literal-only**: it imports nothing, so it is safe to import on

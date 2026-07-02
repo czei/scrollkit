@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Static directional gradient / palette text fill (indexed-bitmap renderer).
 
 When ``StaticText`` / ``ScrollingText`` are given a ``palette``, their glyphs are

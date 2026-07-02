@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """OTA update client for CircuitPython devices.
 
 Handles downloading and applying updates safely.

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Pixel-level metrics for headless verification (desktop-only, numpy).
 
 Reads the simulator's true-color RGB888 buffer
