@@ -76,9 +76,16 @@ asyncio.run(MyApp().run())
 1. Connect a supported board (MatrixPortal S3 or Interstate 75 W) over USB (it
    mounts as `CIRCUITPY`).
 2. Copy `src/` to the device, or run `make copy-to-circuitpy`.
-3. Add a `secrets.py` on the device with your WiFi credentials:
-   `secrets = {"ssid": "your-network", "password": "your-password"}` (the
-   standard CircuitPython convention — see `scrollkit.utils.url_utils.load_credentials`).
+3. Configure WiFi — two ways:
+    - **On the device itself, no file editing** (the end-user path): wire the
+      onboarding portal into your app's `setup()` and the panel walks the user
+      through joining the device's own access point and picking a network from
+      a phone — see [WiFi onboarding portal](guide/networking.md#wifi-onboarding-portal-no-file-editing).
+    - **`secrets.py`** (the developer shortcut): add
+      `secrets = {"ssid": "your-network", "password": "your-password"}` on the
+      device (the standard CircuitPython convention — see
+      `scrollkit.utils.url_utils.load_credentials`). Portal-saved settings take
+      precedence over `secrets.py`.
 
 The same app code runs unchanged: `UnifiedDisplay` auto-selects the hardware
 backend on CircuitPython and auto-detects which board it's on (pass `board="..."`
