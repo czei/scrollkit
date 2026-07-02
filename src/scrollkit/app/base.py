@@ -414,13 +414,14 @@ class SLDKApp:
                 brightness = float(self.settings.get("brightness_scale", 0.5))
                 brightness = max(0.0, min(1.0, brightness))
                 self.display._brightness = brightness
-                hw = getattr(self.display, "hardware", None)
-                if hw is not None:
-                    hw.display.brightness = brightness
-                else:
-                    sim = getattr(self.display, "display", None)
-                    if sim is not None:
-                        sim.brightness = brightness
+                # .display is the underlying displayio display on every path
+                # (S3 wrapper display, Interstate 75 FramebufferDisplay, or the
+                # simulator Display). self.display.hardware may be a raw
+                # rgbmatrix.RGBMatrix with no .display attribute — never reach
+                # through it.
+                disp = getattr(self.display, "display", None)
+                if disp is not None:
+                    disp.brightness = brightness
             except Exception as e:
                 print("brightness apply error:", e)
 

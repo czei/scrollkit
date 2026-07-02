@@ -261,3 +261,20 @@ class TestSettingsManager:
             # Test overwriting an existing value
             manager.set("new_key", "updated_value")
             assert manager.settings["new_key"] == "updated_value"
+
+    def test_corrupt_settings_file_returns_empty_dict(self, tmp_path):
+        """A truncated/corrupt settings.json must not crash boot.
+
+        CircuitPython's json.load raises ValueError (there is no
+        JSONDecodeError), and SettingsManager is constructed in
+        SLDKApp.__init__ — so an uncaught ValueError here means a black panel
+        on every boot until the flash is reflashed.
+        """
+        corrupt = tmp_path / "settings.json"
+        corrupt.write_text('{"brightness_scale": 0.5, "transi')  # truncated write
+        manager = SettingsManager(str(corrupt))  # must not raise
+        assert manager.load_settings() == {}
+
+    def test_missing_settings_file_returns_empty_dict(self, tmp_path):
+        manager = SettingsManager(str(tmp_path / "nope.json"))
+        assert manager.load_settings() == {}

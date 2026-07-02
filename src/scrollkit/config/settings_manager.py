@@ -169,7 +169,10 @@ class SettingsManager:
         try:
             with open(self.filename, 'r') as f:
                 return json.load(f)
-        except OSError:
+        except (OSError, ValueError):
+            # OSError: missing file. ValueError: corrupt JSON — CircuitPython's
+            # json.load raises ValueError (there is no JSONDecodeError), and a
+            # truncated flash write must not brick boot.
             return {}
 
     def save_settings(self):

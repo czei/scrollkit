@@ -238,8 +238,11 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         """Update the physical display."""
         self._hide_unused_labels()
         if IS_CIRCUITPYTHON:
-            if self.hardware:
-                self.hardware.display.refresh(minimum_frames_per_second=0)
+            # self.display is the displayio display on every board (the S3's
+            # Matrix wrapper display or the Interstate 75's FramebufferDisplay).
+            # self.hardware may be a raw rgbmatrix.RGBMatrix with no .display.
+            if self.display:
+                self.display.refresh(minimum_frames_per_second=0)
             return True
         else:
             # Simulator needs pygame event handling
@@ -344,10 +347,7 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         
         if self.display:
             try:
-                if IS_CIRCUITPYTHON:
-                    self.hardware.display.brightness = self._brightness
-                else:
-                    self.display.brightness = self._brightness
+                self.display.brightness = self._brightness
             except (AttributeError, TypeError) as e:
                 print(f"Failed to set brightness: {e}")
     
