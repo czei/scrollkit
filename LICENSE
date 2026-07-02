@@ -25,7 +25,19 @@ SOFTWARE.
 This repository vendors third-party components that retain their own licenses
 and copyright notices; this MIT license does not supersede them:
 
-  - src/scrollkit/simulator/adafruit_display_text/ and adafruit_bitmap_font/ —
-    Adafruit Industries (MIT). See the SPDX headers in those files.
-  - Bundled fonts under src/scrollkit/simulator/ — various foundries under the
-    SIL Open Font License (OFL). See src/scrollkit/simulator/ATTRIBUTION.md.
+  - Bundled fonts under src/scrollkit/simulator/fonts/ — various foundries under
+    the SIL Open Font License (OFL). Each font ships with its own .license file;
+    see src/scrollkit/simulator/ATTRIBUTION.md.
+
+The desktop simulator provides API-compatible, clean-room reimplementations
+under Adafruit-matching names (e.g. src/scrollkit/simulator/adafruit_display_text/
+and adafruit_bitmap_font/) so that unmodified device code — which imports those
+module names — also runs on the desktop. These directories contain ScrollKit's
+own code, not Adafruit's, and are covered by the MIT license above. The
+corresponding Adafruit CircuitPython libraries are not redistributed here; they
+are installed separately onto the device.
+
+Acknowledgement: ScrollKit's over-the-air update feature was inspired by Ronald
+Dehuysser's micropython-ota-updater
+(https://github.com/rdehuyss/micropython-ota-updater). ScrollKit's OTA subsystem
+is its own manifest-based design and contains none of that project's code.

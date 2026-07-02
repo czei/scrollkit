@@ -199,6 +199,13 @@ voice, with my own screenshots. Yes, AI has touched a lot of this code. It was
 also directed by an engineer who has shipped production software for a living,
 including time on one of Sun Microsystems' API teams. Both are true.
 
+## Acknowledgements
+
+ScrollKit's over-the-air update feature was inspired by
+[Ronald Dehuysser's micropython-ota-updater](https://github.com/rdehuyss/micropython-ota-updater).
+The current implementation is ScrollKit's own manifest-based design and uses none
+of his code — but the idea came from his project, and it deserves the shout-out.
+
 ## License
 
 MIT

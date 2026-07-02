@@ -2,6 +2,11 @@
 """OTA update client for CircuitPython devices.
 
 Handles downloading and applying updates safely.
+
+Acknowledgement: the idea for on-device OTA updates was inspired by Ronald
+Dehuysser's micropython-ota-updater
+(https://github.com/rdehuyss/micropython-ota-updater). This is a clean,
+manifest-based reimplementation and contains none of that project's code.
 """
 
 from __future__ import annotations
