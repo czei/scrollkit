@@ -62,8 +62,10 @@ def test_build_manifest_sizes_and_checksums(tmp_path):
                               version="1.2.0")
 
     assert manifest["version"] == "1.2.0"
-    assert manifest["pre_update_scripts"] == []
-    assert manifest["post_update_scripts"] == []
+    # The exec()-based script hooks were removed (unsigned remote code
+    # execution surface); the publisher must not emit the keys at all.
+    assert "pre_update_scripts" not in manifest
+    assert "post_update_scripts" not in manifest
     # Keys are absolute on-device paths under device_root.
     assert set(manifest["files"]) == {"/src/code.py", "/src/lib/util.py"}
 

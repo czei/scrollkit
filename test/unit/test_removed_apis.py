@@ -164,3 +164,40 @@ def test_surviving_exceptions_and_sldk_alias():
     assert SLDKError is ScrollKitError
     for cls in (NetworkError, OTAError, FeasibilityError):
         assert issubclass(cls, ScrollKitError)
+
+
+# Post-0.8.2 security removal: OTA manifests could carry pre/post_update_scripts
+# that OTAClient.apply_update exec()'d — unsigned remote code execution, and no
+# publisher ever emitted a script. The whole surface is gone; old manifests that
+# still carry the (empty) keys must parse fine with the keys ignored.
+
+def test_ota_manifest_script_surface_is_gone():
+    from scrollkit.ota.manifest import UpdateManifest
+    m = UpdateManifest(version="1.0.0")
+    assert not hasattr(m, "add_script")
+    assert not hasattr(m, "pre_update_scripts")
+    assert not hasattr(m, "post_update_scripts")
+    assert "pre_update_scripts" not in m.to_dict()
+
+
+def test_ota_manifest_ignores_legacy_script_keys():
+    from scrollkit.ota.manifest import UpdateManifest
+    legacy = {
+        "version": "1.0.0",
+        "files": {"/src/code.py": {"size": 1, "checksum": "0" * 64,
+                                   "required": True}},
+        "pre_update_scripts": [],
+        "post_update_scripts": [],
+    }
+    m = UpdateManifest.from_dict(legacy)  # must not raise
+    assert m.version == "1.0.0"
+    assert not hasattr(m, "pre_update_scripts")
+
+
+def test_ota_client_source_has_no_exec():
+    """Nothing in the OTA client may exec()/eval() downloaded content."""
+    import inspect
+    import scrollkit.ota.client as client
+    src = inspect.getsource(client)
+    assert "exec(" not in src
+    assert "eval(" not in src

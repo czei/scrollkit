@@ -366,12 +366,6 @@ class OTAClient:
             if self.on_update_progress:
                 self.on_update_progress("Installing files", 0.85)
 
-            for script in manifest.pre_update_scripts:
-                try:
-                    exec(script)
-                except Exception as e:
-                    print(f"Pre-update script error: {e}")
-
             install_success, install_error = self._install_files(manifest)
             if not install_success:
                 self._restore_backup(manifest)
@@ -379,12 +373,6 @@ class OTAClient:
 
             if self.on_update_progress:
                 self.on_update_progress("Finalizing update", 0.95)
-
-            for script in manifest.post_update_scripts:
-                try:
-                    exec(script)
-                except Exception as e:
-                    print(f"Post-update script error: {e}")
 
             self.current_version = manifest.version
             self._cleanup_update_files()

@@ -110,8 +110,7 @@ def build_manifest(src, out_dir, *, device_root, version, extra_excludes=()):
           {"version": "<semver>",
            "files": {"<device-path>": {"size": <int>,
                                        "checksum": "<sha256hex>",
-                                       "required": true}, ...},
-           "pre_update_scripts": [], "post_update_scripts": []}
+                                       "required": true}, ...}}
 
       (``required`` is included because the device's ``UpdateManifest.validate()``
       requires it; ``OTAClient`` fetches each file at ``{base}/files/{path}``.)
@@ -174,8 +173,6 @@ def build_manifest(src, out_dir, *, device_root, version, extra_excludes=()):
     manifest = {
         "version": str(version),
         "files": {path: files[path] for path in sorted(files)},
-        "pre_update_scripts": [],
-        "post_update_scripts": [],
     }
 
     with open(os.path.join(out_dir, "manifest.json"), "w") as handle:

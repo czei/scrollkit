@@ -165,23 +165,17 @@ boot/OTA flow.
 | `ota.display_progress` | `OTAProgressDisplay` — display-progress + staged-install UI over a client (device) |
 | `ota.publish` | `build_manifest` / `publish_to_branch` — produce + publish a release (**desktop / CI only**) |
 
-## Pre/post-update scripts (trust model)
+## No pre/post-update scripts (trust model)
 
-A manifest may carry `pre_update_scripts` and `post_update_scripts` — Python
-snippets run before/after an update is applied. They are powerful (they run with
-full device privileges) and therefore a trust decision, not a convenience:
+Older manifests could carry `pre_update_scripts` / `post_update_scripts` —
+Python snippets that the device `exec()`'d around an update. That feature has
+been **removed**: the snippets ran with full device privileges from an unsigned
+downloaded manifest (remote code execution for anyone who could publish to your
+update URL), and no publisher ever emitted one. Updates are file swaps only.
 
-- **Treat them as remote code execution.** Whoever can publish a manifest to your
-  update URL can run arbitrary code on the device. Only point a device at a
-  manifest source you control.
-- **Recommended default: disabled.** Unless you specifically need migration
-  hooks (e.g. moving a settings file between schema versions), ship manifests
-  with empty script lists. The library applies file updates without them.
-- **If you enable them**, serve the manifest only over a channel you control
-  (a private `releases` branch / signed release), and keep the snippets minimal
-  and auditable. There is no sandbox on CircuitPython — a script can touch the
-  filesystem, network, and hardware.
-- **They do not gate recovery.** A failed or malicious script cannot disable the
-  updater itself, because `boot.py` and the update system are frozen outside
-  `/src` (see the recovery guarantee above) — but a malicious script *can* still
-  damage `/src` and your data, which is why the source must be trusted.
+- Manifests that still contain the (always-empty) script keys are accepted and
+  the keys are silently ignored — old manifests stay compatible.
+- If a future migration genuinely needs a hook (e.g. moving a settings file
+  between schema versions), ship the migration as *code in the update itself*
+  that runs on next boot — it is then checksummed like every other file —
+  rather than reintroducing manifest-carried snippets.

@@ -31,8 +31,6 @@ class UpdateManifest:
     files: Dict[str, Dict[str, Any]]
     dependencies: List[Dict[str, str]]
     requirements: Dict[str, Any]
-    pre_update_scripts: List[str]
-    post_update_scripts: List[str]
 
     def __init__(self, version: Optional[str] = None, description: Optional[str] = None) -> None:
         """Initialize update manifest.
@@ -50,8 +48,10 @@ class UpdateManifest:
             'memory_required': 50000,
             'storage_required': 100000,
         }
-        self.pre_update_scripts = []
-        self.post_update_scripts = []
+        # NOTE: pre/post-update "scripts" were removed on purpose. They were
+        # exec()'d from the downloaded manifest with no signing — remote code
+        # execution surface — and no producer ever emitted one. Manifests that
+        # still carry the (always-empty) keys are silently ignored.
 
     def add_file(
         self,
@@ -110,20 +110,6 @@ class UpdateManifest:
         """
         self.requirements[key] = value
 
-    def add_script(self, script_content: str, stage: str = 'post') -> None:
-        """Add update script.
-
-        Args:
-            script_content: Python code to execute
-            stage: 'pre' or 'post' update
-        """
-        if stage == 'pre':
-            self.pre_update_scripts.append(script_content)
-        elif stage == 'post':
-            self.post_update_scripts.append(script_content)
-        else:
-            raise ValueError("Stage must be 'pre' or 'post'")
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert manifest to dictionary.
 
@@ -136,8 +122,6 @@ class UpdateManifest:
             'files': self.files,
             'dependencies': self.dependencies,
             'requirements': self.requirements,
-            'pre_update_scripts': self.pre_update_scripts,
-            'post_update_scripts': self.post_update_scripts,
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -169,8 +153,8 @@ class UpdateManifest:
         manifest.files = data.get('files', {})
         manifest.dependencies = data.get('dependencies', [])
         manifest.requirements = data.get('requirements', {})
-        manifest.pre_update_scripts = data.get('pre_update_scripts', [])
-        manifest.post_update_scripts = data.get('post_update_scripts', [])
+        # 'pre_update_scripts'/'post_update_scripts' in older manifests are
+        # deliberately ignored (removed exec() surface — see __init__).
 
         return manifest
 
