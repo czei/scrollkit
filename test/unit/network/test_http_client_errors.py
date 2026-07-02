@@ -109,3 +109,41 @@ class TestHttpClientErrors:
             # The cause is carried in the NetworkError message and on last_error.
             assert "Connection error" in str(exc.value)
             assert str(client.last_error) == "Connection error"
+
+
+class TestNoHttpClientFailsFast:
+    """A permanent 'no HTTP client' state (no adafruit session AND no urllib)
+    must raise NetworkError immediately, not burn the retry backoff on a
+    condition no retry can fix (the sync path's time.sleep is real blocking)."""
+
+    def _no_client(self):
+        client = HttpClient(session=None)
+        client.using_adafruit = False
+        client.session = None
+        client.urllib = None
+        return client
+
+    @pytest.mark.asyncio
+    async def test_get_raises_immediately_without_retry(self):
+        client = self._no_client()
+        with patch('asyncio.sleep', new=AsyncMock()) as slept:
+            with patch('scrollkit.network.http_client._logger'):
+                with pytest.raises(NetworkError):
+                    await client.get("https://example.com/api", max_retries=3)
+        slept.assert_not_called()
+
+    def test_get_sync_raises_immediately_without_retry(self):
+        client = self._no_client()
+        with patch('time.sleep') as slept:
+            with patch('scrollkit.network.http_client._logger'):
+                with pytest.raises(NetworkError):
+                    client.get_sync("https://example.com/api", max_retries=3)
+        slept.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_post_raises_clean_network_error_not_attributeerror(self):
+        client = self._no_client()
+        with patch('scrollkit.network.http_client._logger'):
+            with pytest.raises(NetworkError) as exc:
+                await client.post("https://example.com/api", data={"a": 1})
+        assert "No HTTP client available" in str(exc.value)

@@ -207,6 +207,12 @@ class HttpClient:
             if mock_resp is not None:
                 return mock_resp
 
+        # No HTTP client at all (no adafruit session, no urllib) is a permanent
+        # configuration state, not a transient blip — fail fast instead of
+        # burning the retry loop's backoff on it.
+        if not (self.using_adafruit and self.session) and not self.urllib:
+            raise NetworkError("No HTTP client available")
+
         while retry_count < max_retries:
             try:
                 if self.using_adafruit and self.session:
@@ -383,7 +389,8 @@ class HttpClient:
         block the synchronous asyncio loop and trip the watchdog. POST is
         single-shot (no retry loop), but a failure is recorded via
         ``_note_failure`` so a wedged session still gets rebuilt on the next
-        request, and the cause is surfaced on ``.error`` / ``last_error``.
+        request, raises ``NetworkError``, and the cause is retained on
+        ``last_error``.
         """
         if headers is None:
             headers = {
@@ -392,6 +399,11 @@ class HttpClient:
             }
         if isinstance(data, dict):
             data = json.dumps(data)
+        # Raise cleanly BEFORE the try so the "no client" NetworkError isn't
+        # re-wrapped by the except below (and so the urllib branch never calls
+        # None.Request(...) -> AttributeError when urllib is absent on device).
+        if not (self.using_adafruit and self.session) and not self.urllib:
+            raise NetworkError("No HTTP client available")
         try:
             if self.using_adafruit and self.session:
                 resp = None
@@ -437,6 +449,11 @@ class HttpClient:
 
         retry_count = 0
         last_error = None
+
+        # Fail fast on a permanent no-client state instead of sleeping through
+        # the retry backoff (blocking real time.sleep on the sync path).
+        if not (self.using_adafruit and self.session) and not self.urllib:
+            raise NetworkError("No HTTP client available")
 
         while retry_count < max_retries:
             try:
