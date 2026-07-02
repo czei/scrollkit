@@ -206,7 +206,6 @@ class WiFiSetupPortal:
 
     def _build_server(self):
         import sys
-        import socket as _stdlib_socket
         from adafruit_httpserver import Server, Response, Redirect, GET, POST
 
         is_cp = (hasattr(sys, "implementation")
@@ -217,6 +216,9 @@ class WiFiSetupPortal:
             pool = socketpool.SocketPool(wifi.radio)
             host = self._wm.ap_ip_address()
         else:
+            # stdlib socket exists only off-device (desktop/sim); importing it at
+            # function top crashed the portal on CircuitPython (no `socket` module).
+            import socket as _stdlib_socket
             pool = _stdlib_socket
             host = "localhost"
 
@@ -313,6 +315,12 @@ class WiFiSetupPortal:
                     try:
                         await self._display.clear()
                         await status.render(self._display)
+                        # Loop the instructions: the panel is one short line, so a
+                        # single scroll-through isn't enough to catch the AP name,
+                        # password, and URL. Restart when it scrolls off so the
+                        # user can read it again without writing it down.
+                        if status.is_complete:
+                            await status.start()
                         if await self._display.show() is False:
                             break   # simulator window closed
                     except Exception as e:
