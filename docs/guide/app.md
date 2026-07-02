@@ -145,7 +145,7 @@ rendering. Default is **not** suspended.
 ## Reliability: watchdog + NVM diagnostics
 
 Pair the hardware watchdog (`enable_watchdog=True`) with
-[`scrollkit.utils.diagnostics`](../reference.md#network--config--utils) for a device
+[`scrollkit.utils.diagnostics`](../reference.md#network-config-utils) for a device
 that self-heals and can explain itself:
 
 ```python

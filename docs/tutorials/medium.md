@@ -5,7 +5,7 @@ Fetch the current temperature from a free, no-API-key public source
 
 ![Temperature demo](../assets/demos/temperature.gif){ width="480" }
 
-Full source: [`demos/medium/temperature.py`](https://github.com/Czeiszperger/scrollkit/blob/main/demos/medium/temperature.py)
+Full source: [`demos/medium/temperature.py`](https://github.com/czei/scrollkit/blob/main/demos/medium/temperature.py)
 
 ```python
 import asyncio

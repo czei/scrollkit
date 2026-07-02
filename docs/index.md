@@ -13,10 +13,9 @@ Most LED-matrix libraries get you a scrolling "Hello, World" and call it a day. 
 built ScrollKit for everything after that, whether you're making a clock for your
 desk or a product you'll ship to people who never open a code editor. It pushes
 over-the-air updates to boards already in the field, refreshes live data on a
-fault-tolerant loop that keeps scrolling when the network hiccups, onboards Wi-Fi
-with no secrets file to edit, and gives users a built-in web server to change
-settings from their phone, all while running transitions and effects that look
-deliberate. None of those features is the hard part. The hard part is running
+fault-tolerant loop that keeps scrolling when the network hiccups, and gives
+users a built-in web server to change settings from their phone, all while
+running transitions and effects that look deliberate. None of those features is the hard part. The hard part is running
 every one of them at once, on a microcontroller with a couple hundred kilobytes of
 RAM, without the display stuttering. And because none of that is fun to debug on
 real hardware, I made it run unchanged in a desktop simulator that matches the

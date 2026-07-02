@@ -35,9 +35,10 @@ flowchart TB
 The one detail that shapes everything else: **HTTP is synchronous**
 (`adafruit_requests`), so a data fetch blocks the whole cooperative event loop —
 including rendering. The library paints a loading frame and suspends rendering
-around the blocking call, and the hardware watchdog resets the board if a fetch
-truly wedges. See [Performance](performance.md) and the
-[run loop](app.md#the-run-loop) for how that plays out frame-by-frame.
+around the blocking call, and — when the app opts in (`enable_watchdog=True`) —
+the hardware watchdog resets the board if a fetch truly wedges. See
+[Performance](performance.md) and the [run loop](app.md#the-run-loop) for how
+that plays out frame-by-frame.
 
 ## Subsystem dependencies
 
@@ -53,7 +54,7 @@ flowchart LR
 
     app["app<br/>ScrollKitApp"] --> display["display<br/>UnifiedDisplay"]
     app --> config["config<br/>SettingsManager"]
-    app --> utils["utils"]
+    app -.->|lazy| utils["utils"]
     app -.->|lazy| effects["effects<br/>Transition"]
     app -.->|lazy| web["web<br/>SettingsWebServer"]
     app -.->|lazy · desktop| simulator
@@ -69,6 +70,7 @@ flowchart LR
     network --> exceptions["exceptions"]
     ota["ota<br/>OTAClient"] --> exceptions
     simulator -.->|lazy| exceptions
+    web --> utils
 
     dev["dev<br/>run_headless · validate<br/>(desktop only)"] --> display
     dev --> effects
@@ -93,9 +95,10 @@ on CircuitPython raises `ImportError` by design.
     - **`config`/settings never imports `effects/`.** `config.transition_names`
       imports *nothing*, so selecting a transition in the settings UI doesn't drag
       the `effects/` package onto the boot path.
-    - **`web/` has no internal ScrollKit imports** — its `settings` and `app` are
-      dependency-injected, which is what keeps the web server from ever touching
-      display/queue state (see [Web Interface](web.md#thread-safety-the-one-channel)).
+    - **`web/` imports only the shared `utils.url_utils.url_decode` helper** —
+      its `settings` and `app` are dependency-injected, which is what keeps the
+      web server from ever touching display/queue state (see
+      [Web Interface](web.md#thread-safety-the-one-channel)).
     - **`app` does not own `network`/`ota`.** Apps construct those themselves and
       call them from `setup()` / `update_data()` (see [Networking](networking.md),
       [OTA Updates](ota.md)).

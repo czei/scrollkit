@@ -3,10 +3,10 @@
 ## Install
 
 ScrollKit lives in `src/scrollkit/`. For desktop development you need the
-simulator dependency (pygame):
+simulator extras (pygame + numpy + Pillow):
 
 ```bash
-pip install pygame
+pip install "scrollkit[simulator]"
 ```
 
 Run anything from the repo root with `src` on the path:
@@ -17,9 +17,7 @@ PYTHONPATH=src python demos/easy/hello_world.py
 
 !!! note "Running the tests"
     Use `PYTHONSAFEPATH=1 PYTHONPATH=src python -m pytest test/unit/...`.
-    The repo's frozen `code.py` (the CircuitPython entry point) shadows the
-    stdlib `code` module; `PYTHONSAFEPATH=1` keeps the repo root off `sys.path`
-    so pytest's debugger import resolves the real stdlib module.
+    `PYTHONSAFEPATH=1` keeps the repo root off `sys.path` (see `make test-unit`).
 
 ## Your first app
 
@@ -30,8 +28,12 @@ sys.path.insert(0, "src")
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText
+from scrollkit.display.simulator import SimulatorDisplay
 
 class HelloWorldApp(ScrollKitApp):
+    async def create_display(self):
+        return SimulatorDisplay(width=64, height=32)
+
     async def setup(self):
         self.content_queue.add(
             ScrollingText("Hello, World!", y=12, color=(0, 255, 128)))
@@ -39,7 +41,10 @@ class HelloWorldApp(ScrollKitApp):
 asyncio.run(HelloWorldApp().run())
 ```
 
-On desktop this opens a window showing the simulated 64×32 matrix. On a supported
+On desktop this opens a window showing the simulated 64×32 matrix (the
+`create_display()` override above is what opens it — omit it and the app still
+runs, just headless, since plain `UnifiedDisplay` stays headless on desktop
+unless a window is explicitly asked for). On a supported
 CircuitPython board (the MatrixPortal S3 or the Interstate 75 W) the identical
 code drives the physical panel.
 
@@ -70,8 +75,10 @@ asyncio.run(MyApp().run())
 
 1. Connect a supported board (MatrixPortal S3 or Interstate 75 W) over USB (it
    mounts as `CIRCUITPY`).
-2. Copy `src/` to the device, or run `make copy_to_circuitpy`.
-3. Set WiFi credentials in `settings.json`.
+2. Copy `src/` to the device, or run `make copy-to-circuitpy`.
+3. Add a `secrets.py` on the device with your WiFi credentials:
+   `secrets = {"ssid": "your-network", "password": "your-password"}` (the
+   standard CircuitPython convention — see `scrollkit.utils.url_utils.load_credentials`).
 
 The same app code runs unchanged: `UnifiedDisplay` auto-selects the hardware
 backend on CircuitPython and auto-detects which board it's on (pass `board="..."`
@@ -81,11 +88,12 @@ to force one). See [Adding New Hardware](guide/hardware.md).
 
 The device also needs the Adafruit libraries ScrollKit uses (e.g.
 `adafruit_requests`, `adafruit_httpserver`, `adafruit_display_text`,
-`adafruit_bitmap_font`). Manage them with [circup](https://github.com/adafruit/circup):
+`adafruit_bitmap_font`, and — on the MatrixPortal S3 — `adafruit_matrixportal`).
+Manage them with [circup](https://github.com/adafruit/circup):
 
 ```bash
 pip install circup
-circup install adafruit_requests adafruit_httpserver adafruit_display_text adafruit_bitmap_font
+circup install adafruit_requests adafruit_httpserver adafruit_display_text adafruit_bitmap_font adafruit_matrixportal
 ```
 
 ### Saving RAM with .mpy (optional)

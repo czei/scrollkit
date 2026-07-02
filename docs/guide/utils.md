@@ -5,7 +5,7 @@ library.
 
 | Module | What it offers |
 |--------|----------------|
-| `utils.color_utils` | Named colours + hex-string ↔ RGB conversion, brightness scaling |
+| `utils.color_utils` | `colors` — a small Title-case-name → hex-string table consumed by the settings schema (color math itself now lives in `display.colors`) |
 | `utils.error_handler` | `ErrorHandler` — centralised logging with file persistence |
 | `utils.system_utils` | NTP / HTTP-Date system clock sync (`set_system_clock`) |
 | `utils.url_utils` | credential loading from `secrets.py` |
@@ -15,10 +15,12 @@ library.
 ```python
 from scrollkit.utils.color_utils import ColorUtils
 
-ColorUtils.to_rgb("0x00FF88")            # (0, 255, 136)
-ColorUtils.from_rgb(255, 0, 128)         # "0xFF0080"
-ColorUtils.scale_color("0xFFFFFF", 0.5)  # dim white to 50%
+ColorUtils.colors["Orange"]   # "0xffa500" — used as a settings default
 ```
+
+For actual colour math (hex/int conversion, brightness scaling, gradients), see
+[Colour generators](#colour-generators) below (`scrollkit.display.colors`) — the
+current, correct API.
 
 ## Error logging
 

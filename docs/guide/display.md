@@ -16,18 +16,20 @@ implements `DisplayInterface` and auto-selects its backend:
 Your app talks to one interface — `set_pixel`, `fill`, `draw_text`, `show`,
 `clear`, `set_brightness` — and never branches on platform.
 
-(The desktop-only `SimulatorDisplay` shares the same rendering but adds
-recording/screenshot helpers and constructor-flag hardware-timing; it's for
-tests, demos, and the dev harness — see [Simulator](simulator.md). Ship apps
-against `UnifiedDisplay`.)
+(Recording, `screenshot()`, and the `hardware_timing`/`throttle`/`strict`
+feasibility flags all live on `UnifiedDisplay` itself — documented no-ops
+returning `None` on real hardware. The desktop-only `SimulatorDisplay`
+subclasses `UnifiedDisplay` and only adds an auto-opened window plus
+`scale`/`pitch` constructor knobs; it's for tests, demos, and the dev harness —
+see [Simulator](simulator.md). Ship apps against `UnifiedDisplay`.)
 
 ```python
 from scrollkit.display.unified import UnifiedDisplay
 
 display = UnifiedDisplay()      # width == 64, height == 32
 await display.initialize()
-display.fill((0, 0, 0))
-display.draw_text("Hi", 0, 12, (0, 255, 128))
+await display.fill((0, 0, 0))
+await display.draw_text("Hi", 0, 12, (0, 255, 128))
 await display.show()
 ```
 
@@ -63,23 +65,25 @@ classDiagram
         +fill_rect()
         +fill_span()
         +clear_rect()
-        +draw_text()
     }
     class UnifiedDisplay {
         auto-detects hardware vs simulator
         +matrix
         +display
-    }
-    class SimulatorDisplay {
-        desktop-only
+        +draw_text()
         +screenshot()
         +save_gif()
         +save_video()
     }
+    class SimulatorDisplay {
+        desktop-only
+        +scale
+        +pitch
+        (auto-opens window)
+    }
     DisplayInterface <|-- UnifiedDisplay
     GraphicsMixin <|-- UnifiedDisplay
-    DisplayInterface <|-- SimulatorDisplay
-    GraphicsMixin <|-- SimulatorDisplay
+    UnifiedDisplay <|-- SimulatorDisplay
 ```
 
 ### Backend selection
@@ -123,12 +127,16 @@ fills pass a `palette` — see [Gradient Text](gradient-text.md).
 ## ContentQueue
 
 `scrollkit.display.content.ContentQueue` is the queue `ScrollKitApp.content_queue`
-uses. It's a simple **looping** queue, not priority-ordered: `add(content)`
-appends; the display loop calls `await get_current()` each frame, which shows
-the current item until `is_complete`, then advances to the next and loops back
-to the start when `loop=True` (the default). `clear()` empties it (and defers
-the abandoned item's async `stop()` to the next frame, so any layer it added —
-e.g. a transition overlay — gets detached cleanly).
+uses. `add(content)` inserts by **priority** — higher `Priority` values play
+before lower ones, and items of equal priority play in insertion order (a
+monotonic add-sequence breaks ties, not sort stability). The display loop calls
+`await get_current()` each frame, which shows the current item until
+`is_complete`, then advances to the next highest-priority item and loops back
+to the start when `loop=True` (the default; with `loop=False` the queue is
+exhausted after the last item — `get_current()` returns `None` until `add()`
+re-arms it). `clear()` empties it (and defers the abandoned item's async
+`stop()` to the next frame, so any layer it added — e.g. a transition overlay —
+gets detached cleanly).
 
 ```python
 from scrollkit.display.content import ContentQueue, StaticText, ScrollingText
@@ -139,9 +147,8 @@ queue.add(ScrollingText("Rotates after the static message", y=12))
 ```
 
 Every `DisplayContent` carries a `priority` (`scrollkit.display.content.Priority`:
-`IDLE < LOW < NORMAL < HIGH < URGENT < SYSTEM`, default `NORMAL`) — metadata your
-app can read to build its own admission/eviction logic on top of the queue;
-`ContentQueue` itself doesn't act on it.
+`IDLE < LOW < NORMAL < HIGH < URGENT < SYSTEM`, default `NORMAL`) that
+`ContentQueue` uses directly to order playback, as described above.
 
 ## Content class hierarchy
 

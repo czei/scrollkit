@@ -5,7 +5,10 @@ No network, no data sources.
 
 ![Hello World demo](../assets/demos/hello_world.gif){ width="480" }
 
-Full source: [`demos/easy/hello_world.py`](https://github.com/Czeiszperger/scrollkit/blob/main/demos/easy/hello_world.py)
+Simplified from [`demos/easy/hello_world.py`](https://github.com/czei/scrollkit/blob/main/demos/easy/hello_world.py)
+— the repo version adds the CLI-flag/window-title plumbing shared by every
+demo, and queues only the scrolling greeting shown at the bottom of this page
+(no separate "Hi!" static-text item).
 
 ```python
 import asyncio

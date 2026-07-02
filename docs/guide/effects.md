@@ -47,7 +47,7 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 | `scrollkit.effects.scrolling` | characterful scrolling text ([guide](scrolling.md)) |
 | `scrollkit.display.bitmap_text` | palette-animated bitmap text ([guide](bitmap-text.md)) |
 | `scrollkit.effects.particles` | standalone particle systems (sparkles, rain, embers, snow) |
-| `scrollkit.effects` splash helpers | `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
+| `scrollkit.effects.reveal_splash` / `.drip_splash` / `.swarm_reveal` | splash-reveal helpers: `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
 
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.

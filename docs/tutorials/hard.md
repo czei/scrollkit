@@ -1,12 +1,12 @@
 # Hard: Full App — Web Config, Effects, OTA, Chunked Fetch
 
-The complete stack: a web configuration UI, a priority display queue, the
-effects engine, multiple public data sources, an OTA update check, and the
+The complete stack: a web configuration UI, live palette-driven text (the
+rainbow ramp), multiple public data sources, an OTA update check, and the
 **chunked-fetch** technique that keeps the scroll alive during blocking HTTP.
 
 ![Crypto dashboard demo](../assets/demos/crypto_dashboard.gif){ width="480" }
 
-Full source: [`demos/hard/crypto_dashboard.py`](https://github.com/Czeiszperger/scrollkit/blob/main/demos/hard/crypto_dashboard.py)
+Full source: [`demos/hard/crypto_dashboard.py`](https://github.com/czei/scrollkit/blob/main/demos/hard/crypto_dashboard.py)
 
 ## The chunked-fetch workaround
 
@@ -39,9 +39,13 @@ async def update_data(self):
 
 ## Priority queue
 
-A `SYSTEM`-priority item is always admitted and shown ahead of normal content —
-useful for alerts. Normal content is evicted to make room when the queue is full
-(see the [eviction policy](../guide/display.md#priority-eviction)).
+A `SYSTEM`-priority item sorts ahead of lower-priority items already queued —
+`ContentQueue` is unbounded and never evicts or rejects content; priority (not
+insertion order) decides play order among items not yet shown. Adding a
+`SYSTEM` item doesn't preempt whatever is currently playing — the current item
+still finishes its own turn first, so give time-sensitive alerts a short
+`duration` if you need them to appear promptly. See
+[ContentQueue](../guide/display.md#contentqueue).
 
 ```python
 from scrollkit.display.content import Priority

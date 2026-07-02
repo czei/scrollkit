@@ -86,8 +86,9 @@ on how much you've churned. Do any of that once per frame and you've signed up f
 a recurring bill.
 
 RAM, for once, is rarely the thing that bites. The ESP32-S3's PSRAM leaves roughly
-1.5 MB free to your app, which swallows the web server and the data updates without
-complaint. On this board, time is the scarce resource, not memory.
+2 MB free to your app (2,073,536 bytes measured, per `matrixportal_s3_baseline.json`),
+which swallows the web server and the data updates without complaint. On this
+board, time is the scarce resource, not memory.
 
 ## How the library works around it
 
@@ -141,13 +142,14 @@ The payoff, measured on an S3 with refresh included:
 | Birds | Frame time | Verdict |
 |---|---|---|
 | 14 | ~25 ms | the safe default |
-| 20 | ~34 ms | fine |
-| 28 | ~48 ms | right at the 20 fps limit |
+| 20 | ~34 ms avg / ~50 ms worst-case | at the recommended on-device ceiling |
+| 28 | ~48 ms avg / ~68 ms worst-case | over budget in the worst case — avoid on-device |
 | 100 | ~600 ms | about 1.6 fps |
 
 Cost still grows with the square of the bird count (the neighbor pass is
 irreducibly pairwise), which is why the on-device default is 14 birds and the
-ceiling sits around 28. The desktop simulator has no such limit, so crank it up for
+recommended ceiling sits around 20 (`SwarmReveal`'s own docstring: "keep
+num_birds <= ~20"). The desktop simulator has no such limit, so crank it up for
 a screenshot. The lesson is the one this whole page keeps making: the right
 algorithm plus a C bulk call turned an effect that took 0.6 seconds a frame into
 one that takes 25 milliseconds. Nothing about the birds changed. Only the cost did.

@@ -28,8 +28,9 @@ sequenceDiagram
 `OTAProgressDisplay` (in `ota.display_progress`) wraps this with on-panel status
 and two lifecycle hooks: `install_pending()` runs **on boot, before the display
 loop starts** (applies a staged update, then reboots), and `schedule_update()`
-runs **from a web route** (checks + downloads, then reboots so the next boot
-applies it). Both keep the blocking work off the running display loop.
+runs **from a web route** (checks + downloads to the staging dir; the caller
+must then reboot — the applied update runs after `install_pending()` picks it
+up on the next boot). Both keep the blocking work off the running display loop.
 
 ```python
 from scrollkit.ota.client import OTAClient
@@ -41,7 +42,8 @@ ota = OTAClient.for_github(
 has_update, manifest = ota.check_for_updates()
 if has_update:
     ota.download_update(manifest)
-    ota.apply_update()   # reboots on CircuitPython
+    ota.apply_update()   # does not reboot on its own — see below
+    ota.reboot_device()  # reboot to run the newly-installed code
 ```
 
 ## Fixed branch, version in the manifest
@@ -175,7 +177,7 @@ boot/OTA flow.
 
 | Module | Role |
 |--------|------|
-| `ota.client` | `OTAClient` — check / download / apply / rollback (device) |
+| `ota.client` | `OTAClient` — check / download / apply (auto-restores backup on install failure) / reboot_device (device) |
 | `ota.manifest` | `UpdateManifest` — version, file list, checksums, requirements |
 | `ota.display_progress` | `OTAProgressDisplay` — display-progress + staged-install UI over a client (device) |
 | `ota.publish` | `build_manifest` / `publish_to_branch` — produce + publish a release (**desktop / CI only**) |

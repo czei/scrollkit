@@ -11,9 +11,9 @@ or fail on hardware.* ScrollKit lets you discover that **in the simulator,
 headless, before flashing** — so you can iterate without a human and without a
 board.
 
-> Repo-specific rules (don't touch `boot.py`/`code.py`, keep code under `/src`,
-> CircuitPython compatibility) live in **CLAUDE.md** — read it too if you're
-> editing this repository. This file is about *authoring ScrollKit apps*.
+> Repo-specific rules (keep code under `/src`, CircuitPython compatibility) live
+> in **CLAUDE.md** — read it too if you're editing this repository. This file is
+> about *authoring ScrollKit apps*.
 
 ---
 
@@ -41,8 +41,9 @@ step 1 runs on both.
 
 ### Running things
 
-The repo's root `code.py` shadows the stdlib `code` module, so run tests/scripts
-with:
+This is a library-only repo (no root `code.py`/`boot.py` — those live in the
+separate app repo that consumes ScrollKit). Still run tests/scripts with
+`PYTHONSAFEPATH=1` to keep the CWD off `sys.path`:
 
 ```bash
 PYTHONSAFEPATH=1 PYTHONPATH=src python your_script.py
@@ -93,8 +94,11 @@ PNG, and returns a JSON-able `RunResult`.
   0-31. `y=12` vertically centers an ~8px-tall font.
 - **Color:** a 24-bit RGB int `0xRRGGBB` (e.g. `0xFF8800`) **or** an `(r, g, b)`
   tuple with each channel 0-255. **Color name *strings* do not work** with the
-  content classes below — they'd crash `draw_text`. (Only `MinimalLEDApp`
-  understands names.) To use a name programmatically:
+  content classes below — a string is treated as a *settings key* (e.g. one
+  defined via `self.settings.define(key, default, type="color")`), so an
+  undefined name like `"red"` silently falls back to white instead of raising.
+  `run_headless` won't catch this; `validate(app)` will (a `color_string`
+  error). To use a name programmatically:
   `scrollkit.dev.capabilities()["named_colors"]["orange"]`.
 
 ## Content types
@@ -103,9 +107,11 @@ Discover these (and their exact parameters) at runtime with
 `scrollkit.dev.capabilities()` — it's introspected from the live code so it can't
 go stale. The two you'll use most:
 
-- `ScrollingText(text, x=None, y=0, color=0xFFFFFF, speed=30, priority=2,
-  palette=None, direction="vertical", palette_steps=8)` — scrolls right-to-left;
-  ideal for anything wider than 64px.
+- `ScrollingText(text, x=None, y=0, color=None, speed=None, priority=2,
+  static_duration=5.0, palette=None, direction="vertical", palette_steps=8)` —
+  scrolls right-to-left; ideal for anything wider than 64px. `color=None` /
+  `speed=None` resolve to the library's settings defaults (effectively
+  `0xFFFFFF` / `25` px/sec when no app override is set).
 - `StaticText(text, x=0, y=0, color=0xFFFFFF, duration=None, priority=2,
   palette=None, direction="vertical", palette_steps=8)` — fixed; keep it short
   enough to fit 64px (≈10 chars) or it'll be clipped.
@@ -165,9 +171,9 @@ real measurements** captured on an `adafruit_matrixportal_s3` (CircuitPython
 ```
 === Hardware feasibility: Adafruit MatrixPortal S3 (64x32) ===
   Confidence: MEASURED on device (measured on adafruit_matrixportal_s3, CircuitPython 9.1.0)
-  Estimated hardware FPS: ~45.1   (median frame ~22 ms, worst ~23 ms)
-  Per-frame cost (avg): refresh 13.7 ms | bitmap_rebuild 7.3 ms | ...
-  Estimated peak RAM: 1 KB / 1513 KB budget
+  Estimated hardware FPS: ~150   (median frame ~7 ms, worst ~20 ms)
+  Per-frame cost (avg): refresh 4.5 ms | pixel_writes 1.4 ms | bitmap_rebuild 0.1 ms | ...
+  Estimated peak RAM: 1 KB / 2024 KB budget
   No feasibility warnings.
 ```
 
@@ -176,18 +182,20 @@ ESTIMATE and rounds FPS to one significant figure.)
 
 How to read it:
 
-- **Every frame pays one `display.refresh()` (~13.7 ms measured).** That's a hard
-  ceiling near ~73 FPS no matter how simple the app — refresh dominates light
-  apps.
+- **Every frame pays one `display.refresh()` (~4.5 ms measured at the default
+  `bit_depth=4`).** That's a hard ceiling near ~220 FPS no matter how simple the
+  app — refresh dominates light apps. (At `bit_depth=6` refresh alone costs
+  ~13.7 ms, a ~73 FPS ceiling — see the cheat-sheet below.)
 - **The #1 rule on top of that: don't rebuild text every frame.** Re-running
   `draw_text` with changing text rebuilds a glyph bitmap pixel-by-pixel in Python.
   A `ScrollingText` that just moves is cheap; redrawing ~12 changing fields per
   frame stacks ~12 rebuilds on top of the refresh and drops you toward single
   digits. If you see the "cache the Label" warning on a busy app, only change
   `.text` when the value actually changes.
-- **RAM is rarely the limit on the S3.** ~1.5 MB is free to an app (the ESP32-S3
-  PSRAM), so the web server (~50 KB) and data updates (~20-30 KB) fit easily; the
-  report still warns if estimated peak RAM ever approaches budget.
+- **RAM is rarely the limit on the S3.** ~2 MB is free to an app (2,073,536 bytes
+  measured, the ESP32-S3 PSRAM), so the web server (~50 KB) and data updates
+  (~20-30 KB) fit easily; the report still warns if estimated peak RAM ever
+  approaches budget.
 
 A quick contrast you can reproduce: a single `ScrollingText` is refresh-bound at
 ~45 FPS; an app that redraws ~12 text fields every frame drops to ~13 FPS (and a

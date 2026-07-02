@@ -1,6 +1,6 @@
 # ScrollKit
 
-Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built ScrollKit for what comes next: over-the-air updates to boards in the field, fault-tolerant data refresh, real transitions and effects, Wi-Fi setup with no file to edit, and a built-in web server users control from a browser. The hard part isn't any single feature. It's running all of them at once on a microcontroller without the display stuttering. It also runs on a desktop simulator I wrote that exports its own GIFs and videos, like the one below.
+Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built ScrollKit for what comes next: over-the-air updates to boards in the field, fault-tolerant data refresh, real transitions and effects, and a built-in web server users control from a browser. The hard part isn't any single feature. It's running all of them at once on a microcontroller without the display stuttering. It also runs on a desktop simulator I wrote that exports its own GIFs and videos, like the one below.
 
 *Built by [Michael Czeiszperger](http://czei.org)*
 
@@ -64,7 +64,7 @@ desktop-only, raising `ImportError` on the device):
 flowchart LR
     app["app"] --> display["display"]
     app --> config["config"]
-    app --> utils["utils"]
+    app -.->|lazy| utils["utils"]
     app -.->|lazy| effects["effects"]
     app -.->|lazy| web["web"]
     effects --> display
@@ -109,7 +109,7 @@ scrollkit/
 └── utils/             # Utilities
     ├── error_handler.py          # Logging and error handling
     ├── diagnostics.py            # NVM boot/crash record + reboot-loop safe-mode breaker
-    ├── color_utils.py            # Named colors + hex-string color conversion
+    ├── color_utils.py            # Named colors + settings-UI hex-string color table (no conversion helpers; int-based conversions live in display/colors.py)
     ├── system_utils.py           # NTP / HTTP-Date system clock sync
     └── url_utils.py              # URL decoding and credential loading
 ```
@@ -162,13 +162,13 @@ settings.save_settings()
 
 ```python
 from scrollkit.utils.error_handler import ErrorHandler
-from scrollkit.utils.color_utils import ColorUtils
+from scrollkit.display.colors import scale
 from scrollkit.network.wifi_manager import is_dev_mode
 
 logger = ErrorHandler("app.log")
 logger.info("Application started")
 
-color = ColorUtils.scale_color("0xff0000", 0.5)  # Dim red to 50%
+color = scale(0xff0000, 0.5)  # Dim red to 50%
 
 if is_dev_mode():
     print("running on desktop, not CircuitPython")

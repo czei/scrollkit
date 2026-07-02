@@ -7,7 +7,7 @@ It is what lets you develop, test, and demo ScrollKit apps with no hardware.
 
 - **`displayio`** — `Bitmap`, `Palette`, `TileGrid`, `Group`, `Display`,
   `FourWire`, `OnDiskBitmap`.
-- **`adafruit_display_text`** — `Label`, `ScrollingLabel`.
+- **`adafruit_display_text`** — `Label`.
 - **`adafruit_bitmap_font`** — BDF font loading (the same `.bdf` fonts the
   hardware uses).
 - **`terminalio`** — the built-in terminal font.
@@ -20,10 +20,15 @@ on screen matches what the panel shows.
     [`UnifiedDisplay`](display.md) is **the** display an app uses — it
     auto-selects the real `displayio` backend on CircuitPython and the simulator
     on desktop, so your app code never branches on platform. `SimulatorDisplay`
-    is the desktop-only **recording / verification** display: same rendering,
-    plus `screenshot()` / `save_gif()` / `save_video()` and constructor-flag
-    hardware-timing. Reach for it in tests, demos, and the dev harness when you
-    need those extras; ship apps against `UnifiedDisplay`.
+    is a thin subclass of `UnifiedDisplay` (~80 lines) that adds only desktop
+    interactive-window ergonomics: it auto-opens the pygame window on the first
+    `show()`, plus `scale`/`pitch` constructor knobs. `screenshot()` /
+    `start_recording()` / `save_gif()` / `save_video()` and the
+    `hardware_timing`/`throttle`/`strict` flags all live on `UnifiedDisplay`
+    itself and are safe no-ops (return `None`) on real hardware — you get them
+    whether you ship against `UnifiedDisplay` or use `SimulatorDisplay` directly.
+    Reach for `SimulatorDisplay` specifically when you want the auto-opened
+    interactive window (tests, demos, the dev harness).
 
 ```python
 from scrollkit.display.simulator import SimulatorDisplay
@@ -168,11 +173,19 @@ fonts:
 | Load cost | parses the whole font into RAM | glyphs read from flash on demand |
 | Best for | small fonts, the simulator, development | large fonts on the MatrixPortal S3 |
 
-Both load through the identical API, so switching is a one-line change:
+On real CircuitPython hardware, both formats load through the identical
+`adafruit_bitmap_font.bitmap_font.load_font(path)` API, so switching is a
+one-line change there:
 
 ```python
 font = bitmap_font.load_font("/fonts/MyFont.pcf")   # instead of .bdf
 ```
+
+**The desktop simulator does not implement PCF** —
+`scrollkit.simulator.adafruit_bitmap_font` only parses BDF text; pointing it at
+a `.pcf` file loads silently with zero glyphs (blank text, no error). Keep
+testing with the `.bdf` version in the simulator, and swap to the converted
+`.pcf` only for the on-device build.
 
 Convert a BDF to PCF on a desktop with `bdftopcf` (part of the X11 font utils):
 

@@ -15,12 +15,15 @@ from scrollkit.app.base import ScrollKitApp     # alias: SLDKApp
 ```
 
 - **`ScrollKitApp`** — `__init__(enable_web=True, update_interval=300,
-  enable_watchdog=False, watchdog_timeout=8)`; override `setup()`, `update_data()`,
+  enable_watchdog=False, watchdog_timeout=8, enable_auto_reboot=False,
+  max_refresh_failures=None)`; override `setup()`, `update_data()`,
   `prepare_display_content()`, `cleanup()`; run with `await app.run()`; `stop()`. Has
   `self.display` and `self.content_queue`. Render suspension:
   `suspend_render()` / `resume_render()` / `with suspended_render(): ...` /
   `render_suspended` — pause queue rendering (queue preserved) while painting an
-  off-queue status frame and blocking on a fetch.
+  off-queue status frame and blocking on a fetch. `enable_auto_reboot` opts into
+  rebooting after `max_refresh_failures` (default 12) consecutive
+  `note_refresh_result(ok=False)` calls, to recover a wedged radio/session.
 
 ## Display
 
@@ -37,8 +40,12 @@ from scrollkit.display.content import DisplayContent, StaticText, ScrollingText,
 - **`StaticText(text, x, y, color, duration, priority)`**,
   **`ScrollingText(text, y, color, speed, priority)`** — `is_complete`,
   `elapsed`, `update()`, `await render(display)`
-- **`ContentQueue`** — `add(content)`, `get_content_count()`, `clear()`,
-  `await get_current()` — a looping queue the display loop cycles through
+- **`ContentQueue(loop=True)`** — `add(content)`, `get_content_count()`, `clear()`,
+  `await get_current()`. Plays content in **priority order**
+  (`content.priority`, higher first; equal priority plays in insertion order) —
+  not a simple round-robin loop. With `loop=False` the queue terminates after
+  the last item's `stop()`: `get_current()` returns `None` until `add()`
+  re-arms it with new content.
 - **`Priority`** — `IDLE, LOW, NORMAL, HIGH, URGENT, SYSTEM`
 
 ## Effects
@@ -86,7 +93,8 @@ from scrollkit.ota.display_progress import OTAProgressDisplay
 
 - **`OTAClient(update_server_url, current_version, update_dir, backup_dir)`** —
   `check_for_updates() -> (bool, manifest|str)`, `download_update(manifest)`,
-  `apply_update()`, `rollback()`
+  `apply_update()`. There is no public `rollback()` — `apply_update()`
+  automatically restores the pre-update backup internally if install fails.
 - **`UpdateManifest`** — `version`, `files`, `requirements`,
   `compare_version(other)`, `validate()`, `from_dict(d)`, `to_json()`
 - **`OTAProgressDisplay(client, display=None)`** — display-progress + staged-install
