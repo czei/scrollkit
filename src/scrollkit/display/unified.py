@@ -63,8 +63,20 @@ __all__ = ['UnifiedDisplay', 'IS_CIRCUITPYTHON']
 
 class UnifiedDisplay(GraphicsMixin, DisplayInterface):
     """Unified display that auto-detects hardware vs simulator."""
-    
-    def __init__(self, width=None, height=None, bit_depth: int = 4, board=None):
+
+    # Window title for create_window(); SimulatorDisplay overrides.
+    _WINDOW_TITLE = "SLDK Display"
+    # Whether show() creates the pygame window automatically on desktop.
+    # False here (UnifiedDisplay stays headless unless create_window() is
+    # called); SimulatorDisplay — the interactive/dev display — sets True.
+    _AUTO_WINDOW = False
+    # Soft cap: warn once past this many recorded frames (~25s at 20 FPS) so a
+    # recording left on by accident doesn't silently eat memory.
+    _RECORDING_WARN_FRAMES = 500
+
+    def __init__(self, width=None, height=None, bit_depth: int = 4, board=None,
+                 *, hardware_timing: bool = False, throttle: bool = False,
+                 strict: bool = False, pitch=None):
         """Initialize unified display.
 
         Args:
@@ -81,6 +93,18 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                 ``"pimoroni_interstate75_w"``). ``None`` auto-detects on hardware
                 via ``board.board_id``, honors ``SCROLLKIT_HW_BOARD``, and falls
                 back to the MatrixPortal S3 (see ``display/boards.py``).
+            hardware_timing: (desktop only) model how slow the real device would
+                run — read the estimate via feasibility_report(). Ignored on
+                hardware (the device IS the timing). Also enabled by
+                SCROLLKIT_HW_SIM=1.
+            throttle: (desktop only) with hardware_timing, also sleep so the
+                window crawls at the modeled hardware speed. Also
+                SCROLLKIT_HW_THROTTLE=1.
+            strict: (desktop only) enforce the feasibility gate — a sustained
+                over-budget run raises FeasibilityError. Implies
+                hardware_timing. Also SCROLLKIT_HW_STRICT=1.
+            pitch: (desktop only) LED pitch (mm) -> on-screen LED size for
+                recordings/screenshots. ``None`` uses the simulator default.
         """
         spec = resolve_board(board)
         self._board_id: str = spec.board_id
@@ -88,7 +112,18 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         self._width: int = spec.default_width if width is None else width
         self._height: int = spec.default_height if height is None else height
         self._bit_depth: int = bit_depth
-        self._brightness: float = 0.3
+        # Hardware-realism simulation (desktop opt-in; env vars honored too).
+        self._hardware_timing: bool = hardware_timing
+        self._throttle: bool = throttle
+        self._strict: bool = strict
+        self._pitch = pitch
+        # Brightness default is per-platform ON PURPOSE: hardware boots dim
+        # (0.3 — a full-white 64x32 panel at 1.0 is a real power/eye hazard);
+        # desktop boots at 1.0 so content is clearly visible in the simulator
+        # (both desktop entry points agree; the LED renderer also applies its
+        # high-visibility enhancement at 1.0). Apps that manage brightness get
+        # the settings default (0.5) applied via _apply_library_settings.
+        self._brightness: float = 0.3 if IS_CIRCUITPYTHON else 1.0
 
         # Platform specific components
         self.hardware: Any = None
@@ -121,6 +156,11 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         # reuse + mutate in place, reset index in clear(), hide-unused in show().
         self._scaled_pool: List[Any] = []
         self._scaled_idx: int = 0
+
+        # Desktop extras (no-ops on hardware): pygame window + frame recording.
+        # None = not recording; a list = capturing (H, W, 3) uint8 frames.
+        self._window_created: bool = False
+        self._recording = None
 
     @property
     def width(self) -> int:
@@ -185,11 +225,13 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                 )
 
             # Build + initialize the simulator device (and its hardware-timing
-            # model, opt-in via SCROLLKIT_HW_* env vars) through the backend
-            # helper shared with SimulatorDisplay.
+            # model, opt-in via the constructor flags or SCROLLKIT_HW_* env
+            # vars) through the shared backend helper.
             from ._sim_backend import create_sim_device
             self.device, self.matrix, self.display, self._perf = create_sim_device(
-                self._width, self._height, self._board_id)
+                self._width, self._height, self._board_id, pitch=self._pitch,
+                hardware_timing=self._hardware_timing, throttle=self._throttle,
+                strict=self._strict)
             self.hardware = self.device  # For compatibility
 
     def feasibility_report(self):
@@ -201,38 +243,11 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         if self._perf is None:
             from ._sim_backend import disabled_feasibility_report
             return disabled_feasibility_report(
-                "enable with SCROLLKIT_HW_SIM=1 or SCROLLKIT_HW_THROTTLE=1")
+                "enable with hardware_timing=True or SCROLLKIT_HW_SIM=1")
         return self._perf.report()
 
-    async def clear(self) -> None:
-        """Clear the display (start a new frame).
-
-        Resets the per-frame Label slot index so draw_text() reuses pooled
-        Labels instead of allocating new ones. Labels not redrawn this frame are
-        hidden in show().
-        """
-        self._label_idx = 0
-        self._scaled_idx = 0
-
-        # Wipe the bounded-painter canvas so fill_rect drawings don't ghost across
-        # frames (immediate-mode, like draw_text). One C bulk fill; layer stays.
-        if getattr(self, "_paint_bitmap", None) is not None:
-            self._paint_bitmap.fill(0)
-
-        # Clear any pixel data drawn outside the displayio group (e.g. set_pixel).
-        if self.matrix and hasattr(self.matrix, 'fill'):
-            self.matrix.fill(0x000000)
-
-    def _hide_unused_labels(self) -> None:
-        """Hide pooled Labels that weren't drawn this frame (frame drew fewer)."""
-        for i in range(self._label_idx, len(self._label_pool)):
-            lbl = self._label_pool[i]
-            if hasattr(lbl, "hidden"):
-                lbl.hidden = True
-        for i in range(self._scaled_idx, len(self._scaled_pool)):
-            lbl = self._scaled_pool[i]
-            if hasattr(lbl, "hidden"):
-                lbl.hidden = True
+    # clear() / set_pixel() / fill() / _hide_unused_labels() come from
+    # GraphicsMixin — ONE per-frame surface for hardware and simulator.
 
     async def show(self) -> bool:
         """Update the physical display."""
@@ -249,94 +264,172 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             return await self._update_simulator()
     
     async def _update_simulator(self) -> bool:
-        """Update the simulator display."""
+        """Update the simulator display (the ONE desktop frame path)."""
         if not self.display:
             return True
-            
+
         try:
             import pygame
-            
-            # Check if pygame is initialized
-            if not pygame.get_init():
-                self.display.refresh(minimum_frames_per_second=0)
-                return True
-            
-            # Check if window exists
-            if pygame.display.get_surface() is None:
-                self.display.refresh(minimum_frames_per_second=0)
-                return True
-            
-            # Handle events to keep window responsive
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+
+            # The interactive display (SimulatorDisplay) opens its window on
+            # first show; UnifiedDisplay stays headless unless asked.
+            if self._AUTO_WINDOW and not self._window_created:
+                await self.create_window()
+
+            has_window = pygame.get_init() and pygame.display.get_surface()
+
+            # Handle events to keep the window responsive.
+            if has_window:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
                         return False
-            
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            return False
+
             # display.refresh() already renders the matrix to its surface exactly
             # once (== one modeled hardware frame). Do NOT call matrix.render()
             # again below — a second render would double-count modeled frames and
             # make the feasibility estimate disagree with the throttle crawl.
             self.display.refresh(minimum_frames_per_second=0)
 
-            # Blit the rendered LED matrix surface to the pygame window.
-            screen = pygame.display.get_surface()
-            if screen and hasattr(self.matrix, 'get_surface'):
-                screen.fill((0, 0, 0))
-                matrix_surface = self.matrix.get_surface()
-                if matrix_surface:
-                    screen.blit(matrix_surface, (0, 0))
+            # If recording (opt-in), grab this finished frame for save_gif().
+            if self._recording is not None:
+                self._capture_recording_frame()
 
-            pygame.display.flip()
-            
+            if has_window:
+                # Blit the rendered LED matrix surface to the pygame window.
+                screen = pygame.display.get_surface()
+                if screen and hasattr(self.matrix, 'get_surface'):
+                    matrix_surface = self.matrix.get_surface()
+                    if matrix_surface:
+                        screen.fill((0, 0, 0))
+                        screen.blit(matrix_surface, (0, 0))
+                pygame.display.flip()
+
             # Small yield for responsiveness
             await asyncio.sleep(0.001)
-            
+
         except ImportError:
             # Pygame not available
             if self.display:
                 self.display.refresh(minimum_frames_per_second=0)
-        
+
         return True
-    
-    async def set_pixel(self, x: int, y: int, color: int) -> None:
-        """Set a single pixel color.
-        
-        Args:
-            x: X coordinate
-            y: Y coordinate
-            color: Color as 24-bit RGB integer
+
+    # ------------------------------------------------------------------
+    # Screenshot + recording (desktop-only, opt-in; None/no-op on hardware).
+    # The heavy pygame/Pillow/ffmpeg work lives in display/_recording.py and
+    # is imported lazily so the device never pays for it.
+    # ------------------------------------------------------------------
+
+    def screenshot(self, path):
+        """Save the current display frame to an image file (PNG by extension).
+
+        Renders whatever is currently on the simulated matrix to ``path``.
+        Returns the path on success or None if unavailable (e.g. on hardware).
+
+        Example::
+
+            await display.show()
+            display.screenshot("frame.png")
         """
-        if self.matrix and 0 <= x < self._width and 0 <= y < self._height:
-            # Try different methods to set pixel
-            if hasattr(self.matrix, 'set_pixel'):
-                self.matrix.set_pixel(x, y, color)
-            elif hasattr(self.matrix, '__setitem__'):
-                try:
-                    self.matrix[x, y] = color
-                except (TypeError, AttributeError):
-                    # Try alternative indexing
-                    try:
-                        self.matrix[y][x] = color
-                    except (TypeError, AttributeError, IndexError):
-                        # Fallback - print for debugging
-                        print(f"Cannot set pixel at ({x}, {y}) to {color:06X}")
-            else:
-                print(f"Matrix object has no set_pixel method: {type(self.matrix)}")
-    
-    async def fill(self, color: int) -> None:
-        """Fill entire display with color.
-        
-        Args:
-            color: Color as 24-bit RGB integer
+        if IS_CIRCUITPYTHON:
+            return None
+        from ._recording import save_surface_png
+        return save_surface_png(self.matrix, path)
+
+    def start_recording(self):
+        """Begin capturing each shown frame for a later :meth:`save_gif`.
+
+        After this, every :meth:`show` appends the current LED-panel frame. Call
+        :meth:`save_gif`/:meth:`save_video` to encode them or
+        :meth:`stop_recording` to discard. No-op (returns None) on hardware.
+        Returns ``self`` so the call can be chained.
         """
-        if self.matrix and hasattr(self.matrix, 'fill'):
-            self.matrix.fill(color)
-        else:
-            # Fallback to pixel-by-pixel
-            await super().fill(color)
-    
+        if IS_CIRCUITPYTHON:
+            return None
+        self._recording = []
+        return self
+
+    def stop_recording(self) -> None:
+        """Stop capturing frames and discard anything not yet saved."""
+        self._recording = None
+
+    @property
+    def is_recording(self) -> bool:
+        """True while frames are being captured for :meth:`save_gif`."""
+        return self._recording is not None
+
+    def _capture_recording_frame(self) -> None:
+        """Append the current LED-panel surface to the recording (internal)."""
+        from ._recording import capture_frame
+        frame = capture_frame(self.matrix)
+        if frame is None:
+            return
+        self._recording.append(frame)
+        if len(self._recording) == self._RECORDING_WARN_FRAMES:
+            print("display: recording is %d frames and growing; call "
+                  "save_gif()/stop_recording() to release memory."
+                  % self._RECORDING_WARN_FRAMES)
+
+    def save_gif(self, path, *, fps: int = 20, target_width: int = 360,
+                 max_colors: int = 48, loop: int = 0, frame_step: int = 1,
+                 disposal: int = 1):
+        """Encode the recorded frames to an animated GIF and clear the buffer.
+
+        Frames captured since :meth:`start_recording` are downscaled to
+        ``target_width`` and share ONE adaptive palette (≤ ``max_colors``) so
+        colors stay stable across the loop and the file stays small.
+        ``frame_step`` keeps only every Nth frame (per-frame duration is
+        lengthened to keep playback speed correct); ``loop=0`` loops forever.
+
+        Returns the path, or None when there is nothing to save or
+        pygame/Pillow isn't available (e.g. on hardware) — mirroring
+        :meth:`screenshot`. Recording is stopped afterward either way.
+
+        Example::
+
+            display.start_recording()
+            for _ in range(60):
+                await content.render(display)
+                await display.show()
+            display.save_gif("demo.gif")
+        """
+        frames = self._recording or []
+        self._recording = None
+        if not frames or IS_CIRCUITPYTHON:
+            return None
+        from ._recording import encode_gif
+        return encode_gif(frames, path, fps=fps, target_width=target_width,
+                          max_colors=max_colors, loop=loop,
+                          frame_step=frame_step, disposal=disposal)
+
+    def save_video(self, path, *, fps: int = 24, target_width=None,
+                   crf: int = 20, preset: str = "medium",
+                   border: int = 0, border_color=(10, 10, 13)):
+        """Encode the recorded frames to an MP4 (H.264) via ffmpeg; clear buffer.
+
+        The web-friendly sibling of :meth:`save_gif`: for full-colour animation
+        an MP4 is far smaller and smoother than a GIF. Frames are piped straight
+        to ``ffmpeg`` (which must be on PATH). ``target_width`` optionally
+        downscales (kept even, as yuv420p requires); ``crf`` trades size for
+        quality (≈18 best … 24 smaller); ``border`` adds a dark bezel of that
+        many pixels (``border_color`` RGB) so edge rows aren't flush with the
+        frame boundary.
+
+        Returns the path, or None when there are no frames or ffmpeg/encode is
+        unavailable (mirroring :meth:`save_gif`). Recording stops either way.
+        """
+        frames = self._recording or []
+        self._recording = None
+        if not frames or IS_CIRCUITPYTHON:
+            return None
+        from ._recording import encode_video
+        return encode_video(frames, path, fps=fps, target_width=target_width,
+                            crf=crf, preset=preset, border=border,
+                            border_color=border_color)
+
     async def set_brightness(self, brightness: float) -> None:
         """Set display brightness.
         
@@ -454,36 +547,42 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             return int(color, 16)
         return int(color)
     
-    async def create_window(self, title: str = "SLDK Display") -> None:
-        """Create display window (simulator only).
-        
+    async def create_window(self, title: str = None) -> None:
+        """Create the pygame display window (desktop only; no-op on hardware).
+
         Args:
-            title: Window title
+            title: Window title (default: the class's _WINDOW_TITLE)
         """
-        if IS_CIRCUITPYTHON:
-            # No window needed on hardware
+        if IS_CIRCUITPYTHON or self._window_created:
             return
-            
+
         try:
+            import os as _os
             import pygame
-            
+
+            # Ask SDL for a visible, sanely-placed window.
+            _os.environ['SDL_VIDEO_WINDOW_POS'] = '100,100'
+            _os.environ['SDL_VIDEO_CENTERED'] = '1'
+
             if not pygame.get_init():
                 pygame.init()
-            
-            # Create window
+
             if hasattr(self.matrix, 'surface_width'):
                 width = self.matrix.surface_width
                 height = self.matrix.surface_height
             else:
-                # Default scale of 10x
-                width = self._width * 10
-                height = self._height * 10
-                
-            screen = pygame.display.set_mode((width, height))
-            pygame.display.set_caption(title)
-            
+                scale = getattr(self, "_scale", 10)
+                width = self._width * scale
+                height = self._height * scale
+
+            screen = pygame.display.set_mode((width, height), pygame.SHOWN)
+            pygame.display.set_caption(title or self._WINDOW_TITLE)
+            screen.fill((50, 50, 50))
+            pygame.display.flip()
+            self._window_created = True
+
         except ImportError:
-            pass  # Pygame not available
+            print("Pygame not available for window creation")
     
     async def run_event_loop(self) -> None:
         """Run the display event loop (simulator only).

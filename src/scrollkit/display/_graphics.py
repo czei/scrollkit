@@ -11,6 +11,11 @@ One code path, both platforms. Provides:
 - Bounded span/rect painters (``fill_rect`` / ``fill_span`` / ``clear_rect``) that
   write a persistent full-screen paint canvas through ``bitmaptools.fill_region``
   (a C bulk op) — never a full-2048 Python loop — and account the cost.
+- The shared per-frame surface: ``clear()`` (label-slot reset + paint wipe),
+  ``set_pixel()`` (a 1x1 ``fill_rect`` into the paint canvas, so pixels survive
+  the displayio re-render on BOTH platforms — this is what the particle system
+  renders through) and ``fill()`` (a cached full-screen background TileGrid at
+  the bottom of the content group). One implementation, hardware == simulator.
 - ``measure_text`` via real font glyph advances (not ``len(text) * 6``).
 
 CircuitPython-safe: no runtime ``typing``, no desktop-only imports here.
@@ -79,6 +84,11 @@ class GraphicsMixin:
         self._paint_palette = None
         self._paint_tile = None
         self._paint_colors = None
+        # Full-screen background for fill(), also lazy (one Bitmap/Palette/
+        # TileGrid ever — the palette color is mutated per call, never realloc'd).
+        self._bg_bitmap = None
+        self._bg_palette = None
+        self._bg_tile = None
 
     # --- gfx ------------------------------------------------------------------
     @property
@@ -182,6 +192,81 @@ class GraphicsMixin:
         if x1 > x0 and y1 > y0:
             self.gfx.bitmaptools.fill_region(self._paint_bitmap, x0, y0, x1, y1, 0)
             self._account_bulk(x0, y0, x1, y1)
+
+    # --- the shared per-frame surface (one code path, both platforms) ---------
+    def _hide_unused_labels(self):
+        """Hide pooled Labels that weren't drawn this frame (frame drew fewer)."""
+        pool = getattr(self, "_label_pool", None) or ()
+        for i in range(getattr(self, "_label_idx", 0), len(pool)):
+            lbl = pool[i]
+            if hasattr(lbl, "hidden"):
+                lbl.hidden = True
+        pool = getattr(self, "_scaled_pool", None) or ()
+        for i in range(getattr(self, "_scaled_idx", 0), len(pool)):
+            lbl = pool[i]
+            if hasattr(lbl, "hidden"):
+                lbl.hidden = True
+
+    async def clear(self):
+        """Clear the display (start a new frame).
+
+        Resets the per-frame Label slot indices so draw_text() reuses pooled
+        Labels instead of allocating (labels not redrawn this frame are hidden
+        in show()), wipes the bounded-painter canvas so fill_rect()/set_pixel()
+        drawings don't ghost across frames (immediate-mode, one C bulk fill),
+        and hides the fill() background. Persistent effect layers live in
+        _layer_group and are deliberately NOT touched. No per-pixel loops, no
+        raw-matrix writes: the displayio refresh in show() re-renders the whole
+        group each frame on both platforms.
+        """
+        self._label_idx = 0
+        self._scaled_idx = 0
+        if getattr(self, "_paint_bitmap", None) is not None:
+            self._paint_bitmap.fill(0)
+        if getattr(self, "_bg_tile", None) is not None:
+            self._bg_tile.hidden = True
+
+    async def set_pixel(self, x, y, color):
+        """Set a single foreground pixel (drawn on top of other content).
+
+        A 1x1 fill_rect into the persistent paint-canvas LAYER, so the pixel is
+        part of the displayio tree and survives show()'s re-render on hardware
+        AND desktop (a raw matrix write would be wiped by refresh, and the
+        hardware matrix has no pixel API at all). This is the primitive the
+        particle system renders through; each write is a bounded C bulk op that
+        the hardware feasibility model accounts for.
+        """
+        if getattr(self, "_gfx", None) is None:
+            return   # not initialized yet — mirror the old silent no-op
+        if 0 <= x < self._width and 0 <= y < self._height:
+            await self.fill_rect(x, y, 1, 1, color)
+
+    def _ensure_bg(self):
+        gfx = self.gfx
+        if self._bg_bitmap is None:
+            self._bg_bitmap = gfx.Bitmap(self._width, self._height, 1)
+            self._bg_palette = gfx.Palette(1)
+            self._bg_tile = gfx.TileGrid(self._bg_bitmap,
+                                         pixel_shader=self._bg_palette)
+            # Bottom of the CONTENT group: behind every label, below the
+            # persistent effect layers. Inserted once; fill()/clear() toggle
+            # .hidden and mutate the palette — never another allocation.
+            self._content_group.insert(0, self._bg_tile)
+
+    async def fill(self, color):
+        """Fill the display background with a solid color (behind labels).
+
+        Immediate-mode like draw_text(): lasts until the next clear(). Backed
+        by one cached full-screen TileGrid whose 1-entry palette is mutated per
+        call — no per-frame allocation, works identically on hardware and
+        desktop (the old paths wrote to the raw matrix, which the hardware
+        wrapper doesn't expose and the desktop refresh wiped).
+        """
+        if getattr(self, "_gfx", None) is None or self._content_group is None:
+            return
+        self._ensure_bg()
+        self._bg_palette[0] = color
+        self._bg_tile.hidden = False
 
     # --- measurement ----------------------------------------------------------
     def measure_text(self, text, font=None):
