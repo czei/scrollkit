@@ -26,6 +26,15 @@ board.
 4. **Validate**: `scrollkit.dev.validate(app)` for structured issues + fixes.
 5. **Iterate** until the result is clean, then hand off for flashing.
 
+```mermaid
+flowchart LR
+    w["1. Write<br/>ScrollKitApp subclass"] --> r["2. run_headless(app)"]
+    r --> rr["3. Read RunResult<br/>rendered? advanced? hardware FPS?"]
+    rr --> v["4. validate(app)<br/>issues + fixes"]
+    v -->|not clean| w
+    v -->|clean| f["5. Hand off for flashing"]
+```
+
 Everything in step 2-4 is **desktop-only** (`scrollkit.dev` raises `ImportError`
 on CircuitPython by design — it pulls in numpy/pygame). The app you write in
 step 1 runs on both.

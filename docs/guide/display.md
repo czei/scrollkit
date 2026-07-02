@@ -31,6 +31,76 @@ display.draw_text("Hi", 0, 12, (0, 255, 128))
 await display.show()
 ```
 
+### Display class hierarchy
+
+Both real displays share one contract (`DisplayInterface`) and one set of C
+bulk-painter implementations (`GraphicsMixin`). There is **no separate hardware
+subclass** — hardware *is* `UnifiedDisplay` running its CircuitPython branch, with
+the Adafruit `RGBMatrix`/`displayio` objects held in `UnifiedDisplay.matrix` /
+`.display`.
+
+<!-- Source: display/interface.py, display/_graphics.py, display/unified.py, display/simulator.py -->
+```mermaid
+classDiagram
+    class DisplayInterface {
+        <<abstract>>
+        +width
+        +height
+        +initialize()
+        +clear()
+        +show() bool
+        +set_pixel()
+        +fill()
+        +draw_text()
+        +fill_rect()
+        +fill_span()
+        +clear_rect()
+        +add_layer()
+        +remove_layer()
+    }
+    class GraphicsMixin {
+        <<mixin>>
+        +fill_rect()
+        +fill_span()
+        +clear_rect()
+        +draw_text()
+    }
+    class UnifiedDisplay {
+        auto-detects hardware vs simulator
+        +matrix
+        +display
+    }
+    class SimulatorDisplay {
+        desktop-only
+        +screenshot()
+        +save_gif()
+        +save_video()
+    }
+    DisplayInterface <|-- UnifiedDisplay
+    GraphicsMixin <|-- UnifiedDisplay
+    DisplayInterface <|-- SimulatorDisplay
+    GraphicsMixin <|-- SimulatorDisplay
+```
+
+### Backend selection
+
+`UnifiedDisplay` chooses its backend from `sys.implementation.name` at import
+time — a static platform check, not runtime probing. Board identity is resolved
+separately: explicit `board=` argument → `SCROLLKIT_HW_BOARD` env var →
+`detect_board_id()` → default `adafruit_matrixportal_s3`.
+
+<!-- Source: display/unified.py (IS_CIRCUITPYTHON), display/_sim_backend.py, display/boards.py -->
+```mermaid
+flowchart TB
+    imp["UnifiedDisplay() init"] --> q{"sys.implementation.name<br/>== 'circuitpython'?"}
+    q -->|yes| hw["import real displayio / terminalio<br/>_initialize_hardware()<br/>board_spec.make_matrix()"]
+    q -->|no| sim["import scrollkit.simulator.*<br/>_sim_backend.create_sim_device()"]
+    hw --> board{"resolve_board()"}
+    board --> b1["MatrixPortal S3<br/>adafruit_matrixportal.Matrix"]
+    board --> b2["Interstate 75 W<br/>rgbmatrix + framebufferio"]
+    sim --> panel["pygame LED-matrix window<br/>(optional hardware-timing model)"]
+```
+
 ## Content types
 
 `scrollkit.display.content`:
@@ -72,3 +142,57 @@ Every `DisplayContent` carries a `priority` (`scrollkit.display.content.Priority
 `IDLE < LOW < NORMAL < HIGH < URGENT < SYSTEM`, default `NORMAL`) — metadata your
 app can read to build its own admission/eviction logic on top of the queue;
 `ContentQueue` itself doesn't act on it.
+
+## Content class hierarchy
+
+Everything you queue is a `DisplayContent`. `StaticText` and `ScrollingText` add a
+gradient-fill mixin; the characterful scrollers (`KineticMarquee`, `WaveRider`,
+`SplitFlap`, in [`effects.scrolling`](scrolling.md)) and palette-animated
+[`BitmapText`](bitmap-text.md) are just more `DisplayContent` subclasses. The
+`ContentQueue` holds a looping list of them.
+
+<!-- Source: display/content.py, display/bitmap_text.py, effects/scrolling.py -->
+```mermaid
+classDiagram
+    class DisplayContent {
+        <<abstract>>
+        +duration
+        +priority
+        +elapsed
+        +is_complete
+        +render(display)
+    }
+    class _GradientFillMixin {
+        +palette
+        +direction
+        +palette_steps
+    }
+    class Priority {
+        <<constants>>
+        IDLE LOW NORMAL
+        HIGH URGENT SYSTEM
+    }
+    class ContentQueue {
+        +add(content)
+        +get_current()
+        +clear()
+        -_advance_count
+    }
+    class StaticText
+    class ScrollingText
+    class BitmapText
+    class KineticMarquee
+    class WaveRider
+    class SplitFlap
+
+    DisplayContent <|-- StaticText
+    DisplayContent <|-- ScrollingText
+    DisplayContent <|-- BitmapText
+    DisplayContent <|-- KineticMarquee
+    DisplayContent <|-- WaveRider
+    DisplayContent <|-- SplitFlap
+    _GradientFillMixin <|-- StaticText
+    _GradientFillMixin <|-- ScrollingText
+    ContentQueue o-- "0..*" DisplayContent
+    DisplayContent ..> Priority : tagged with
+```

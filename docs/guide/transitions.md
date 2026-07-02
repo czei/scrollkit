@@ -62,6 +62,60 @@ returns); the **class** is what you import. The order below is the UI/dropdown o
     selectable transition. Pass `direction="top"` (default), `"bottom"`, `"left"`, or
     `"right"` to choose the entry edge.
 
+## The `Transition` class family
+
+The twelve cover→reveal transitions all subclass `Transition`, which owns the
+lifecycle and a single preallocated `OverlayMask` (subclasses only implement the
+two bounded `_paint_*` painters). `DropFromSky` is the odd one out: a **duck-typed
+sibling** that exposes the same `start` / `render` / `is_complete` surface but
+slides Labels in via `pre_render_hook` instead of covering the screen — which is
+why enumeration goes through `_TRANSITION_MAP`, never `Transition.__subclasses__()`.
+
+<!-- Source: effects/transitions.py (classes + _TRANSITION_MAP), config/transition_names.py -->
+```mermaid
+classDiagram
+    class Transition {
+        <<abstract>>
+        +start(display, swap_callback)
+        +render(display, content)
+        +is_complete
+        #_paint_cover(progress)
+        #_paint_reveal(progress)
+        -_mask
+        -curve
+    }
+    class OverlayMask {
+        preallocated bitmap
+        +fill_rect()
+        +clear_rect()
+    }
+    class DropFromSky {
+        +start()
+        +render()
+        +is_complete
+        +pre_render_hook(content)
+        +direction
+    }
+    Transition *-- OverlayMask
+    Transition <|-- IrisSnap
+    Transition <|-- VenetianShutters
+    Transition <|-- MosaicResolve
+    Transition <|-- CRTCollapse
+    Transition <|-- LightSlitRewrite
+    Transition <|-- PixelDissolve
+    Transition <|-- ColumnRain
+    Transition <|-- GradualReveal
+    Transition <|-- ScanFold
+    Transition <|-- HorizontalWipe
+    Transition <|-- GlitchBars
+    Transition <|-- DiagonalWipe
+    DropFromSky ..> Transition : same protocol (not a subclass)
+```
+
+The user-facing names live in `config.transition_names.TRANSITION_NAMES`; the
+name→class dispatch lives in `_TRANSITION_MAP` / `transition_factory()`. A unit
+test keeps the two ordered lists in lockstep — see [below](#adding-your-own-transition).
+
 ## Choosing a transition
 
 A transition fires **between** screens, so it is a *setting*, not content you queue.

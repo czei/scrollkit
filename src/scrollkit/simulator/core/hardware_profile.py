@@ -4,12 +4,16 @@
 Single source of truth for the (DESKTOP-ONLY) hardware-realism simulation: how
 slow the real CircuitPython device is and how little RAM it has.
 
-IMPORTANT — these numbers are ROUGH ENGINEERING ESTIMATES, not measurements. No
-timing has been captured on a real MatrixPortal S3 yet. Replace them with real
-numbers via ``HardwareProfile.from_measurements()`` once captured (see
-``test/memory_baseline.py``). Reports built from an uncalibrated profile say so
-and round to one significant figure to avoid false precision. Trust the RELATIVE
-breakdown (which category dominates) more than the absolute FPS.
+IMPORTANT — the hard-coded numbers in the ``*_estimate()`` builders below are
+ROUGH ENGINEERING ESTIMATES, used only as a fallback. When a board's calibrated
+baseline JSON is present, ``profile_for()`` loads it in preference (via
+``HardwareProfile.from_measurements()``) and flips confidence to
+``CALIBRATED_FROM_DEVICE``. The shipped ``matrixportal_s3_baseline.json`` WAS
+measured on a real MatrixPortal S3, so the default S3 profile is calibrated;
+recapture with ``test/claude/calibrate_device.py``. Reports built from an
+uncalibrated profile say so and round to one significant figure to avoid false
+precision. Trust the RELATIVE breakdown (which category dominates) more than the
+absolute FPS.
 
 This module is part of the simulator package and is never imported on hardware.
 """

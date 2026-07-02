@@ -40,6 +40,49 @@ asyncio.run(HelloWorldApp().run())   # auto-detects MatrixPortal hardware vs des
 > [getting-started guide](https://scrollkit.dev/getting-started/)
 > for the full `ScrollKitApp` / `UnifiedDisplay` API.
 
+## Architecture
+
+ScrollKit runs unchanged on the MatrixPortal S3 (CircuitPython) and a desktop
+pygame simulator. Your app subclasses `ScrollKitApp` and talks to one display
+abstraction; the library picks a backend at import time and brokers every external
+system the sign touches:
+
+```mermaid
+flowchart TB
+    app["Your app<br/>(subclasses ScrollKitApp)"] --> core["ScrollKitApp · UnifiedDisplay<br/>ContentQueue · effects · config"]
+    core -->|CircuitPython| hw["MatrixPortal S3<br/>displayio → RGBMatrix panel"]
+    core -->|desktop| sim["pygame simulator"]
+    core <-->|HttpClient — synchronous| api(["HTTP data API"])
+    core <-->|SettingsWebServer| browser(["Browser config UI"])
+    core -->|raw.githubusercontent.com| gh(["GitHub OTA"])
+```
+
+Subsystem dependencies (dashed = lazy import; `dev` and `simulator` are
+desktop-only, raising `ImportError` on the device):
+
+```mermaid
+flowchart LR
+    app["app"] --> display["display"]
+    app --> config["config"]
+    app --> utils["utils"]
+    app -.->|lazy| effects["effects"]
+    app -.->|lazy| web["web"]
+    effects --> display
+    display -.->|desktop| simulator["simulator"]
+    config -.->|lazy| utils
+    network["network"] --> config
+    network --> utils
+    ota["ota"] --> exceptions["exceptions"]
+    dev["dev"] --> display
+    dev --> effects
+    dev --> simulator
+    classDef desktop stroke-dasharray:6 4;
+    class dev,simulator desktop;
+```
+
+See the [Architecture guide](docs/guide/architecture.md) for the full write-up,
+including the invariants this graph enforces.
+
 ## Package Structure
 
 ```

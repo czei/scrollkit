@@ -72,21 +72,23 @@ every demo, recorded from the simulator.
 
 ## Architecture at a glance
 
-```
-your app  ──▶  scrollkit.app.ScrollKitApp        (async lifecycle: display + data + web)
-                 │
-                 ├─ scrollkit.display   UnifiedDisplay ─▶ hardware (displayio) | simulator (pygame)
-                 │                      ContentQueue, DisplayContent, Priority
-                 ├─ scrollkit.effects   Transition (content swaps), particles, splash reveals
-                 ├─ scrollkit.web       SettingsWebServer (config UI; adafruit_httpserver | async)
-                 ├─ scrollkit.ota       OTAClient + UpdateManifest (GitHub-hosted)
-                 ├─ scrollkit.network   WiFiManager, HttpClient
-                 ├─ scrollkit.config    SettingsManager (JSON persistence)
-                 └─ scrollkit.utils     color, error logging, timing
+```mermaid
+flowchart LR
+    app["your app<br/>(subclasses ScrollKitApp)"] --> sk["ScrollKitApp<br/>async lifecycle: display · data · web"]
+    sk --> display["display<br/>UnifiedDisplay · ContentQueue · Priority"]
+    display -->|CircuitPython| hw["hardware<br/>displayio"]
+    display -->|desktop| sim["simulator<br/>pygame"]
+    sk --> effects["effects<br/>Transition · particles · splashes"]
+    sk --> web["web<br/>SettingsWebServer (config UI)"]
+    sk --> ota["ota<br/>OTAClient + UpdateManifest (GitHub)"]
+    sk --> network["network<br/>WiFiManager · HttpClient"]
+    sk --> config["config<br/>SettingsManager (JSON)"]
+    sk --> utils["utils<br/>color · error logging · timing"]
 ```
 
-Head to **[Getting Started](getting-started.md)**, then work through the
-tutorials from easy to hard.
+See the **[Architecture guide](guide/architecture.md)** for the full system-context
+and dependency diagrams, then head to **[Getting Started](getting-started.md)** and
+work through the tutorials from easy to hard.
 
 ## How this was built
 

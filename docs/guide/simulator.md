@@ -43,6 +43,33 @@ platform branches.
     If the simulator ever diverges from real hardware behaviour, fix the
     *simulator*, not the shared display code — the device is the source of truth.
 
+## The verification workflow
+
+The simulator can model the real board's speed and RAM (opt in with
+`hardware_timing`, or feel it in real time with `throttle`), so the classic
+trap — looks great at desktop speed, crawls on the ~100×-slower device — surfaces
+*before* you flash. The [`scrollkit.dev`](../reference.md) toolkit (desktop-only)
+turns that into a tight build-and-prove loop:
+
+<!-- Source: dev/harness.py (run_headless), dev/validation.py, simulator/core/performance_manager.py, matrixportal_s3_baseline.json -->
+```mermaid
+flowchart TB
+    write["Write app<br/>(subclass ScrollKitApp, fill the queue)"] --> discover["Discover the API<br/>capabilities() · performance_guide()"]
+    discover --> run["run_headless(app, strict=True)"]
+    run --> model["PerformanceManager accumulates modeled µs/frame<br/>from the calibrated matrixportal_s3_baseline.json"]
+    model --> gate{"strict gate:<br/>frame &gt; ~50 ms budget<br/>or peak RAM &gt; usable?"}
+    gate -->|over budget| fail["raises FeasibilityError<br/>result.ok == False"]
+    gate -->|within budget| validate["validate(app)<br/>static + dynamic checks"]
+    fail --> write
+    validate -->|issues found| write
+    validate -->|clean| green["make test-unit<br/>+ make lint-errors"]
+    green --> flash["Flash to device"]
+```
+
+The feasibility numbers are **measured**, not guessed: the shipped MatrixPortal S3
+baseline was captured from a real board. See [Performance](performance.md) for the
+cost model and [Adding New Hardware](hardware.md) for recalibration.
+
 ## Screenshots
 
 `SimulatorDisplay.screenshot(path)` saves the current frame to an image file —

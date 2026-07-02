@@ -5,16 +5,31 @@ manifest, with checksums and a recovery guarantee.
 
 ## How it works
 
+<!-- Source: ota/client.py (check_for_updates/download_update/apply_update), ota/display_progress.py -->
+```mermaid
+sequenceDiagram
+    participant OTA as OTAClient
+    participant GH as GitHub (raw.githubusercontent.com)
+    participant FS as Device filesystem
+
+    OTA->>GH: check_for_updates() — GET manifest.json
+    GH-->>OTA: manifest (version + files + checksums)
+    Note over OTA: UpdateManifest.validate()<br/>+ compare_version
+    OTA->>FS: download_update() — statvfs free-space check
+    loop each changed file
+        OTA->>GH: GET file
+        GH-->>OTA: bytes
+        Note over OTA: verify SHA-256, stage under /updates
+    end
+    OTA->>FS: apply_update() — backup → install<br/>(restore backup on failure)
+    OTA->>OTA: reboot_device()
 ```
-manifest.json  (committed to a releases branch or attached to a GitHub Release)
-   │  device fetches via raw.githubusercontent.com
-   ▼
-OTAClient.check_for_updates()   compares versions
-   ▼
-OTAClient.download_update()     downloads only changed files (by checksum)
-   ▼
-OTAClient.apply_update()        swaps files into /src, keeping a backup
-```
+
+`OTAProgressDisplay` (in `ota.display_progress`) wraps this with on-panel status
+and two lifecycle hooks: `install_pending()` runs **on boot, before the display
+loop starts** (applies a staged update, then reboots), and `schedule_update()`
+runs **from a web route** (checks + downloads, then reboots so the next boot
+applies it). Both keep the blocking work off the running display loop.
 
 ```python
 from scrollkit.ota.client import OTAClient

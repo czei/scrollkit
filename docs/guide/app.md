@@ -20,6 +20,40 @@ class MyApp(ScrollKitApp):
         return await self.content_queue.get_current()   # default behaviour
 ```
 
+### What a ScrollKitApp owns
+
+The base class composes the three things every app needs — a display, a content
+queue, and settings — and it creates the web server lazily when memory allows. It
+deliberately does **not** own networking or OTA: apps construct those and drive
+them from `setup()` / `update_data()` (see [Networking](networking.md) and
+[OTA Updates](ota.md)).
+
+<!-- Source: app/base.py (create_display, content_queue, settings, create_web_server) -->
+```mermaid
+classDiagram
+    class ScrollKitApp {
+        +setup()
+        +update_data()
+        +prepare_display_content()
+        +on_settings_changed()
+        +run()
+        -_display_process()
+        -_data_update_process()
+        -_web_server_process()
+        -_settings_dirty
+    }
+    class DisplayInterface
+    class ContentQueue
+    class SettingsManager
+    class SettingsWebServer
+    ScrollKitApp *-- DisplayInterface : display
+    ScrollKitApp *-- ContentQueue : content_queue
+    ScrollKitApp *-- SettingsManager : settings
+    ScrollKitApp ..> SettingsWebServer : creates (web task)
+```
+
+(`ScrollKitApp` is the public name; `SLDKApp` is a backward-compatible alias.)
+
 ### Three-process architecture
 
 `run()` launches up to three cooperative async tasks, gated by available RAM:
@@ -36,6 +70,56 @@ the display always keeps running — graceful degradation rather than a crash.
 !!! note "Naming"
     `ScrollKitApp` is the public name; `SLDKApp` remains as a backward-compatible
     alias.
+
+## The run loop
+
+`run()` initializes the display, calls your `setup()`, arms the watchdog, then
+spawns the memory-gated tasks. The display loop is the device's heartbeat: it
+feeds the watchdog, applies any pending settings save, pulls the current queue
+item, fires a transition when the queue advances, renders, and paces itself to
+~20 FPS. A data fetch is **synchronous**, so while `update_data()` runs it freezes
+this entire loop — which is why the data task paints a loading frame first.
+
+<!-- Source: app/base.py (run, _display_process, _data_update_process), display/content.py (get_current, _advance_count) -->
+```mermaid
+sequenceDiagram
+    participant App as run()
+    participant Disp as _display_process
+    participant Data as _data_update_process
+    participant Q as ContentQueue
+    participant D as UnifiedDisplay
+
+    App->>App: _initialize_display() → create_display() → initialize()
+    App->>App: setup()  (app fills the queue)
+    App->>App: _arm_watchdog()  (hardware only, after boot)
+    Note over App,D: create tasks, gated by free RAM
+    App->>Disp: always
+    App->>Data: if free RAM > 30 KB
+
+    loop every frame (~20 FPS)
+        Disp->>Disp: _feed_watchdog()
+        alt _settings_dirty
+            Disp->>Disp: _apply_library_settings() + on_settings_changed()
+        end
+        Disp->>Q: get_current()
+        Q-->>Disp: content (+ _advance_count)
+        opt queue advanced
+            Disp->>Disp: _get_transition() → transition.start(display, swap)
+        end
+        Disp->>D: clear()
+        Disp->>D: content.render()
+        opt transition active
+            Disp->>D: transition.render(content)
+        end
+        Disp->>D: show()
+        Disp->>Disp: sleep(0.05)
+    end
+
+    loop every update_interval
+        Data->>D: _render_loading()  ("Updating…")
+        Data->>Data: update_data() — SYNCHRONOUS fetch, freezes the loop
+    end
+```
 
 ## Pausing the display during a blocking update
 

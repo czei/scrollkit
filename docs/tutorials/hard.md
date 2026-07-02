@@ -52,7 +52,7 @@ self.content_queue.add(StaticText("ScrollKit", x=6, y=12, color=0x00FF88,
 
 ## Web configuration
 
-Constructing the app with `enable_web=True` starts `ScrollKitWebServer` (when
+Constructing the app with `enable_web=True` starts `SettingsWebServer` (when
 memory allows). Browse to the device's IP to change settings live — backed by
 `SettingsManager`, which persists to JSON across reboots.
 
