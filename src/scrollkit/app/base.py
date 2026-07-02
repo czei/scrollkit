@@ -639,7 +639,15 @@ class SLDKApp:
         finally:
             self.running = False
             await self.cleanup()
-            
+
+            # Release the module-level settings hook set in __init__ (used by
+            # content._resolve_color/_resolve_speed) so a finished app doesn't
+            # leak its settings into content built by a LATER app in the same
+            # process (the dev-harness/test norm).
+            from ..display import content as _content_mod
+            if getattr(_content_mod, "_settings", None) is self.settings:
+                _content_mod._settings = None
+
             # Cancel any remaining tasks
             for task in self._tasks:
                 try:
@@ -668,7 +676,7 @@ class SLDKApp:
             
         except ImportError as e:
             print(f"Failed to initialize display: {e}")
-            print("Install simulator with 'pip install sldk[simulator]' for desktop development")
+            print("Install simulator with 'pip install \"scrollkit[simulator]\"' for desktop development")
         except OSError as e:
             print(f"Display initialization failed: {e}")
 

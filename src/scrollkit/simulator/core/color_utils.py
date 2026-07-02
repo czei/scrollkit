@@ -49,36 +49,6 @@ def apply_brightness(color, brightness):
     return tuple(int(c * brightness) for c in color)
 
 
-def apply_brightness_boost(color, boost_factor):
-    """Apply brightness boost to RGB color for maximum visibility.
-    
-    Args:
-        color: Tuple of (r, g, b) values
-        boost_factor: Float multiplier (e.g., 1.2 for 20% boost)
-        
-    Returns:
-        Tuple of boosted (r, g, b) values, clamped to 255 max
-    """
-    return tuple(min(255, int(c * boost_factor)) for c in color)
-
-
-def blend_colors(color1, color2, alpha):
-    """Blend two RGB colors together.
-    
-    Args:
-        color1: First color as (r, g, b) tuple
-        color2: Second color as (r, g, b) tuple
-        alpha: Blend factor (0.0 = color1, 1.0 = color2)
-        
-    Returns:
-        Blended color as (r, g, b) tuple
-    """
-    return tuple(
-        int(c1 * (1 - alpha) + c2 * alpha)
-        for c1, c2 in zip(color1, color2)
-    )
-
-
 # Common color constants matching CircuitPython
 BLACK = 0x0000
 WHITE = 0xFFFF

@@ -457,12 +457,21 @@ class ContentQueue:
         """Initialize content queue.
 
         Args:
-            loop: Whether to loop back to start when queue ends
+            loop: Whether to loop back to start when the last item completes.
+                With ``loop=False`` the queue is exhausted after the final
+                item's stop(): get_current() returns None (the display keeps
+                its last frame) until new content is add()ed, which re-arms it.
         """
         self.loop: bool = loop
         self._items: List[Any] = []
         self._current_index: int = 0
         self._current_content: Optional[Any] = None
+        # Monotonic insertion counter: the tie-breaker that keeps equal-priority
+        # items in insertion order without relying on sort stability (which
+        # MicroPython/CircuitPython does not guarantee).
+        self._add_seq: int = 0
+        # True when a loop=False queue has finished its last item.
+        self._exhausted: bool = False
         # Content abandoned by clear() that still needs its async stop() run by the
         # display loop (see clear()). A LIST, not a single slot: a settings change
         # rebuilds the queue twice in quick succession (the synchronous web handler's
@@ -479,11 +488,25 @@ class ContentQueue:
     
     def add(self, content) -> None:
         """Add content to queue.
-        
+
+        Playback honors ``content.priority`` — higher values play first (the
+        contract DisplayContent documents); items of equal priority play in
+        insertion order. Adding to an exhausted loop=False queue re-arms it,
+        resuming with the newly added item. ``None`` is ignored.
+
         Args:
             content: DisplayContent instance
         """
+        if content is None:
+            return
+        content._queue_seq = self._add_seq
+        self._add_seq += 1
         self._items.append(content)
+        # Explicit (priority DESC, insertion ASC) key rather than relying on
+        # sort stability — MicroPython's sort doesn't guarantee it.
+        self._items.sort(key=lambda c: (-getattr(c, "priority", Priority.NORMAL),
+                                        getattr(c, "_queue_seq", 0)))
+        self._exhausted = False
     
     def add_content(self, content) -> None:
         """Add content to queue (alias for add).
@@ -511,6 +534,7 @@ class ContentQueue:
         self._items.clear()
         self._current_index = 0
         self._current_content = None
+        self._exhausted = False
         # _advance_count is intentionally NOT reset: the display loop tracks it
         # to detect advances; a reset would look like the first play and suppress
         # the transition for the item that follows a rebuild.
@@ -542,21 +566,32 @@ class ContentQueue:
             except Exception:
                 pass
 
-        if not self._items:
+        if not self._items or self._exhausted:
             return None
 
         # Check if we need to advance
         if self._current_content is None:
+            if self._current_index >= len(self._items):
+                self._current_index = 0   # defensive clamp (see exhaustion below)
             self._current_content = self._items[self._current_index]
             await self._current_content.start()
             self._advance_count += 1
         elif self._current_content.is_complete:
             await self._current_content.stop()
-            self._current_index = (self._current_index + 1) % len(self._items)
+            next_index = self._current_index + 1
+            if next_index >= len(self._items) and not self.loop:
+                # loop=False: done after the last item. The display keeps its
+                # final frame; add() re-arms the queue. The index parks one
+                # past the end so playback resumes with whatever add() appends.
+                self._current_index = next_index
+                self._current_content = None
+                self._exhausted = True
+                return None
+            self._current_index = next_index % len(self._items)
             self._current_content = self._items[self._current_index]
             await self._current_content.start()
             self._advance_count += 1
-        
+
         return self._current_content
     
     def __iter__(self):

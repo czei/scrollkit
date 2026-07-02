@@ -33,10 +33,9 @@ class TestSimulatorImports:
     def test_core_components_import(self):
         """Test that core components can be imported."""
         try:
-            from scrollkit.simulator.core import LEDMatrix, PixelBuffer, DisplayManager
+            from scrollkit.simulator.core import LEDMatrix, PixelBuffer
             assert LEDMatrix is not None
             assert PixelBuffer is not None
-            assert DisplayManager is not None
         except ImportError:
             pytest.fail("Could not import core components from scrollkit.simulator")
     

@@ -14,12 +14,7 @@ try:
 except ImportError:  # CircuitPython has no 'typing' module
     pass
 
-try:
-    # Desktop Python
-    import asyncio
-except ImportError:
-    # CircuitPython
-    import asyncio
+import asyncio
 
 # Platform detection
 IS_CIRCUITPYTHON = hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython'
@@ -221,7 +216,7 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             if not LED_SIMULATOR_AVAILABLE:
                 raise ImportError(
                     "LED simulator not available. "
-                    "Install with: pip install sldk[simulator]"
+                    'Install with: pip install "scrollkit[simulator]"'
                 )
 
             # Build + initialize the simulator device (and its hardware-timing

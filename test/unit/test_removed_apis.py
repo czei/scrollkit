@@ -201,3 +201,46 @@ def test_ota_client_source_has_no_exec():
     src = inspect.getsource(client)
     assert "exec(" not in src
     assert "eval(" not in src
+
+
+# Post-0.8.2 orphan pruning (zero references anywhere, incl. tests + the app):
+# the DisplayManager windowing cluster (only reachable through the equally dead
+# BaseDevice.run/run_once), the unused ScrollingLabel emulation shim, the
+# captive-portal residue methods on WiFiManager, the ColorUtils static helpers
+# (class survives for its `colors` table), and the UpdateManifest builder half
+# (real producers build the manifest dict directly).
+
+def test_display_manager_and_scrolling_label_are_gone():
+    with pytest.raises(ImportError):
+        from scrollkit.simulator.core import display_manager  # noqa: F401
+    with pytest.raises(ImportError):
+        from scrollkit.simulator.adafruit_display_text import scrolling_label  # noqa: F401
+    import scrollkit.simulator.core as core
+    assert not hasattr(core, "DisplayManager")
+    from scrollkit.simulator.devices.base_device import BaseDevice
+    assert not hasattr(BaseDevice, "run")
+    assert not hasattr(BaseDevice, "run_once")
+
+
+def test_wifi_manager_captive_portal_residue_is_gone():
+    from scrollkit.network.wifi_manager import WiFiManager
+    for name in ("disconnect", "is_available", "get_ip_address",
+                 "start_access_point", "stop_access_point"):
+        assert not hasattr(WiFiManager, name), name
+
+
+def test_color_utils_static_helpers_are_gone():
+    from scrollkit.utils.color_utils import ColorUtils
+    for name in ("to_rgb", "from_rgb", "scale_color", "hex_str_to_rgb",
+                 "pad_hex", "hex_str_to_number", "number_to_hex_string"):
+        assert not hasattr(ColorUtils, name), name
+    assert "Yellow" in ColorUtils.colors      # the surviving reason-to-exist
+
+
+def test_manifest_builder_half_is_gone():
+    from scrollkit.ota.manifest import UpdateManifest
+    m = UpdateManifest(version="1.0.0")
+    for name in ("add_dependency", "set_requirement", "from_json",
+                 "get_required_files", "get_optional_files"):
+        assert not hasattr(m, name), name
+    assert hasattr(m, "add_file")             # test helper deliberately kept

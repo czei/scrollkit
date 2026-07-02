@@ -89,27 +89,6 @@ class UpdateManifest:
             'required': required,
         }
 
-    def add_dependency(self, name: str, version_spec: str = "*") -> None:
-        """Add dependency requirement.
-
-        Args:
-            name: Package name
-            version_spec: Version specification (e.g., ">=1.0.0")
-        """
-        self.dependencies.append({
-            'name': name,
-            'version': version_spec,
-        })
-
-    def set_requirement(self, key: str, value: Any) -> None:
-        """Set system requirement.
-
-        Args:
-            key: Requirement key
-            value: Requirement value
-        """
-        self.requirements[key] = value
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert manifest to dictionary.
 
@@ -157,22 +136,6 @@ class UpdateManifest:
         # deliberately ignored (removed exec() surface — see __init__).
 
         return manifest
-
-    @classmethod
-    def from_json(cls, json_str: str) -> UpdateManifest:
-        """Create manifest from JSON string.
-
-        Args:
-            json_str: JSON manifest string
-
-        Returns:
-            UpdateManifest: Parsed manifest
-        """
-        try:
-            data = json.loads(json_str)
-            return cls.from_dict(data)
-        except ValueError as e:  # CircuitPython: json.loads raises ValueError
-            raise ValueError(f"Invalid manifest JSON: {e}")
 
     def validate(self) -> Tuple[bool, str]:
         """Validate manifest data.
@@ -241,19 +204,3 @@ class UpdateManifest:
             int: Total size in bytes
         """
         return sum(info['size'] for info in self.files.values())
-
-    def get_required_files(self) -> List[str]:
-        """Get list of required file paths.
-
-        Returns:
-            list: Required file paths
-        """
-        return [path for path, info in self.files.items() if info['required']]
-
-    def get_optional_files(self) -> List[str]:
-        """Get list of optional file paths.
-
-        Returns:
-            list: Optional file paths
-        """
-        return [path for path, info in self.files.items() if not info['required']]

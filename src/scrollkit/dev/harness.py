@@ -188,6 +188,7 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
     # Headless pygame + opt the simulator into hardware timing via its env hook,
     # so this works regardless of how the app builds its display. All are
     # restored afterwards so we don't perturb the caller's environment.
+    prev_sdl = os.environ.get("SDL_VIDEODRIVER")
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     prev_hw = os.environ.get("SCROLLKIT_HW_SIM")
     prev_strict = os.environ.get("SCROLLKIT_HW_STRICT")
@@ -376,3 +377,7 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             os.environ.pop("SCROLLKIT_HW_STRICT", None)
         else:
             os.environ["SCROLLKIT_HW_STRICT"] = prev_strict
+        # Restore SDL too: leaving "dummy" set would make a LATER live-window
+        # run in the same process silently headless.
+        if prev_sdl is None:
+            os.environ.pop("SDL_VIDEODRIVER", None)

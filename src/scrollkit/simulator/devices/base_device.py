@@ -2,7 +2,7 @@
 """Base class for LED matrix devices."""
 
 from abc import ABC, abstractmethod
-from ..core import LEDMatrix, DisplayManager
+from ..core import LEDMatrix
 from ..displayio import Display, FourWire
 
 
@@ -28,8 +28,7 @@ class BaseDevice(ABC):
         self.display = None
         self.matrix = None
         self.display_bus = None
-        self.display_manager = None
-        
+
         # Performance simulation (optional)
         self.performance_manager = None
         
@@ -68,52 +67,6 @@ class BaseDevice(ABC):
         """Refresh the display."""
         if self.display:
             self.display.refresh()
-            
-    def run(self, update_callback=None, title=None):
-        """Run the device simulation.
-        
-        Args:
-            update_callback: Optional callback function called each frame
-            title: Window title (defaults to device name)
-        """
-        if not self.display_manager:
-            self.display_manager = DisplayManager()
-            
-        if not title:
-            title = self.__class__.__name__
-            
-        # Add display to manager
-        self.display_manager.add_display(self.matrix)
-        
-        # Create window and run with enhanced update callback
-        self.display_manager.create_window(title=title)
-        
-        def enhanced_update_callback():
-            # Call user's update callback first
-            if update_callback:
-                update_callback()
-            # Refresh the displayio content to the matrix
-            if self.display:
-                self.display.refresh()
-        
-        self.display_manager.run(enhanced_update_callback)
-        
-    def run_once(self):
-        """Run a single update cycle without entering main loop."""
-        if not self.display_manager:
-            self.display_manager = DisplayManager()
-            self.display_manager.add_display(self.matrix)
-            
-        self.display_manager.run_once()
-        
-    def save_screenshot(self, filename):
-        """Save a screenshot of the display.
-        
-        Args:
-            filename: Path to save screenshot
-        """
-        if self.matrix:
-            self.matrix.save_screenshot(filename)
             
     def get_surface(self):
         """Get the pygame surface for this device.

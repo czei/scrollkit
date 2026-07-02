@@ -363,5 +363,59 @@ class TestContentQueueSpecialCases:
         count = 0
         for content in queue:
             count += 1
-        
+
         assert count == 100
+
+
+class TestQueueContracts:
+    """priority and loop used to be stored-but-never-read (false contracts —
+    documented, serialized, advertised in capabilities(), ignored by playback).
+    These pin the now-implemented documented semantics."""
+
+    @pytest.mark.asyncio
+    async def test_priority_orders_playback_highest_first(self):
+        from scrollkit.display.content import Priority
+        queue = ContentQueue()
+        normal = StaticText("normal", duration=0)
+        high = StaticText("high", duration=0)
+        high.priority = Priority.HIGH
+        low = StaticText("low", duration=0)
+        low.priority = Priority.LOW
+        queue.add(normal)
+        queue.add(high)
+        queue.add(low)
+
+        # duration=0 => each get_current() call plays one item and advances.
+        seen = [(await queue.get_current()).text for _ in range(3)]
+        assert seen == ["high", "normal", "low"]
+
+    @pytest.mark.asyncio
+    async def test_equal_priority_preserves_insertion_order(self):
+        queue = ContentQueue()
+        for i in range(4):
+            queue.add(StaticText("t%d" % i, duration=0))
+        seen = [(await queue.get_current()).text for _ in range(4)]
+        assert seen == ["t0", "t1", "t2", "t3"]
+
+    @pytest.mark.asyncio
+    async def test_loop_true_wraps_around(self):
+        queue = ContentQueue()   # loop=True default
+        queue.add(StaticText("a", duration=0))
+        queue.add(StaticText("b", duration=0))
+        seen = [(await queue.get_current()).text for _ in range(4)]
+        assert seen == ["a", "b", "a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_loop_false_exhausts_after_last_item(self):
+        queue = ContentQueue(loop=False)
+        queue.add(StaticText("a", duration=0))
+        queue.add(StaticText("b", duration=0))
+
+        assert (await queue.get_current()).text == "a"
+        assert (await queue.get_current()).text == "b"
+        assert await queue.get_current() is None    # exhausted after the last
+        assert await queue.get_current() is None    # and stays exhausted
+
+        # add() re-arms an exhausted queue.
+        queue.add(StaticText("c", duration=0))
+        assert (await queue.get_current()).text == "c"

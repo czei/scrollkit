@@ -428,6 +428,8 @@ class HttpClient:
                 for key, value in headers.items():
                     request.add_header(key, value)
                 with self.urllib.urlopen(request, timeout=self.timeout) as response:
+                    # Keep last_error/last-success bookkeeping consistent with get().
+                    self._note_success()
                     return UrllibResponse(response)
         except Exception as e:
             _logger().error(e, f"Error making POST request to {url}")

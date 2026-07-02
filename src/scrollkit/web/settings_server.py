@@ -28,30 +28,9 @@ _POLL_INTERVAL = 0.05   # seconds between poll() calls (~20×/s, matches display
 
 __all__ = ['SettingsWebServer']
 
-def _url_decode(s):
-    """Decode application/x-www-form-urlencoded value.
-
-    adafruit_httpserver does not URL-decode form values, so we do it here.
-    CircuitPython-compatible: no urllib.parse available on device.
-    """
-    result = []
-    i = 0
-    while i < len(s):
-        c = s[i]
-        if c == '+':
-            result.append(' ')
-            i += 1
-        elif c == '%' and i + 2 < len(s):
-            try:
-                result.append(chr(int(s[i + 1:i + 3], 16)))
-                i += 3
-            except ValueError:
-                result.append(c)
-                i += 1
-        else:
-            result.append(c)
-            i += 1
-    return ''.join(result)
+# adafruit_httpserver does not URL-decode form values. The shared
+# CircuitPython-safe decoder lives in utils — one implementation, not two.
+from ..utils.url_utils import url_decode as _url_decode
 
 
 # --------------------------------------------------------------------------- #

@@ -228,18 +228,21 @@ class RainDrop(Particle):
     
     async def render(self, display: Any) -> None:
         """Render rain drop."""
+        # Learn the real panel height for is_dead() (no display arg there).
+        self._bottom = display.height
         x = int(self.x)
         y = int(self.y)
-        
+
         # Check if still on screen
         if not (0 <= x < display.width and 0 <= y < display.height):
             return
-        
+
         await display.set_pixel(x, y, self.color)
-    
+
     def is_dead(self, elapsed_time: float) -> bool:
-        """Rain drop dies when it falls off screen."""
-        return (self.y >= 32) or super().is_dead(elapsed_time)  # Assume 32 pixel height
+        """Rain drop dies when it falls off the bottom of the panel."""
+        bottom = getattr(self, "_bottom", 32)   # real height learned in render()
+        return (self.y >= bottom) or super().is_dead(elapsed_time)
 
 
 class Ember(Particle):
@@ -335,15 +338,18 @@ class Snow(Particle):
     
     async def render(self, display: Any) -> None:
         """Render snow flake."""
+        # Learn the real panel height for is_dead() (no display arg there).
+        self._bottom = display.height
         x = int(self.x)
         y = int(self.y)
-        
+
         if not (0 <= x < display.width and 0 <= y < display.height):
             return
-        
+
         # White snow flake
         await display.set_pixel(x, y, 0xFFFFFF)
-    
+
     def is_dead(self, elapsed_time: float) -> bool:
-        """Snow dies when it falls off screen."""
-        return (self.y >= 32) or super().is_dead(elapsed_time)
+        """Snow dies when it falls off the bottom of the panel."""
+        bottom = getattr(self, "_bottom", 32)   # real height learned in render()
+        return (self.y >= bottom) or super().is_dead(elapsed_time)

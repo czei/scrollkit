@@ -15,9 +15,7 @@ gates against the device's tiny RAM during a simulated run, and the feasibility
 report's "won't fit" warning lines up with what the loop decided.
 
 Default behavior is unchanged: on hardware it's the real number; on desktop with
-the sim OFF it's the same large constant as before. Note ``app/minimal.py`` keeps
-its own (larger) desktop default on purpose — its app-selection threshold would
-flip if it used this helper, so it is intentionally not routed through here.
+the sim OFF it's the same large constant as before.
 
 Device-safe: ``gc`` is the only hard import; the simulator lookup is wrapped so it
 never fails on CircuitPython (where the simulator package isn't present).

@@ -201,21 +201,6 @@ class WiFiManager:
             _logger().error(e, "Error creating HTTP session")
             return None
 
-    async def disconnect(self):
-        """Disconnect from WiFi"""
-        if is_dev_mode() or not self.HAS_WIFI or not self.is_connected:
-            return
-            
-        try:
-            _logger().info("Disconnecting from WiFi")
-            # Some CircuitPython versions may not have the disconnect method
-            if hasattr(self.wifi.radio, 'disconnect'):
-                self.wifi.radio.disconnect()
-            self.is_connected = False
-            
-        except Exception as e:
-            _logger().error(e, "Error disconnecting from WiFi")
-            
     async def reconnect(self):
         """
         Reconnect to WiFi if disconnected
@@ -229,34 +214,6 @@ class WiFiManager:
         # Try to reconnect
         return await self.connect()
         
-    def is_available(self):
-        """
-        Check if WiFi is available
-        
-        Returns:
-            True if WiFi is available, False otherwise
-        """
-        return self.HAS_WIFI or is_dev_mode()
-
-    def get_ip_address(self):
-        """
-        Get the current IP address
-        
-        Returns:
-            The IP address as a string, or None if not connected
-        """
-        if is_dev_mode():
-            # In dev mode, return a dummy IP
-            return "127.0.0.1"
-            
-        if not self.HAS_WIFI or not self.is_connected:
-            return None
-            
-        try:
-            return str(self.wifi.radio.ipv4_address)
-        except Exception:
-            return None
-            
     def save_credentials(self):
         """
         Save WiFi credentials to settings manager
@@ -274,32 +231,6 @@ class WiFiManager:
             except Exception as e:
                 _logger().error(e, "Failed to save WiFi credentials to settings manager")
 
-    def start_access_point(self,port=80):
-        """Start the WiFi access point"""
-        if is_dev_mode() or not self.HAS_WIFI:
-            _logger().debug("Cannot start access point in dev mode or without WiFi hardware")
-            self.ap_enabled = True
-            return
-            
-        self.wifi.radio.enabled = True
-        if self.ap_enabled is False:
-            # to use encrypted AP, use authmode=[wifi.AuthMode.WPA2, wifi.AuthMode.PSK]
-            if (self.AP_AUTHMODES[0] == self.wifi.AuthMode.OPEN):
-                self.wifi.radio.start_ap(ssid=self.AP_SSID, authmode=self.AP_AUTHMODES)
-            else:
-                self.wifi.radio.start_ap(ssid=self.AP_SSID, password=self.AP_PASSWORD, authmode=self.AP_AUTHMODES)
-            self.ap_enabled = True
-
-    def stop_access_point(self):
-        """Stop the WiFi access point"""
-        if is_dev_mode() or not self.HAS_WIFI:
-            _logger().debug("Cannot stop access point in dev mode or without WiFi hardware")
-            self.ap_enabled = False
-            return
-            
-        self.wifi.radio.stop_ap()
-        self.ap_enabled = False
-        
     def scan_networks(self):
         """
         Scan for available WiFi networks
