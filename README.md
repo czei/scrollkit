@@ -14,8 +14,12 @@ Most LED-matrix libraries get you a scrolling "Hello, World" and stop. I built S
 ## Installation
 
 ```bash
-# Desktop development with simulator (installs from GitHub; not yet on PyPI)
-pip install "scrollkit[simulator] @ git+https://github.com/czei/scrollkit.git"
+# Desktop development with simulator
+pip install "scrollkit[simulator]"
+
+# To modify ScrollKit itself (or run the demos): clone and install editable
+git clone https://github.com/czei/scrollkit.git
+cd scrollkit && pip install -e ".[simulator]"
 
 # CircuitPython — copy scrollkit/ to your device's lib/ alongside your source
 ```
