@@ -3,10 +3,17 @@
 ## Install
 
 ScrollKit lives in `src/scrollkit/`. For desktop development you need the
-simulator extras (pygame + numpy + Pillow):
+simulator extras (pygame + numpy + Pillow). From a clone of the repo:
 
 ```bash
-pip install "scrollkit[simulator]"
+pip install -e ".[simulator]"
+```
+
+Or, to use the library in your own project without cloning (ScrollKit is not
+yet on PyPI, so this installs straight from GitHub):
+
+```bash
+pip install "scrollkit[simulator] @ git+https://github.com/czei/scrollkit.git"
 ```
 
 Run anything from the repo root with `src` on the path:

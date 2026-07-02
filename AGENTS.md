@@ -404,7 +404,8 @@ display.screenshot("frame.png")   # one-off: just the current frame, no recordin
 
 GIF needs **Pillow**, MP4 needs a system **`ffmpeg`** on PATH (`brew install
 ffmpeg`); both need pygame + numpy. Pillow/pygame/numpy ship in the `[simulator]`
-extra (`pip install scrollkit[simulator]`); ffmpeg is a separate system install.
+extra (`pip install -e ".[simulator]"` from the repo root); ffmpeg is a separate
+system install.
 
 Don't reinvent the batch generators either — reuse or extend these:
 
