@@ -57,6 +57,38 @@ the same two on push/PR (Python 3.11 & 3.13) via `pip install -e ".[dev]"`, whic
 pulls the `[simulator]` extra (pygame + numpy + Pillow) — so packaging regressions
 fail CI.
 
+## Releasing to PyPI (and deploying scrollkit.dev)
+
+The package is published on PyPI as `scrollkit` (first release: 0.8.3,
+2026-07-02). Uploads happen **only** via GitHub Actions Trusted Publishing
+(OIDC): PyPI is configured to trust `.github/workflows/publish.yml` running in
+`czei/scrollkit` with the `pypi` environment. There is no API token anywhere —
+don't add one, and don't try to `twine upload` from a local machine.
+
+To cut a release:
+
+1. Bump the version in **both** `pyproject.toml` and
+   `src/scrollkit/__init__.py` (`__version__`), and add a dated `CHANGELOG.md`
+   section. PyPI versions are immutable — a published version number can never
+   be replaced or reused, so never re-tag; bump again instead.
+2. Commit, then `git tag v<version> && git push scrollkit master --tags`
+   (the remote is named `scrollkit`, not `origin`).
+3. The tag push triggers `publish.yml`: build sdist+wheel, `twine check
+   --strict`, verify the wheel carries the simulator package data, then
+   upload. It fails fast if the tag doesn't match `pyproject.toml`'s version.
+   Watch with `gh run watch`; confirm with
+   `curl -s https://pypi.org/pypi/scrollkit/json`.
+
+**Packaging gotcha:** non-`.py` files inside the package (the simulator's BDF
+fonts, the calibration JSONs) ship only because of
+`[tool.setuptools.package-data]` in `pyproject.toml`. CI installs editable and
+therefore can **not** catch missing package data; the publish workflow greps
+the built wheel as a guard. When adding new in-package data files, extend both
+the declaration and the guard.
+
+The docs site is separate from PyPI releases: `make deploy-docs` builds MkDocs
+and rsyncs it to scrollkit.dev (details in the `deployment` skill).
+
 ## The dev / verification toolkit (`scrollkit.dev` — desktop only)
 
 This is how an app is built and checked against the simulator before flashing:
