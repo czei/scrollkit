@@ -3,10 +3,10 @@
 
 Where ``render_gifs.py`` records one GIF per *whole demo*, this records one small
 sample per *individual visual API call* — every transition, characterful scroller,
-palette-animated bitmap effect, splash, particle, gradient-text direction and colour
-ramp — each on a canvas **tailored to that effect** and deliberately different from
-the themed demos.  The output feeds the guide pages and the Visual Reference gallery
-(``docs/guide/visual-reference.md``).
+palette-animated bitmap effect, splash, particle, image animator, gradient-text
+direction and colour ramp — each on a canvas **tailored to that effect** and
+deliberately different from the themed demos.  The output feeds the guide pages and the
+Visual Reference gallery (``docs/guide/visual-reference.md``).
 
 It reuses the SAME recorder as everything else (``SimulatorDisplay.start_recording``
 / ``save_gif`` / ``screenshot`` and ``scrollkit.dev.record_gif``) — no new capture
@@ -48,6 +48,9 @@ from scrollkit.dev import record_gif                             # noqa: E402
 from scrollkit.display.simulator import SimulatorDisplay         # noqa: E402
 
 OUT_DIR = os.path.join(_ROOT, "docs", "assets", "reference")
+# Small indexed BMPs that the image-animator samples decorate (one representative
+# subject per animator). Committed alongside this generator so it's self-contained.
+ANIMATOR_ART_DIR = os.path.join(_HERE, "assets", "animators")
 
 # Render the panel at a higher LED pitch so the downscaled sample is crisp (the same
 # lever render_gifs / the hero shot use). Visual scale only — the logical 64x32 grid
@@ -140,6 +143,67 @@ PARTICLES = {
     "sparkle": (26, 110),
     "snow":    (30, 130),
     "ember":   (16, 120),
+}
+
+# Image animators — class name -> (bmp filename, kind, kwargs, frames, caption). Each
+# decorates a static image already on screen; the kwargs are the owner-art-directed
+# ThemeParkWaits intro specs the engine was extracted from, one recognisable subject per
+# primitive ("combo" kwargs is a tuple of (kind, kwargs) parts). ``frames`` captures one
+# full play (~20 fps); loopers get a seamless-ish window, one-shots run to their finish.
+IMAGE_ANIMATORS = {
+    "TwinkleAnimator":      ("tree.bmp", "twinkle",
+                             dict(colors=(0x224422, 0x88AA44, 0xFFEE88), count=10,
+                                  box=(14, 1, 50, 19)), 96,
+                             "fireflies twinkle over the leaves"),
+    "MotionAnimator":       ("airplane.bmp", "motion",
+                             dict(path="traverse_lr", bob_amp=1), 104,
+                             "the whole tile flies across and off"),
+    "EmitterAnimator":      ("tea_cup.bmp", "emitter",
+                             dict(box=(24, 8, 42, 11), vx=0, vy=-0.4, rate=4, life=18,
+                                  colors=(0xFFFFEE, 0xCCCCCC, 0x777777), max_live=6,
+                                  jitter=0.2), 96, "steam drifts up from the cup"),
+    "PalettePulseAnimator": ("light_bulb.bmp", "palette_pulse",
+                             dict(match=(0xFFEE55, 0xFFDD44, 0xFFFF66, 0xEECC44,
+                                         0xCCAA33), tol=24, lo=0.6, hi=1.35, period=44),
+                             96, "the filament breathes brighter and dimmer"),
+    "RegionShiftAnimator":  ("jellyfish.bmp", "region_shift",
+                             dict(box=(21, 16, 43, 29), axis="x", amp=1, period=24,
+                                  phase=0, wave="ripple", wavelength=7), 96,
+                             "the tentacles ripple (a per-column wave)"),
+    "OrbiterAnimator":      ("honey_pot.bmp", "orbiter",
+                             dict(cx=32, cy=19, rx=15, ry=10, period=50, wobble=1,
+                                  clockwise=True,
+                                  sprite=((0, 0, 0xFFCC00), (1, 0, 0x442200),
+                                          (2, 0, 0xFFCC00))), 100,
+                             "a bee loops around the honey pot"),
+    "BlinkAnimator":        ("panda.bmp", "blink",
+                             dict(box=(23, 12, 29, 18), color=0x555555, period=48,
+                                  duty=9, delay=28), 100, "the eyes blink shut and open"),
+    "SpriteLiftAnimator":   ("canoe.bmp", "lift",
+                             dict(boxes=((8, 10, 57, 25),),
+                                  exclude_colors=(0x1166BB, 0x3388DD, 0x4499EE,
+                                                  0x55AAEE, 0x88DDFF), tol=28,
+                                  path="lr", bob_amp=1, slope=0, loop=True), 104,
+                             "the canoe crosses; the water stays put"),
+    "CoverAnimator":        ("dragon.bmp", "cover",
+                             dict(box=(22, 18, 31, 19), dx=0, dy=-3, until=35,
+                                  blank=True), 80,
+                             "the mouth reads shut until it snaps open"),
+    "VanishAnimator":       ("donut.bmp", "vanish",
+                             dict(boxes=((40, 5, 46, 9), (38, 10, 46, 14),
+                                         (40, 15, 46, 17)), start=35, interval=16), 96,
+                             "a bite is taken out, and stays bitten"),
+    "FrameCycleAnimator":   ("flag.bmp", "frames",
+                             dict(box=(8, 2, 57, 23), nframes=6, amp=2, wavelength=14,
+                                  period=3), 96, "the whole flag waves (pre-baked frames)"),
+    "ComboAnimator":        ("rocket.bmp", "combo",
+                             (("motion", dict(path="rise", delay=40)),
+                              ("emitter", dict(box=(29, 27, 37, 29), vx=0, vy=0.5,
+                                               rate=2, life=10,
+                                               colors=(0xFFEE44, 0xFFAA22, 0xEE4411,
+                                                       0x662211), max_live=8,
+                                               jitter=0.3))), 84,
+                             "rise + exhaust emitter, composed"),
 }
 
 # Colour-ramp swatch strips — slug -> callable returning a colour list.
@@ -482,6 +546,97 @@ async def _preview_particles(slug):
 
 
 # ---------------------------------------------------------------------------
+# Route: image animators (per-frame motion layered onto a static image). Loads
+# the subject BMP as a layer, then drives the animator's start/step/detach contract
+# exactly as the host does — mirroring the app's intro pipeline (OnDiskBitmap for the
+# palette + read_indexed_bmp for a subscriptable/writable Bitmap -> add_layer). The
+# image lives in _layer_group, which clear() does not touch, so each frame is just
+# step() + show(); no per-frame content re-render.
+# ---------------------------------------------------------------------------
+
+def _build_animator(kind, kwargs):
+    """Construct one animator (recursing for a "combo" of parts) from the config."""
+    from scrollkit.effects import image_animators as ia
+    classes = {
+        "twinkle": ia.TwinkleAnimator, "motion": ia.MotionAnimator,
+        "emitter": ia.EmitterAnimator, "palette_pulse": ia.PalettePulseAnimator,
+        "region_shift": ia.RegionShiftAnimator, "orbiter": ia.OrbiterAnimator,
+        "blink": ia.BlinkAnimator, "lift": ia.SpriteLiftAnimator,
+        "cover": ia.CoverAnimator, "vanish": ia.VanishAnimator,
+        "frames": ia.FrameCycleAnimator,
+    }
+    if kind == "combo":
+        return ia.ComboAnimator([_build_animator(k, kw) for k, kw in kwargs])
+    return classes[kind](**kwargs)
+
+
+def _load_intro_image(disp, bmp_name):
+    """Load ``bmp_name``; return (odb, bmp, palette, base_colors).
+
+    Device-correct loader (same as demos/medium/image_intro.py): OnDiskBitmap supplies
+    the palette, but it is NOT subscriptable on CircuitPython and most animators
+    read/rewrite image pixels, so read_indexed_bmp decodes the BMP into a real writable
+    Bitmap. Sky sits at palette slot 0; the un-faded colours are captured as RGB888 so a
+    palette-writing animator scales correctly on both platforms (the simulator stores
+    RGB565 and exposes the true colour via ``get_rgb888``).
+    """
+    from scrollkit.display.unified import displayio
+    from scrollkit.effects.image_animators import read_indexed_bmp
+    path = os.path.join(ANIMATOR_ART_DIR, bmp_name)
+    odb = displayio.OnDiskBitmap(path)
+    pal = odb.pixel_shader
+    pal.make_transparent(0)
+    get888 = getattr(pal, "get_rgb888", None)
+    if get888 is not None:
+        base_colors = [(int(c[0]) << 16) | (int(c[1]) << 8) | int(c[2])
+                       for c in (get888(i) for i in range(len(pal)))]
+    else:
+        base_colors = [pal[i] for i in range(len(pal))]
+    bmp = read_indexed_bmp(disp.gfx, path)     # subscriptable + writable, both platforms
+    return odb, bmp, pal, base_colors
+
+
+async def _image_animator_sequence(disp, cls_name, *, live=False):
+    """Drive one image animator over its subject image (renders + shows each frame)."""
+    from scrollkit.display.unified import displayio
+    bmp_name, kind, kwargs, frames, _cap = IMAGE_ANIMATORS[cls_name]
+    _odb, bmp, pal, base_colors = _load_intro_image(disp, bmp_name)
+    animator = _build_animator(kind, kwargs)
+    tile = displayio.TileGrid(bmp, pixel_shader=pal)
+    disp.add_layer(tile)
+    try:
+        animator.start(disp, tile, bmp, pal, base_colors)
+        for f in range(frames):
+            animator.step(f)
+            if await disp.show() is False:
+                break
+    finally:
+        try:
+            animator.detach()
+        except Exception:
+            pass
+        try:
+            disp.remove_layer(tile)
+        except Exception:
+            pass
+
+
+async def _gen_image_animator(cls_name, out):
+    disp = await _make_display()
+    disp.start_recording()
+    await _image_animator_sequence(disp, cls_name)
+    disp.save_gif(out, target_width=REF_WIDTH, max_colors=REF_COLORS,
+                  frame_step=REF_STEP)
+    return _saved(out)
+
+
+async def _preview_image_animator(cls_name):
+    disp = await _make_display(title="ScrollKit reference — %s" % cls_name)
+    while True:
+        await _image_animator_sequence(disp, cls_name, live=True)
+
+
+# ---------------------------------------------------------------------------
 # Route: static PNGs (gradient-text directions, colour ramps, named colours) —
 # render exactly one frame then screenshot.
 # ---------------------------------------------------------------------------
@@ -617,6 +772,16 @@ def build_jobs():
         add("particles", slug,
             (lambda sl=slug, o=out: asyncio.run(_gen_particles(sl, o))),
             (lambda sl=slug: asyncio.run(_preview_particles(sl))))
+
+    # Image animators (enumerated from the live ANIMATOR_CLASSES catalog)
+    from scrollkit.effects.image_animators import ANIMATOR_CLASSES
+    for cls in ANIMATOR_CLASSES:
+        cls_name = cls.__name__
+        slug = _slug(cls_name)
+        out = _out("animators", slug)
+        add("animators", slug,
+            (lambda n=cls_name, o=out: asyncio.run(_gen_image_animator(n, o))),
+            (lambda n=cls_name: asyncio.run(_preview_image_animator(n))))
 
     # Gradient-text directions (static PNG)
     for direction in gradient_directions():

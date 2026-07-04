@@ -19,7 +19,7 @@ from scrollkit.dev.capabilities import as_text
 def test_catalog_has_expected_sections():
     cat = capabilities()
     for key in ("panel", "content_types", "priorities", "effects", "transitions",
-                "scrolling", "palette_effects",
+                "scrolling", "palette_effects", "image_animators",
                 "named_colors", "display_api", "hardware", "verification"):
         assert key in cat, "missing section: %s" % key
 
@@ -80,6 +80,21 @@ def test_effects_exclude_the_removed_base_and_systems():
     # the removed transition effects are gone from the catalog
     assert "FadeInEffect" not in names
     assert "RevealEffect" not in names
+    # image animators are their OWN category, NOT folded into the effects bucket
+    assert "TwinkleAnimator" not in names
+
+
+def test_image_animators_are_their_own_cataloged_category():
+    cat = capabilities()
+    ia = {e["name"]: e for e in cat["image_animators"]}
+    # the full ANIMATOR_CLASSES catalog is surfaced, keyed by class name
+    from scrollkit.effects.image_animators import ANIMATOR_CLASSES
+    assert set(ia) == {c.__name__ for c in ANIMATOR_CLASSES}
+    assert "TwinkleAnimator" in ia and "ComboAnimator" in ia
+    # each carries its FEASIBILITY budget and, being image-attached, no pairs_with tag
+    feas = ia["TwinkleAnimator"]["feasibility"]
+    assert isinstance(feas, dict) and "modeled_frame_ms" in feas
+    assert "pairs_with" not in ia["TwinkleAnimator"]
 
 
 def test_transitions_are_cataloged_with_feasibility_budgets():
@@ -102,3 +117,5 @@ def test_as_text_is_a_readable_summary():
     assert "ScrollingText" in text and "Priorities:" in text
     # transitions are visible to humans/agents, not just in the JSON
     assert "Iris Snap" in text
+    # image animators get their own labeled section in the summary
+    assert "Image animators" in text and "TwinkleAnimator" in text

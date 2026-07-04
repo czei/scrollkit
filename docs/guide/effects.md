@@ -48,6 +48,7 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 | `scrollkit.display.bitmap_text` | palette-animated bitmap text ([guide](bitmap-text.md)) |
 | `scrollkit.effects.particles` | standalone particle systems (sparkles, rain, embers, snow) |
 | `scrollkit.effects.reveal_splash` / `.drip_splash` / `.swarm_reveal` | splash-reveal helpers: `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
+| `scrollkit.effects.image_animators` | per-frame animators that decorate a static image already on screen (twinkle, motion, emitter, glow, region-shift, orbit, blink, sprite-lift, cover, vanish, frame-cycle, combo) |
 
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
@@ -93,6 +94,86 @@ await engine.update(display)
 <figure markdown="span">![snow](../assets/reference/particles/snow.gif){ width="220" }<figcaption>`Snow` — falls with a gentle sway</figcaption></figure>
 <figure markdown="span">![ember](../assets/reference/particles/ember.gif){ width="220" }<figcaption>`Ember` — rises along a fire ramp</figcaption></figure>
 </div>
+
+## Image animators
+
+`scrollkit.effects.image_animators` gives a full-panel image (an intro card, a logo,
+an icon shown as a `TileGrid`) a bit of *life while it holds* — lights twinkle across
+a silhouette, a subject crosses a fixed scene, a feature glows, a flag waves. Each
+animator **decorates an existing image layer**; none of them own the display loop, and
+none are the `Transition` content-swap contract. They were lifted up from the
+ThemeParkWaits ride-intro engine.
+
+<div class="grid" markdown>
+<figure markdown="span">![TwinkleAnimator](../assets/reference/animators/twinkle-animator.gif){ width="240" }<figcaption>`TwinkleAnimator` — fireflies twinkle over the leaves</figcaption></figure>
+<figure markdown="span">![MotionAnimator](../assets/reference/animators/motion-animator.gif){ width="240" }<figcaption>`MotionAnimator` — the whole tile flies across and off</figcaption></figure>
+<figure markdown="span">![EmitterAnimator](../assets/reference/animators/emitter-animator.gif){ width="240" }<figcaption>`EmitterAnimator` — steam drifts up from the cup</figcaption></figure>
+<figure markdown="span">![PalettePulseAnimator](../assets/reference/animators/palette-pulse-animator.gif){ width="240" }<figcaption>`PalettePulseAnimator` — the filament breathes brighter and dimmer</figcaption></figure>
+<figure markdown="span">![RegionShiftAnimator](../assets/reference/animators/region-shift-animator.gif){ width="240" }<figcaption>`RegionShiftAnimator` — the tentacles ripple (a per-column wave)</figcaption></figure>
+<figure markdown="span">![OrbiterAnimator](../assets/reference/animators/orbiter-animator.gif){ width="240" }<figcaption>`OrbiterAnimator` — a bee loops around the honey pot</figcaption></figure>
+<figure markdown="span">![BlinkAnimator](../assets/reference/animators/blink-animator.gif){ width="240" }<figcaption>`BlinkAnimator` — the eyes blink shut and open</figcaption></figure>
+<figure markdown="span">![SpriteLiftAnimator](../assets/reference/animators/sprite-lift-animator.gif){ width="240" }<figcaption>`SpriteLiftAnimator` — the canoe crosses; the water stays put</figcaption></figure>
+<figure markdown="span">![CoverAnimator](../assets/reference/animators/cover-animator.gif){ width="240" }<figcaption>`CoverAnimator` — the mouth reads shut until it snaps open</figcaption></figure>
+<figure markdown="span">![VanishAnimator](../assets/reference/animators/vanish-animator.gif){ width="240" }<figcaption>`VanishAnimator` — a bite is taken out, and stays bitten</figcaption></figure>
+<figure markdown="span">![FrameCycleAnimator](../assets/reference/animators/frame-cycle-animator.gif){ width="240" }<figcaption>`FrameCycleAnimator` — the whole flag waves (pre-baked frames)</figcaption></figure>
+<figure markdown="span">![ComboAnimator](../assets/reference/animators/combo-animator.gif){ width="240" }<figcaption>`ComboAnimator` — rise + exhaust emitter, composed</figcaption></figure>
+</div>
+
+Every animator follows the same standalone **start / step / detach** convention. Any
+exception out of `start()`/`step()` is the host's cue to fall back to the still image,
+so animators stay safe to `detach()` after a failure:
+
+```python
+from scrollkit.display.unified import displayio
+from scrollkit.effects.image_animators import TwinkleAnimator, read_indexed_bmp
+
+# Load once. OnDiskBitmap supplies the palette; read_indexed_bmp decodes the pixels
+# into a real Bitmap — OnDiskBitmap is NOT subscriptable on CircuitPython, and most
+# animators read/rewrite image pixels. The same two calls run on device and simulator.
+odb = displayio.OnDiskBitmap("/logo.bmp")
+palette = odb.pixel_shader
+palette.make_transparent(0)                          # slot 0 = transparent "sky"
+bitmap = read_indexed_bmp(display.gfx, "/logo.bmp")  # subscriptable + writable
+tile = displayio.TileGrid(bitmap, pixel_shader=palette)
+display.add_layer(tile)                              # the image on its own layer
+
+anim = TwinkleAnimator(count=20)
+anim.start(display, tile, bitmap, palette, base_colors)  # raise -> fall back to the still image
+for frame in range(anim.HOLD_FRAMES):                # step + show once per displayed frame
+    anim.step(frame)
+    await display.show()
+anim.detach()                                        # settle to a rest pose + free layers
+display.remove_layer(tile)
+```
+
+`base_colors` is the palette's original colors as 0xRRGGBB ints, captured **before** any
+fading or mutation (the demo has the one cross-platform capture helper). `read_indexed_bmp`
+returns a **writable** Bitmap, so animators that rewrite pixels (`wants_writable_bitmap =
+True`) need nothing extra; `copy_to_writable()` is the alternative when you already hold a
+readable Bitmap. Each class advertises `HOLD_FRAMES` (how many frames one play wants, ~20 fps).
+
+!!! tip "Runnable example — `demos/medium/image_intro.py`"
+    Because an animator is `step()`-ed once per displayed frame, it lives in a
+    **self-driving** app (like the splash demos): `setup()` runs the loop itself
+    instead of returning and letting the [content queue](app.md) drive frames. The
+    demo loads a BMP as a layer, runs the start → step-every-frame → detach contract
+    for one animated intro, then hands off to a data screen — and loops through three
+    of them. Run it live: `PYTHONPATH=src python demos/medium/image_intro.py`.
+
+The twelve animators use three motion substrates and compose with `ComboAnimator`
+(e.g. a rocket is `MotionAnimator(path="rise")` + an exhaust `EmitterAnimator`):
+
+| Substrate | Animators | What it does |
+|-----------|-----------|--------------|
+| **Transparent overlay** above the image (sparse writes cleared by one C `fill`) | `TwinkleAnimator`, `EmitterAnimator`, `OrbiterAnimator`, `BlinkAnimator`, `CoverAnimator` | shimmer, drifting particles, an orbiting sprite, a wink/flicker, a masked-until-cue patch |
+| **Move a tile** — the image's own `TileGrid` or a lifted copy of its subject | `MotionAnimator`, `SpriteLiftAnimator` | traverse / rise / bob / jiggle; or lift a subject onto its own layer and cross a fixed scene (the hole row-inpaints) |
+| **Rewrite the loaded Bitmap** or palette entries | `RegionShiftAnimator`, `VanishAnimator`, `FrameCycleAnimator`, `PalettePulseAnimator` | wing/flag/jaw motion (sine/ramp/ripple/hinge waves), staged erases (a bite), pre-baked ripple frames, a breathing glow |
+
+Like the showcase effects, every animator carries a `FEASIBILITY` dict on the **class**
+(`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`,
+`modeled_frame_ms`) — bounded, bulk writes only, budgeted against the calibrated
+MatrixPortal S3 model. Verify a composition with `run_headless(app, strict=True)`, which
+raises `FeasibilityError` on anything that busts the ~50 ms / 20 fps budget.
 
 ## Pairing effects to content
 

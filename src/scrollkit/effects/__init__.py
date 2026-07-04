@@ -18,6 +18,10 @@ into RAM. Import each submodule directly instead:
   ``from scrollkit.effects.swarm_reveal import show_swarm_splash, SwarmReveal``
 - **Particles** —
   ``from scrollkit.effects.particles import ParticleEngine, Sparkle, Snow``
+- **Image animators** (per-frame motion layered onto a static image already on
+  screen — start/step/detach, not the ``Transition`` contract) —
+  ``from scrollkit.effects.image_animators import TwinkleAnimator, MotionAnimator,
+  ComboAnimator``
 - **Text-rendering helpers** —
   ``from scrollkit.effects.text_render import pixels_from_font_text, font_text_width``
 

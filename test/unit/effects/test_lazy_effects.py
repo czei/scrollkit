@@ -29,6 +29,7 @@ def test_importing_transitions_does_not_load_the_standalone_helpers():
         "    'scrollkit.effects.drip_splash',\n"
         "    'scrollkit.effects.swarm_reveal',\n"
         "    'scrollkit.effects.text_render',\n"
+        "    'scrollkit.effects.image_animators',\n"
         "]\n"
         "loaded = [m for m in forbidden if m in sys.modules]\n"
         "if loaded:\n"

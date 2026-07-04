@@ -284,7 +284,7 @@ from scrollkit.dev import capabilities, as_text
 cat = capabilities()            # JSON-able dict, introspected from live code
 # cat["content_types"], cat["priorities"], cat["effects"],
 # cat["transitions"], cat["scrolling"], cat["palette_effects"],
-# cat["named_colors"], cat["display_api"], cat["hardware"]
+# cat["image_animators"], cat["named_colors"], cat["display_api"], cat["hardware"]
 print(as_text(cat))             # compact human/agent-readable summary
 ```
 

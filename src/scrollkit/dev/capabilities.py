@@ -3,9 +3,11 @@
 
 ``capabilities()`` returns a JSON-able dict describing the building blocks an
 agent should reach for when writing an app: the panel geometry, the content
-types and their constructor parameters, priority levels, available effects,
-named colors, and the display drawing API — plus a pointer at the headless
-verification loop.
+types and their constructor parameters, priority levels, the effect categories
+(standalone splash/particle ``effects``, content-swap ``transitions``,
+``scrolling`` presentations, BitmapText ``palette_effects``, and the
+``image_animators`` that decorate a static image), named colors, and the display
+drawing API — plus a pointer at the headless verification loop.
 
 Everything is **introspected from live code** (the real ``Priority`` class, the
 ``effects`` package's ``__all__``, ``NAMED_COLORS``, the
@@ -144,6 +146,27 @@ def _effects():
         out.append({"name": "SwarmReveal", "doc": _first_line(SwarmReveal)})
     except ImportError:
         pass
+    return out
+
+
+def _image_animators():
+    """``[{name, doc, feasibility}]`` for the per-frame image-layer animators.
+
+    Its OWN category — these decorate a *static image already on screen* via the
+    start/step/detach contract, distinct from the content-swap ``transitions`` and from
+    the standalone splash/particle ``effects``. Enumerated via the module's explicit
+    ``ANIMATOR_CLASSES`` catalog (not ``__subclasses__``) so the order is stable and the
+    base ``IntroAnimator`` scaffolding is excluded. No ``pairs_with`` — they attach to an
+    image, not to text presentations; ``feasibility`` is each class's FEASIBILITY budget.
+    """
+    out = []
+    try:
+        from ..effects.image_animators import ANIMATOR_CLASSES
+    except ImportError:
+        return out
+    for cls in ANIMATOR_CLASSES:
+        out.append({"name": cls.__name__, "doc": _first_line(cls),
+                    "feasibility": getattr(cls, "FEASIBILITY", None)})
     return out
 
 
@@ -299,6 +322,7 @@ def capabilities():
     for key, fn in (("content_types", _content_types), ("priorities", _priorities),
                     ("effects", _effects), ("transitions", _transitions),
                     ("scrolling", _scrolling), ("palette_effects", _palette_effects),
+                    ("image_animators", _image_animators),
                     ("text_fills", _text_fills), ("color_utilities", _color_utilities),
                     ("named_colors", _named_colors),
                     ("display_api", _display_api), ("hardware", _hardware),
@@ -356,6 +380,14 @@ def as_text(cat=None):
         lines.append("Palette effects (on BitmapText):")
         for e in pe:
             lines.append("  - %s%s — %s" % (e["name"], _pairs(e), e["doc"]))
+    ia = cat.get("image_animators")
+    if isinstance(ia, list) and ia:
+        lines.append("Image animators (decorate a static image on screen):")
+        for e in ia:
+            feas = e.get("feasibility") or {}
+            ms = feas.get("modeled_frame_ms")
+            budget = " (~%sms/frame)" % ms if ms is not None else ""
+            lines.append("  - %s%s — %s" % (e["name"], budget, e["doc"]))
     tf = cat.get("text_fills")
     if isinstance(tf, dict) and isinstance(tf.get("gradient"), dict):
         g = tf["gradient"]

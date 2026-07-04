@@ -113,6 +113,28 @@ Lightweight particle systems. Documented in [Effects](effects.md#particles).
 
 </div>
 
+## Image animators
+
+Per-frame motion layered onto a *static image* already on screen — the image holds while
+part of it moves. Documented in [Effects](effects.md#image-animators).
+
+<div class="grid" markdown>
+
+<figure markdown="span">![TwinkleAnimator](../assets/reference/animators/twinkle-animator.gif){ width="240" }<figcaption>TwinkleAnimator — fireflies twinkle over the leaves</figcaption></figure>
+<figure markdown="span">![MotionAnimator](../assets/reference/animators/motion-animator.gif){ width="240" }<figcaption>MotionAnimator — the whole tile flies across and off</figcaption></figure>
+<figure markdown="span">![EmitterAnimator](../assets/reference/animators/emitter-animator.gif){ width="240" }<figcaption>EmitterAnimator — steam drifts up from the cup</figcaption></figure>
+<figure markdown="span">![PalettePulseAnimator](../assets/reference/animators/palette-pulse-animator.gif){ width="240" }<figcaption>PalettePulseAnimator — the filament breathes</figcaption></figure>
+<figure markdown="span">![RegionShiftAnimator](../assets/reference/animators/region-shift-animator.gif){ width="240" }<figcaption>RegionShiftAnimator — tentacles ripple (per-column wave)</figcaption></figure>
+<figure markdown="span">![OrbiterAnimator](../assets/reference/animators/orbiter-animator.gif){ width="240" }<figcaption>OrbiterAnimator — a bee loops the honey pot</figcaption></figure>
+<figure markdown="span">![BlinkAnimator](../assets/reference/animators/blink-animator.gif){ width="240" }<figcaption>BlinkAnimator — the eyes blink shut and open</figcaption></figure>
+<figure markdown="span">![SpriteLiftAnimator](../assets/reference/animators/sprite-lift-animator.gif){ width="240" }<figcaption>SpriteLiftAnimator — the canoe crosses; the water stays</figcaption></figure>
+<figure markdown="span">![CoverAnimator](../assets/reference/animators/cover-animator.gif){ width="240" }<figcaption>CoverAnimator — mouth reads shut until it snaps open</figcaption></figure>
+<figure markdown="span">![VanishAnimator](../assets/reference/animators/vanish-animator.gif){ width="240" }<figcaption>VanishAnimator — a bite is taken out, and stays bitten</figcaption></figure>
+<figure markdown="span">![FrameCycleAnimator](../assets/reference/animators/frame-cycle-animator.gif){ width="240" }<figcaption>FrameCycleAnimator — the whole flag waves</figcaption></figure>
+<figure markdown="span">![ComboAnimator](../assets/reference/animators/combo-animator.gif){ width="240" }<figcaption>ComboAnimator — rise + exhaust emitter, composed</figcaption></figure>
+
+</div>
+
 ## Colour generators
 
 Continuous 24-bit ramps sampled at any resolution — not fixed palettes. Documented in

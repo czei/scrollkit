@@ -73,3 +73,37 @@ PYTHONPATH=src python demos/hard/crypto_dashboard.py
 ```
 
 Data source: CoinGecko `/simple/price` (no API key required).
+
+## Animated image intros (the self-driving model)
+
+Everything above drives the screen through the **content queue** — you `add()`
+items and the framework renders them. The
+[image animators](../guide/effects.md#image-animators) use the *other* display
+model: a **self-driving** loop that advances an animation one frame at a time. Reach
+for it to open a screen with an animated icon — a rocket lifting off, lights
+twinkling across a logo — before the data appears.
+
+An animator decorates an image **layer** you add yourself, following a
+start → step-every-frame → detach contract. Once the image is on screen (the demo
+loads it with `OnDiskBitmap` for the palette + `read_indexed_bmp` for pixels an
+animator can read on-device), the new call is just:
+
+```python
+from scrollkit.effects.image_animators import MotionAnimator
+
+animator = MotionAnimator(path="rise", delay=30)          # pick any of the twelve
+animator.start(display, tile, bitmap, palette, base_colors)
+for frame in range(animator.HOLD_FRAMES):                 # HOLD_FRAMES = one full play
+    animator.step(frame)                                  # advance the motion 1 frame
+    if await display.show() is False:                     # composite + present layers
+        break
+    await asyncio.sleep(0.05)                             # ~20 fps, the display cadence
+animator.detach()                                         # settle to rest + free overlays
+```
+
+Because you call `step()` + `show()` yourself, this runs in `setup()` directly
+instead of returning to let the queue drive frames — the same shape as the splash
+demos. Full runnable version, three intros handing off to data screens:
+[`demos/medium/image_intro.py`](https://github.com/czei/scrollkit/blob/main/demos/medium/image_intro.py).
+See [Image animators](../guide/effects.md#image-animators) for all twelve and their
+feasibility budgets.

@@ -49,6 +49,16 @@ def test_every_palette_effect_has_a_sample():
     assert live == set(rr.PALETTE)
 
 
+def test_every_image_animator_has_a_sample():
+    rr = _load_generator()
+    from scrollkit.effects.image_animators import ANIMATOR_CLASSES
+    live = {c.__name__ for c in ANIMATOR_CLASSES}
+    assert live == set(rr.IMAGE_ANIMATORS)
+    # every referenced subject BMP is committed alongside the generator
+    for bmp_name, *_ in rr.IMAGE_ANIMATORS.values():
+        assert os.path.exists(os.path.join(rr.ANIMATOR_ART_DIR, bmp_name)), bmp_name
+
+
 def test_build_jobs_enumerates_every_category_with_unique_slugs():
     rr = _load_generator()
     jobs = rr.build_jobs()
@@ -56,9 +66,9 @@ def test_build_jobs_enumerates_every_category_with_unique_slugs():
     assert len(slugs) == len(set(slugs)), "duplicate sample slug(s)"
     categories = {j["category"] for j in jobs}
     assert categories == {"transitions", "scrollers", "palette", "content",
-                          "splashes", "particles", "gradient", "colors"}
+                          "splashes", "particles", "animators", "gradient", "colors"}
     # a representative slug from each animated + still route resolves
     for slug in ("iris-snap", "kinetic-marquee", "rainbow-chase",
-                 "scrollingtext-scroll", "drip", "snow", "vertical",
-                 "spectrum", "named-colors"):
+                 "scrollingtext-scroll", "drip", "snow", "twinkle-animator",
+                 "vertical", "spectrum", "named-colors"):
         assert slug in slugs, slug

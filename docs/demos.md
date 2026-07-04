@@ -86,6 +86,16 @@ The annotated reference for writing your own content-swap `Transition`, gated by
 the hardware-feasibility budget. `demos/medium/golden_transition.py` — see the
 [Transitions guide](guide/transitions.md).
 
+### Image Intro
+
+![Image-intro demo](assets/demos/image_intro.gif){ width="480" }
+
+Image animators in context: an animated picture plays as an "attract" intro
+(fireflies twinkle, a plane flies past, a rocket lifts off) then hands off to a
+data screen. Shows the self-driving loop and the animator's start/step/detach
+contract. `demos/medium/image_intro.py` — see the
+[Effects guide](guide/effects.md#image-animators).
+
 ### Big Rainbow
 
 ![Rainbow demo](assets/demos/rainbow.gif){ width="480" }
