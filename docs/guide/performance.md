@@ -1,8 +1,11 @@
 # Performance
 
 ScrollKit runs the same code in two places that could not be more different. On
-your desktop the simulator renders in pygame at whatever speed your laptop can
-manage, which is to say instantly. On the actual hardware, an Adafruit
+your desktop the simulator renders each frame in pygame essentially for free — the
+per-frame work that costs the hardware tens of milliseconds is instant on a laptop.
+(The live window still self-paces to a fixed ~20 FPS, the same on a slow or fast
+machine; see [how fast the simulator runs](simulator.md#how-fast-does-the-simulator-run).)
+On the actual hardware, an Adafruit
 MatrixPortal S3, that same code runs as interpreted CircuitPython on an ESP32-S3:
 roughly 100 times slower, with a few megabytes of RAM and no second thread to
 hide behind. The trap is obvious in hindsight and catches everyone anyway. Your
@@ -190,8 +193,9 @@ SimulatorDisplay(width=64, height=32, throttle=True)   # implies hardware timing
   pixel and frame budgets: the same cost model applied effect by effect.
 - [Characterful Scrolling](scrolling.md) covers the fixed-point, no-allocation
   scroller internals.
-- [The Simulator](simulator.md) documents hardware-timing mode and how the device
-  model is calibrated.
+- [The Simulator](simulator.md) documents [how fast the simulator
+  runs](simulator.md#how-fast-does-the-simulator-run) (default preview vs.
+  `hardware_timing` vs. `throttle`), plus how the device model is calibrated.
 - [Adding New Hardware](hardware.md) covers running ScrollKit on other boards and
   capturing a per-board performance baseline.
 - `AGENTS.md` at the repo root is the condensed version of this page for an AI agent

@@ -75,6 +75,45 @@ The feasibility numbers are **measured**, not guessed: the shipped MatrixPortal 
 baseline was captured from a real board. See [Performance](performance.md) for the
 cost model and [Adding New Hardware](hardware.md) for recalibration.
 
+## How fast does the simulator run?
+
+Three different things control "speed" here, and conflating them causes real
+confusion — so keep them separate:
+
+| Mode | What sets the pace | Tracks your PC's speed? | Represents the device? |
+|------|--------------------|-------------------------|------------------------|
+| **Default live window** | The app loop's fixed `await sleep(0.05)` → a ~20 FPS wall-clock target; motion is measured in pixels-per-frame | No — capped at ~20 FPS by the sleep (only a *too-slow* PC drops below it) | No — it's the authoring rate, not a device estimate |
+| **`hardware_timing=True`** | Nothing real-time: it *accumulates* modeled µs/frame (operation counts × device-measured costs) and reports an estimated hardware FPS | No — pure arithmetic, identical on any machine | Yes — a calibrated estimate |
+| **`throttle=True`** (implies hardware timing) | Each frame `time.sleep`s its *modeled* duration | No — it sleeps the device time regardless of host | Yes — the window plays at the modeled device FPS |
+
+The non-obvious point: **the default window's playback speed represents neither
+your PC nor the real device.** A standard `ScrollKitApp` self-paces to a fixed
+~20 FPS — the loop sleeps 50 ms per frame and motion is defined per frame — so it
+runs at roughly the same real-time speed on a slow laptop and a fast workstation. A
+quicker CPU just idles more of each 50 ms window rather than animating faster.
+(Drive the display from your own tight loop with no sleep and it *will* free-run as
+fast as the CPU allows; the pacing lives in the app loop, not the display.)
+
+That fixed 20 FPS is an *authoring* convenience, not a device measurement. To learn
+what the hardware would actually do, reach for one of the model-driven modes:
+
+- **`hardware_timing=True`** answers "*what FPS would the device get?*" as a number,
+  without spending real time — it counts each frame's operations and multiplies by
+  costs measured on a real board (see [Performance](performance.md)). Because it's
+  arithmetic on counts, the estimate is the same whether you run it on a decade-old
+  netbook or a brand-new workstation.
+- **`throttle=True`** answers the same question *viscerally*: it sleeps each frame's
+  modeled time so the window physically crawls at the predicted device rate, with
+  console nags when a frame would stutter.
+
+!!! note "Why isn't exact-FPS playback the default?"
+    Every per-operation timing needed to replay at the device's true rate is always
+    present — `throttle` just *spends* those timings as real `time.sleep`s. It's
+    opt-in because the common case (and the entire headless test suite) wants to run
+    *faster* than the device and read the verdict off a gauge, not sit through a
+    6-FPS crawl on every preview. So the default computes the estimate and reports
+    it; `throttle` makes you feel it.
+
 ## Screenshots
 
 `SimulatorDisplay.screenshot(path)` saves the current frame to an image file —
