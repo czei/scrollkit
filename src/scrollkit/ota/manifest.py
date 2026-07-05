@@ -75,7 +75,8 @@ class UpdateManifest:
             try:
                 with open(file_path, 'rb') as f:
                     content = f.read()
-            except (OSError, IOError) as e:
+            except OSError as e:
+                # OSError only — CircuitPython has no IOError name.
                 raise ValueError(f"Cannot read file {file_path}: {e}")
 
         if isinstance(content, str):
@@ -107,12 +108,17 @@ class UpdateManifest:
         """Convert manifest to JSON string.
 
         Args:
-            indent: JSON indentation
+            indent: JSON indentation (ignored on CircuitPython, whose
+                ``json.dumps`` rejects the keyword — this failed the staged
+                manifest write at the end of every on-device OTA download)
 
         Returns:
             str: JSON manifest
         """
-        return json.dumps(self.to_dict(), indent=indent)
+        try:
+            return json.dumps(self.to_dict(), indent=indent)
+        except TypeError:
+            return json.dumps(self.to_dict())
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> UpdateManifest:
@@ -145,12 +151,25 @@ class UpdateManifest:
         """
         if not self.version or not isinstance(self.version, str):
             return False, "Invalid version format"
+        # Reject an unparseable version HERE, loudly — compare_version() falls
+        # back to (0,0,0) on parse failure, which would silently read as
+        # "no update available" instead of an error.
+        try:
+            for part in self.version.split('.'):
+                int(part)
+        except (ValueError, AttributeError):
+            return False, f"Invalid version format: {self.version}"
 
         for path, info in self.files.items():
             if not isinstance(path, str) or not path:
                 return False, f"Invalid file path: {path}"
 
-            required_keys = ['size', 'checksum', 'required']
+            # Validate ONLY the keys the client actually consumes (Postel's law):
+            # this validator ships frozen on fielded devices for years, so it must
+            # tolerate unknown/extra/optional keys in future manifests. A mandatory
+            # per-file 'required' key (which nothing reads) rejected every manifest
+            # the app's publisher produced — a fleet-wide un-updatable outage.
+            required_keys = ['size', 'checksum']
             for key in required_keys:
                 if key not in info:
                     return False, f"Missing {key} for file {path}"
