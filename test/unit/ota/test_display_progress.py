@@ -81,6 +81,40 @@ async def test_install_pending_shows_frame_applies_and_reboots(tmp_path, mock_di
     assert "Installing" in drawn and "UNPLUG!" in drawn
 
 
+def test_schedule_update_reports_real_failure_reason():
+    """Regression: a failed check used to be reported as "device is current" —
+    an invalid published manifest was invisible for a whole day."""
+    client = _fake_client()
+    client.check_for_updates.return_value = (
+        False, "Invalid manifest: Missing checksum for file /src/app.py")
+    ota = OTAProgressDisplay(client)
+    assert ota.schedule_update() is False
+    assert ota.last_error == "Invalid manifest: Missing checksum for file /src/app.py"
+
+
+def test_schedule_update_reports_current_only_when_genuinely_up_to_date():
+    from scrollkit.ota.client import UP_TO_DATE
+    client = _fake_client(current_version="3.0")
+    client.check_for_updates.return_value = (False, UP_TO_DATE)
+    ota = OTAProgressDisplay(client)
+    assert ota.schedule_update() is False
+    assert ota.last_error == "no update (device 3.0 is current)"
+
+
+async def test_install_pending_failure_sets_last_error_and_shows_frame(
+        tmp_path, mock_display):
+    (tmp_path / "manifest.json").write_text("{}")
+    client = _fake_client(update_dir=str(tmp_path))
+    client.apply_update.return_value = (False, "Verify failed: /src/app.py")
+    ota = OTAProgressDisplay(client, display=mock_display)
+
+    assert await ota.install_pending() is False
+    client.reboot_device.assert_not_called()
+    assert "Verify failed" in ota.last_error
+    drawn = [c.args[0] for c in mock_display.draw_text.call_args_list]
+    assert "failed" in drawn        # the "Update / failed" frame was painted
+
+
 async def test_show_centers_multiline_and_swallows_display_errors(mock_display):
     ota = OTAProgressDisplay(_fake_client(), display=mock_display)
     await ota._show(["A", "B"])

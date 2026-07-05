@@ -35,6 +35,7 @@ class OTAProgressDisplay:
     """Display-progress adapter + staged-install flow over an ``OTAClient``."""
 
     def __init__(self, client, display=None):
+        self.last_error = None
         self.client = client
         self.display = display
         self._last_msg = None
@@ -69,16 +70,33 @@ class OTAProgressDisplay:
         """Check for + download a newer release. Returns True if one is staged.
 
         Synchronous (callable from the web request thread). The caller reboots so
-        ``install_pending()`` applies it on the next boot.
+        ``install_pending()`` applies it on the next boot. The outcome is recorded
+        in ``last_error`` (None only after a successful stage) so a host UI can
+        show WHY nothing happened — OTA failures were serial-only and invisible
+        in the field before this.
         """
+        self.last_error = None
         try:
             has_update, info = self.client.check_for_updates()
             if not has_update:
+                # Tell the truth: only the genuine UP_TO_DATE outcome may read
+                # as "current". Every failed check (fetch/parse/validate) keeps
+                # its specific reason — collapsing them to "device is current"
+                # hid a fleet-wide invalid-manifest outage behind a lie.
+                from .client import UP_TO_DATE
+                if info == UP_TO_DATE:
+                    self.last_error = ("no update (device %s is current)"
+                                       % getattr(self.client, "current_version", "?"))
+                else:
+                    self.last_error = str(info)
                 return False
-            ok, _err = self.client.download_update(info)
+            ok, err = self.client.download_update(info)
+            if not ok:
+                self.last_error = "download failed: %s" % (err,)
             return bool(ok)
         except Exception as e:  # never crash the request/app
             print("OTA schedule failed:", e)
+            self.last_error = "check failed: %s" % (e,)
             return False
 
     async def install_pending(self):
@@ -90,12 +108,18 @@ class OTAProgressDisplay:
             ok, err = self.client.apply_update()
         except Exception as e:
             print("OTA apply failed:", e)
+            self.last_error = "apply failed: %s" % (e,)
+            await self._show(["Update", "failed"])
             return False
         if ok:
             await self._show(["Updated!", "Reboot..."])
             self.client.reboot_device()
             return True
+        # Surface the failure on the panel and in last_error (web diagnostics) —
+        # apply failures used to be serial-only and invisible in the field.
         print("OTA apply error:", err)
+        self.last_error = "apply failed: %s" % (err,)
+        await self._show(["Update", "failed"])
         return False
 
     async def _show(self, lines, color=0xFFAA00):
