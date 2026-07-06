@@ -43,7 +43,8 @@ else:
         PLATFORM = 'unknown'
 
 
-__all__ = ['OTAClient', 'UP_TO_DATE', 'APPLY_STARTED', 'BACKUP_COMPLETE']
+__all__ = ['OTAClient', 'UP_TO_DATE', 'APPLY_STARTED', 'BACKUP_COMPLETE',
+           'CREATED_PATHS']
 
 # The ONE genuine "device is current" outcome from check_for_updates(). Callers
 # (e.g. display_progress.schedule_update) compare against this to distinguish
@@ -58,6 +59,25 @@ UP_TO_DATE = "No updates available"
 #   BACKUP_COMPLETE — backup_dir holds a complete pre-update snapshot.
 APPLY_STARTED = "apply_started"
 BACKUP_COMPLETE = "backup_complete"
+# Newline-separated device paths of files this update CREATES (no prior live
+# copy). They have no backup, so rollback must DELETE them — otherwise a
+# power-cut "rollback" leaves future files orphaned on a reverted tree. boot.py
+# reads this too, for boot-time rollback.
+CREATED_PATHS = "created_paths"
+
+
+def _key_allowed(key):
+    """Whether a manifest key may install to the device.
+
+    Install is path-agnostic (writes the key verbatim), so a malformed or hostile
+    manifest could otherwise overwrite unrelated flash (``/secrets.py``) or escape
+    via ``..``. Restrict to the roots a release legitimately ships to.
+    """
+    if not key or ".." in key.split("/"):
+        return False
+    if key in ("/code.py", "/boot.py"):
+        return True
+    return key.startswith("/src/") or key.startswith("/lib/scrollkit/")
 
 
 def _sha256():
@@ -282,6 +302,15 @@ class OTAClient:
         if self.session is None and not requests:
             return False, "Requests library not available"
 
+        # Path-safety: reject a manifest that would install outside the release
+        # roots or escape via ``..`` before touching the filesystem. Device-only
+        # — desktop tests/simulator legitimately stage into temp dirs; the
+        # publisher preflight enforces the same allowlist off-device.
+        if PLATFORM == 'circuitpython':
+            bad = [k for k in manifest.files if not _key_allowed(k)]
+            if bad:
+                return False, "Unsafe manifest path(s): %s" % ", ".join(sorted(bad)[:3])
+
         try:
             self.update_in_progress = True
 
@@ -294,34 +323,43 @@ class OTAClient:
             # ~530 KB staged and every retry then failed "Insufficient storage").
             self._remove(self._marker(APPLY_STARTED))
             self._remove(self._marker(BACKUP_COMPLETE))
+            self._remove(self._marker(CREATED_PATHS))
             self._rmtree_contents(self.update_dir)
+
+            # DELTA: only files whose live copy is missing or has a different
+            # sha256 need downloading. A release changes a handful of files, so
+            # staging + backup stay small regardless of total manifest size —
+            # which is what lets a combined app + /lib/scrollkit manifest fit the
+            # device's thin free space (a full-manifest download would not).
+            overwritten, created, _unchanged = self._delta(manifest)
+            changed = overwritten + created
 
             if PLATFORM == 'circuitpython':
                 try:
                     import os
                     stat = os.statvfs('/')
                     free_space = stat[1] * stat[3]
-
-                    required_space = manifest.calculate_total_size() * 2
+                    # Size to the delta: staged copy + backup of the overwritten
+                    # subset ≈ 2× delta, plus a fixed headroom cushion for FS
+                    # slack + markers (NOT 2× the whole manifest).
+                    delta_bytes = sum(manifest.files[k]['size'] for k in changed)
+                    required_space = delta_bytes * 2 + 51200
                     if free_space < required_space:
                         return False, f"Insufficient storage: {free_space} < {required_space}"
                 except Exception:
                     pass
 
-            total_files = len(manifest.files)
-            completed_files = 0
-
-            for file_path, file_info in manifest.files.items():
+            total = len(changed)
+            for i, file_path in enumerate(changed):
                 if self.on_update_progress:
-                    progress = (completed_files / total_files) * 0.8
+                    progress = (i / total) * 0.8 if total else 0.8
                     self.on_update_progress(f"Downloading {file_path}", progress)
 
                 try:
-                    self._download_file(file_path, file_info)
+                    self._download_file(file_path, manifest.files[file_path])
                 except (NetworkError, OTAError) as e:
                     return False, f"Failed to download {file_path}: {e}"
 
-                completed_files += 1
                 gc.collect()
 
             manifest_path = f"{self.update_dir}/manifest.json"
@@ -425,6 +463,11 @@ class OTAClient:
             except Exception as e:
                 return False, f"Cannot load manifest: {e}"
 
+        if PLATFORM == 'circuitpython':
+            bad = [k for k in manifest.files if not _key_allowed(k)]
+            if bad:
+                return False, "Unsafe manifest path(s): %s" % ", ".join(sorted(bad)[:3])
+
         version_key = None
         for key in sorted(manifest.files.keys()):
             if key.endswith('/.version'):
@@ -494,6 +537,7 @@ class OTAClient:
             # Ordered teardown — see the protocol note in the docstring.
             self._remove(self._marker(APPLY_STARTED))
             self._remove(self._marker(BACKUP_COMPLETE))
+            self._remove(self._marker(CREATED_PATHS))
             self._remove(f"{self.update_dir}/manifest.json")
             self._sync()
             self._cleanup_update_files()
@@ -523,9 +567,11 @@ class OTAClient:
         the user re-triggers the update explicitly.
         """
         self._restore_backup(manifest)
+        self._delete_created()          # new files have no backup — erase them
         self._remove(f"{self.update_dir}/manifest.json")
         self._remove(self._marker(BACKUP_COMPLETE))
         self._remove(self._marker(APPLY_STARTED))
+        self._remove(self._marker(CREATED_PATHS))
         self._sync()
         self._cleanup_update_files()
 
@@ -543,7 +589,12 @@ class OTAClient:
         try:
             self._ensure_directory(self.backup_dir)
 
+            created = []
             for file_path in sorted(manifest.files.keys()):
+                # Only back up files this update actually installs (i.e. were
+                # staged/changed). Unchanged files stay put — no backup needed.
+                if not self._is_staged(file_path):
+                    continue
                 backup_path = f"{self.backup_dir}/{file_path.lstrip('/')}"
                 if self._file_exists(file_path):
                     self._ensure_directory_for_file(backup_path)
@@ -563,6 +614,17 @@ class OTAClient:
                     self._ensure_directory_for_file(backup_path)
                     with open(backup_path, 'w') as dst:
                         dst.write(self.current_version + "\n")
+                else:
+                    # A brand-new file with no backup: record it so rollback
+                    # deletes it (leaving it would orphan future code on a
+                    # reverted tree). The version file is handled above, never here.
+                    created.append(file_path)
+
+            # Write the created-paths record BEFORE install so boot.py can act on
+            # it even if power is lost mid-install.
+            if created:
+                with open(self._marker(CREATED_PATHS), 'w') as f:
+                    f.write("\n".join(created) + "\n")
 
             return True, ""
 
@@ -583,15 +645,19 @@ class OTAClient:
             tuple: (success, error_message)
         """
         try:
+            # Only install what was staged (the delta). Unchanged files were not
+            # downloaded, so their staging source doesn't exist — skip them.
             if only is not None:
-                keys = [only]
+                keys = [only] if self._is_staged(only) else []
             else:
-                keys = [k for k in sorted(manifest.files.keys()) if k != skip]
+                keys = [k for k in sorted(manifest.files.keys())
+                        if k != skip and self._is_staged(k)]
 
             for file_path in keys:
                 source_path = f"{self.update_dir}/{file_path.lstrip('/')}"
 
                 self._ensure_directory_for_file(file_path)
+                self._remove_mpy_sibling(file_path)
 
                 with open(source_path, 'rb') as src:
                     with open(file_path, 'wb') as dst:
@@ -660,6 +726,77 @@ class OTAClient:
                                 dst.write(chunk)
         except Exception as e:
             print(f"Backup restore failed: {e}")
+
+    # ---- delta apply -------------------------------------------------------
+    # Only files whose live copy differs from the manifest are downloaded /
+    # backed up / installed. Files this update CREATES (no prior live copy) have
+    # no backup, so a rollback must DELETE them, not skip them — tracked via the
+    # CREATED_PATHS record.
+
+    def _live_checksum(self, path):
+        """Streaming sha256 of a live file, or None if it doesn't exist.
+
+        Reads in ``chunk_size`` blocks and collects afterwards, so hashing the
+        whole tree at check time stays O(1) heap and yields to the VM's
+        USB/WiFi background task between files on CircuitPython.
+        """
+        try:
+            digest = _sha256()
+            with open(path, 'rb') as f:
+                while True:
+                    chunk = f.read(self.chunk_size)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+            return _hexdigest(digest)
+        except OSError:
+            return None
+        finally:
+            gc.collect()
+
+    def _delta(self, manifest):
+        """Partition manifest keys vs the live tree.
+
+        Returns ``(overwritten, created, unchanged)`` — sorted lists of keys
+        whose live file (respectively) differs, is absent, or already matches.
+        """
+        overwritten, created, unchanged = [], [], []
+        for key in sorted(manifest.files.keys()):
+            want = manifest.files[key].get('checksum')
+            have = self._live_checksum(key)
+            if have is None:
+                created.append(key)
+            elif have == want:
+                unchanged.append(key)
+            else:
+                overwritten.append(key)
+        return overwritten, created, unchanged
+
+    def _is_staged(self, file_path):
+        """True if this file was downloaded into the staging dir (i.e. changed)."""
+        return self._exists(f"{self.update_dir}/{file_path.lstrip('/')}")
+
+    def _remove_mpy_sibling(self, file_path):
+        """Delete a same-basename ``.mpy`` before writing a ``.py`` under /lib.
+
+        CircuitPython prefers ``.mpy`` over ``.py``; a stale ``.mpy`` left by a
+        manual copy would silently shadow the freshly installed source. Cheap
+        insurance (scrollkit ships as ``.py`` today, so normally a no-op).
+        """
+        if file_path.endswith('.py'):
+            self._remove(file_path[:-3] + '.mpy')
+
+    def _read_created(self):
+        try:
+            with open(self._marker(CREATED_PATHS)) as f:
+                return [ln.strip() for ln in f if ln.strip()]
+        except OSError:
+            return []
+
+    def _delete_created(self):
+        """Remove files this transaction created (they have no backup)."""
+        for path in self._read_created():
+            self._remove(path)
 
     # ---- device-safe filesystem helpers -------------------------------------
     # CircuitPython's ``os`` has no ``path``, ``makedirs`` or ``walk`` — the old

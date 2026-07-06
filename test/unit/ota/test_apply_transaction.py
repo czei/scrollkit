@@ -42,6 +42,26 @@ def _live(tmp_path, rel):
     return str(tmp_path / "live" / rel)
 
 
+# --- delta-apply helpers: manifest and staging decoupled (unlike _stage) ------
+def _put(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(content)
+
+
+def _entry(content):
+    return {"size": len(content), "checksum": hashlib.sha256(content).hexdigest()}
+
+
+def _write_manifest(client, entries, version="2.0"):
+    with open(client.update_dir + "/manifest.json", "w") as f:
+        json.dump({"version": version, "files": entries}, f)
+
+
+def _stage_file(client, key, content):
+    _put(client.update_dir + "/" + key.lstrip("/"), content)
+
+
 def test_apply_success_installs_and_clears_all_state(tmp_path):
     client = _make_client(tmp_path)
     app_key = _live(tmp_path, "src/app.py")
@@ -256,3 +276,145 @@ def test_validator_rejects_unparseable_version():
 
 def test_check_up_to_date_sentinel_is_exported():
     assert UP_TO_DATE == "No updates available"
+
+
+# ---- delta apply ------------------------------------------------------------
+
+def test_delta_partitions_files(tmp_path):
+    client = _make_client(tmp_path)
+    same = _live(tmp_path, "src/same.py")
+    diff = _live(tmp_path, "src/diff.py")
+    gone = _live(tmp_path, "src/new.py")          # absent on device -> created
+    _put(same, b"AAA")
+    _put(diff, b"OLD")
+    m = UpdateManifest.from_dict({"version": "2.0", "files": {
+        same: _entry(b"AAA"), diff: _entry(b"NEW"), gone: _entry(b"NEW2")}})
+    overwritten, created, unchanged = client._delta(m)
+    assert overwritten == [diff]
+    assert created == [gone]
+    assert unchanged == [same]
+
+
+def test_download_stages_only_changed_files(tmp_path):
+    client = _make_client(tmp_path)
+    same = _live(tmp_path, "src/same.py")
+    diff = _live(tmp_path, "src/diff.py")
+    _put(same, b"AAA")
+    _put(diff, b"OLD")
+    contents = {same: b"AAA", diff: b"NEW"}
+    m = UpdateManifest.from_dict({"version": "2.0",
+                                  "files": {k: _entry(v) for k, v in contents.items()}})
+
+    class _Resp:
+        status_code = 200
+
+        def __init__(self, c):
+            self._c = c
+
+        @property
+        def content(self):
+            return self._c
+
+        def close(self):
+            pass
+
+    class _Session:
+        def __init__(self):
+            self.fetched = []
+
+        def get(self, url, timeout=None):
+            self.fetched.append(url)
+            for k, v in contents.items():
+                if url.endswith(k.lstrip("/")):
+                    return _Resp(v)
+            return _Resp(b"")
+
+    client.session = _Session()
+    ok, err = client.download_update(m)
+    assert ok, err
+    # the matching file was neither fetched nor staged; only the changed one was
+    assert any(diff.lstrip("/") in u for u in client.session.fetched)
+    assert not any(same.lstrip("/") in u for u in client.session.fetched)
+    assert client._is_staged(diff)
+    assert not client._is_staged(same)
+
+
+def test_apply_installs_only_staged_leaves_unchanged(tmp_path):
+    client = _make_client(tmp_path)
+    changed = _live(tmp_path, "src/app.py")
+    unchanged = _live(tmp_path, "src/util.py")
+    ver = _live(tmp_path, "src/.version")
+    _put(changed, b"OLD")
+    _put(unchanged, b"SAME")
+    _put(ver, b"1.0\n")
+    _write_manifest(client, {changed: _entry(b"NEW"), unchanged: _entry(b"SAME"),
+                             ver: _entry(b"2.0\n")})
+    _stage_file(client, changed, b"NEW")           # only changed + version staged
+    _stage_file(client, ver, b"2.0\n")
+
+    ok, err = client.apply_update()
+    assert ok, err
+    assert open(changed, "rb").read() == b"NEW"    # installed
+    assert open(unchanged, "rb").read() == b"SAME"  # untouched
+    assert open(ver).read() == "2.0\n"
+    # backup holds only the changed file's OLD bytes, not the unchanged one
+    assert open(client.backup_dir + "/" + changed.lstrip("/"), "rb").read() == b"OLD"
+    assert not os.path.exists(client.backup_dir + "/" + unchanged.lstrip("/"))
+
+
+def test_new_file_rollback_deletes_created(tmp_path):
+    """P0: a created file has no backup, so an interrupted/failed apply must
+    DELETE it on rollback — leaving it orphans future code on a reverted tree."""
+    from scrollkit.ota.client import CREATED_PATHS
+    client = _make_client(tmp_path)
+    existing = _live(tmp_path, "src/app.py")
+    newfile = _live(tmp_path, "lib/scrollkit/effects/new.py")   # created
+    _put(existing, b"OLD")
+    _write_manifest(client, {existing: _entry(b"GOODNEW"), newfile: _entry(b"BRANDNEW")})
+    _stage_file(client, existing, b"WRONGBYTES")   # != manifest checksum -> verify fails
+    _stage_file(client, newfile, b"BRANDNEW")
+
+    ok, err = client.apply_update()
+    assert not ok and "Verify failed" in err
+    assert open(existing, "rb").read() == b"OLD"        # rolled back
+    assert not os.path.exists(newfile)                  # created file DELETED
+    assert not os.path.exists(client.update_dir + "/" + CREATED_PATHS)
+    assert not os.path.exists(client.update_dir + "/manifest.json")
+
+
+def test_created_paths_recorded_then_cleared_on_success(tmp_path):
+    from scrollkit.ota.client import CREATED_PATHS
+    client = _make_client(tmp_path)
+    newfile = _live(tmp_path, "lib/scrollkit/x.py")
+    _write_manifest(client, {newfile: _entry(b"hi")})
+    _stage_file(client, newfile, b"hi")
+    ok, err = client.apply_update()
+    assert ok, err
+    assert open(newfile, "rb").read() == b"hi"
+    assert not os.path.exists(client.update_dir + "/" + CREATED_PATHS)   # cleared
+
+
+def test_mpy_sibling_removed_on_py_install(tmp_path):
+    client = _make_client(tmp_path)
+    py = _live(tmp_path, "lib/scrollkit/foo.py")
+    mpy = _live(tmp_path, "lib/scrollkit/foo.mpy")
+    _put(py, b"old")
+    _put(mpy, b"stale-mpy")                         # would shadow the fresh .py
+    _write_manifest(client, {py: _entry(b"new")})
+    _stage_file(client, py, b"new")
+    ok, err = client.apply_update()
+    assert ok, err
+    assert open(py, "rb").read() == b"new"
+    assert not os.path.exists(mpy)
+
+
+def test_key_allowed_rejects_out_of_root_and_traversal():
+    from scrollkit.ota.client import _key_allowed
+    assert _key_allowed("/code.py")
+    assert _key_allowed("/src/app.py")
+    assert _key_allowed("/lib/scrollkit/effects/image_animators.py")
+    assert not _key_allowed("/secrets.py")
+    assert not _key_allowed("/lib/adafruit_requests.py")
+    assert not _key_allowed("/src/../secrets.py")
+    assert not _key_allowed("src/app.py")          # must be absolute
+    assert not _key_allowed("")
