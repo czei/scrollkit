@@ -125,6 +125,7 @@ part of it moves. Documented in [Effects](effects.md#image-animators).
 <figure markdown="span">![EmitterAnimator](../assets/reference/animators/emitter-animator.gif){ width="240" }<figcaption>EmitterAnimator — steam drifts up from the cup</figcaption></figure>
 <figure markdown="span">![PalettePulseAnimator](../assets/reference/animators/palette-pulse-animator.gif){ width="240" }<figcaption>PalettePulseAnimator — the filament breathes</figcaption></figure>
 <figure markdown="span">![RegionShiftAnimator](../assets/reference/animators/region-shift-animator.gif){ width="240" }<figcaption>RegionShiftAnimator — tentacles ripple (per-column wave)</figcaption></figure>
+<figure markdown="span">![RegionRotateAnimator](../assets/reference/animators/region-rotate-animator.gif){ width="240" }<figcaption>RegionRotateAnimator — the goat tilts its head (true rotation about the neck)</figcaption></figure>
 <figure markdown="span">![OrbiterAnimator](../assets/reference/animators/orbiter-animator.gif){ width="240" }<figcaption>OrbiterAnimator — a bee loops the honey pot</figcaption></figure>
 <figure markdown="span">![BlinkAnimator](../assets/reference/animators/blink-animator.gif){ width="240" }<figcaption>BlinkAnimator — the eyes blink shut and open</figcaption></figure>
 <figure markdown="span">![SpriteLiftAnimator](../assets/reference/animators/sprite-lift-animator.gif){ width="240" }<figcaption>SpriteLiftAnimator — the canoe crosses; the water stays</figcaption></figure>

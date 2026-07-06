@@ -67,6 +67,7 @@ ALL_ANIMATORS = [
     lambda: ia.RegionShiftAnimator(box=(26, 3, 37, 7), amp=1, period=12),
     lambda: ia.RegionShiftAnimator(box=(26, 3, 37, 7), amp=1, wave="ripple"),
     lambda: ia.RegionShiftAnimator(box=(26, 3, 37, 7), amp=2, wave="hinge"),
+    lambda: ia.RegionRotateAnimator(box=(26, 3, 37, 7), pivot=(37, 5), amp_deg=12, period=12),
     lambda: ia.OrbiterAnimator(cx=32, cy=16, rx=10, ry=5),
     lambda: ia.BlinkAnimator(box=(29, 15, 32, 17), color=0x336688),
     lambda: ia.SpriteLiftAnimator(boxes=((20, 10, 44, 21),),
@@ -123,6 +124,69 @@ async def test_region_shift_detach_settles_pixels():
     anim.detach()
     after = [(x, y, bmp[x, y]) for y in range(32) for x in range(64)]
     assert before == after
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_region_rotate_moves_then_settles_exactly():
+    """A true rotation TILTS the region mid-swing, then detach restores it exactly."""
+    d = await _make_display()
+    anim = ia.RegionRotateAnimator(box=(26, 3, 37, 7), pivot=(37, 5),
+                                   amp_deg=14, period=8)
+    tile, bmp, pal = _attach(d, anim)
+    before = [(x, y, bmp[x, y]) for y in range(32) for x in range(64)]
+    anim.step(2)                                      # quarter period -> peak tilt
+    after_step = [(x, y, bmp[x, y]) for y in range(32) for x in range(64)]
+    assert after_step != before                       # something actually rotated
+    # hole-free: the rotated frame keeps essentially all the lit pixels (inverse map
+    # fills every destination), not a sparse, gappy remnant of a forward map.
+    lit0 = sum(1 for _, _, c in before if c)
+    lit1 = sum(1 for _, _, c in after_step if c)
+    assert lit1 >= lit0 - 2
+    anim.detach()
+    assert [(x, y, bmp[x, y]) for y in range(32) for x in range(64)] == before
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_region_rotate_exclude_leaves_body_untouched():
+    """A head rotating on a body it's fused to must never hole the body: every pixel
+    in the excluded region is identical on every frame (the winking-shoulder fix)."""
+    d = await _make_display()
+    body = (20, 13, 43, 21)                           # lower block: must stay frozen
+    anim = ia.RegionRotateAnimator(box=(20, 4, 44, 16), pivot=(43, 14),
+                                   amp_deg=16, period=8, exclude=body)
+    tile, bmp, pal = _attach(d, anim)
+    rest = {(x, y): bmp[x, y] for y in range(body[1], body[3] + 1)
+            for x in range(body[0], body[2] + 1)}
+    moved = False
+    for f in range(anim.HOLD_FRAMES):
+        anim.step(f)
+        for (x, y), v in rest.items():
+            assert bmp[x, y] == v, "body (%d,%d) changed -> a winking hole" % (x, y)
+        if bmp[26, 5] == 0 or bmp[30, 5] == 0:        # a wing cell emptied -> it rotated
+            moved = True
+    assert moved
+    anim.detach()
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_region_rotate_over_scan_cap_raises():
+    """A box whose rotated scan area blows the budget refuses (fall-back contract)."""
+    d = await _make_display()
+    gfx = d.gfx
+    bmp = gfx.Bitmap(64, 32, 2)
+    for y in range(32):
+        for x in range(64):
+            bmp[x, y] = 1
+    pal = gfx.Palette(2)
+    pal[1] = 0xFFFFFF
+    tile = gfx.TileGrid(bmp, pixel_shader=pal)
+    d.add_layer(tile)
+    anim = ia.RegionRotateAnimator(box=(0, 0, 63, 31), pivot=(0, 0), amp_deg=20)
+    with pytest.raises(ValueError):
+        anim.start(d, tile, bmp, pal, [0, 0xFFFFFF])
     d.remove_layer(tile)
 
 

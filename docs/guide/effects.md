@@ -110,6 +110,7 @@ ThemeParkWaits ride-intro engine.
 <figure markdown="span">![EmitterAnimator](../assets/reference/animators/emitter-animator.gif){ width="240" }<figcaption>`EmitterAnimator` — steam drifts up from the cup</figcaption></figure>
 <figure markdown="span">![PalettePulseAnimator](../assets/reference/animators/palette-pulse-animator.gif){ width="240" }<figcaption>`PalettePulseAnimator` — the filament breathes brighter and dimmer</figcaption></figure>
 <figure markdown="span">![RegionShiftAnimator](../assets/reference/animators/region-shift-animator.gif){ width="240" }<figcaption>`RegionShiftAnimator` — the tentacles ripple (a per-column wave)</figcaption></figure>
+<figure markdown="span">![RegionRotateAnimator](../assets/reference/animators/region-rotate-animator.gif){ width="240" }<figcaption>`RegionRotateAnimator` — the goat tilts its head (a true rotation about the neck)</figcaption></figure>
 <figure markdown="span">![OrbiterAnimator](../assets/reference/animators/orbiter-animator.gif){ width="240" }<figcaption>`OrbiterAnimator` — a bee loops around the honey pot</figcaption></figure>
 <figure markdown="span">![BlinkAnimator](../assets/reference/animators/blink-animator.gif){ width="240" }<figcaption>`BlinkAnimator` — the eyes blink shut and open</figcaption></figure>
 <figure markdown="span">![SpriteLiftAnimator](../assets/reference/animators/sprite-lift-animator.gif){ width="240" }<figcaption>`SpriteLiftAnimator` — the canoe crosses; the water stays put</figcaption></figure>
@@ -160,14 +161,14 @@ readable Bitmap. Each class advertises `HOLD_FRAMES` (how many frames one play w
     for one animated intro, then hands off to a data screen — and loops through three
     of them. Run it live: `PYTHONPATH=src python demos/medium/image_intro.py`.
 
-The twelve animators use three motion substrates and compose with `ComboAnimator`
+The thirteen animators use three motion substrates and compose with `ComboAnimator`
 (e.g. a rocket is `MotionAnimator(path="rise")` + an exhaust `EmitterAnimator`):
 
 | Substrate | Animators | What it does |
 |-----------|-----------|--------------|
 | **Transparent overlay** above the image (sparse writes cleared by one C `fill`) | `TwinkleAnimator`, `EmitterAnimator`, `OrbiterAnimator`, `BlinkAnimator`, `CoverAnimator` | shimmer, drifting particles, an orbiting sprite, a wink/flicker, a masked-until-cue patch |
 | **Move a tile** — the image's own `TileGrid` or a lifted copy of its subject | `MotionAnimator`, `SpriteLiftAnimator` | traverse / rise / bob / jiggle; or lift a subject onto its own layer and cross a fixed scene (the hole row-inpaints) |
-| **Rewrite the loaded Bitmap** or palette entries | `RegionShiftAnimator`, `VanishAnimator`, `FrameCycleAnimator`, `PalettePulseAnimator` | wing/flag/jaw motion (sine/ramp/ripple/hinge waves), staged erases (a bite), pre-baked ripple frames, a breathing glow |
+| **Rewrite the loaded Bitmap** or palette entries | `RegionShiftAnimator`, `RegionRotateAnimator`, `VanishAnimator`, `FrameCycleAnimator`, `PalettePulseAnimator` | wing/flag/jaw motion (sine/ramp/ripple/hinge waves), a true region rotation about a pivot (a head nodding — `exclude` keeps the attached body static), staged erases (a bite), pre-baked ripple frames, a breathing glow |
 
 Like the showcase effects, every animator carries a `FEASIBILITY` dict on the **class**
 (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`,

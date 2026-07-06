@@ -515,6 +515,137 @@ class RegionShiftAnimator(IntroAnimator):
             pass
 
 
+class RegionRotateAnimator(IntroAnimator):
+    """Rotate the lit pixels inside a box about a pivot POINT, oscillating — a TRUE
+    rotation (a nodding head, a waving arm, a see-sawing plank).
+
+    This differs from ``RegionShift``'s ``hinge`` waveform, which is a vertical SHEAR:
+    hinge slides each column up/down by an amount proportional to its distance from an
+    edge, so the region stays upright and merely translates. Here the region actually
+    TILTS about ``pivot`` — a head's nose dips as its poll rises, which reads as a real
+    nod rather than a shift.
+
+    Hole-free by construction: it INVERSE-maps (for every destination pixel it finds
+    the pre-image and copies that color), so the stretch a forward map leaves as gaps
+    can't happen. Cost is the scanned box area per frame, so keep the box tight.
+
+    ``pivot`` is the fixed joint ``(x, y)``. ``amp_deg`` is the peak angle in degrees;
+    ``period`` frames per full oscillation. ``half`` clamps to one side ("pos"/"neg":
+    only nods down, never up); ``delay`` holds at rest until that frame. Box rule: it
+    must contain the whole rotating part plus the sky its arc sweeps into and little
+    else — pixels near ``pivot`` barely move, so a joint just inside the box is fine.
+
+    ``exclude`` (a box, or a tuple of boxes) marks pixels that must stay STATIC and
+    are never overwritten — the rest of a connected fill the rotating part is attached
+    to (the BODY a head sits on). Without it, a rigid sub-rotation of one fill tears at
+    the seam and the erase punches winking black holes into the still part; with it, the
+    body is left untouched and rotating pixels that sweep over it are clipped (it reads
+    as the head turning in front of the shoulder).
+    """
+
+    HOLD_FRAMES = 96
+    wants_writable_bitmap = True
+
+    def __init__(self, box, pivot, amp_deg=12, period=40, phase=0.0,
+                 half=None, delay=0, exclude=None):
+        self._boxk = box
+        self._px, self._py = pivot
+        self._amp = amp_deg * 0.017453292519943295   # -> radians
+        self._period = max(4, period)
+        self._phase = phase
+        self._half = half
+        self._delay = delay
+        if exclude is None:
+            self._excl = ()
+        elif exclude and isinstance(exclude[0], (tuple, list)):
+            self._excl = tuple(tuple(b) for b in exclude)
+        else:
+            self._excl = (tuple(exclude),)
+
+    def _in_excl(self, x, y):
+        for (ex0, ey0, ex1, ey1) in self._excl:
+            if ex0 <= x <= ex1 and ey0 <= y <= ey1:
+                return True
+        return False
+
+    def start(self, display, tile, bitmap, palette, base_colors):
+        super().start(display, tile, bitmap, palette, base_colors)
+        x0, y0, x1, y1 = self._boxk
+        w, h = bitmap.width, bitmap.height
+        src = {}
+        maxr = 1.0
+        for y in range(max(0, y0), min(h, y1 + 1)):
+            for x in range(max(0, x0), min(w, x1 + 1)):
+                ci = bitmap[x, y]
+                if ci != 0 and not self._in_excl(x, y):    # body pixels stay put
+                    src[(x, y)] = ci
+                    r = math.hypot(x - self._px, y - self._py)
+                    if r > maxr:
+                        maxr = r
+        if not src or len(src) > 320:
+            raise ValueError("region_rotate: %d lit px" % len(src))
+        margin = int(maxr * abs(math.sin(self._amp))) + 1     # arc the tip sweeps
+        self._sx0 = max(0, x0 - margin)
+        self._sx1 = min(w - 1, x1 + margin)
+        self._sy0 = max(0, y0 - margin)
+        self._sy1 = min(h - 1, y1 + margin)
+        area = (self._sx1 - self._sx0 + 1) * (self._sy1 - self._sy0 + 1)
+        if area > 1600:                          # inverse-scan cost guard -> fall back
+            raise ValueError("region_rotate: %d scan cells" % area)
+        self._src = src
+        self._stamped = list(src.keys())         # currently drawn positions
+        self._last_ang = None
+        self._hidden = False
+
+    def _stamp(self, ang):
+        bmp = self.bitmap
+        for x, y in self._stamped:               # erase only what we last drew
+            bmp[x, y] = 0
+        # forward is dest = R(ang)*(p-pivot)+pivot, so the pre-image of a dest pixel is
+        # src = R(-ang)*(dest-pivot)+pivot.  R(-ang) = [[cos, sin], [-sin, cos]].
+        ca = math.cos(ang)
+        sa = math.sin(ang)
+        px, py = self._px, self._py
+        src = self._src
+        stamped = []
+        excl = self._excl
+        for Y in range(self._sy0, self._sy1 + 1):
+            dY = Y - py
+            for X in range(self._sx0, self._sx1 + 1):
+                if excl and self._in_excl(X, Y):     # never draw over / erase the body
+                    continue
+                dX = X - px
+                sx = int(round(px + dX * ca + dY * sa))
+                sy = int(round(py - dX * sa + dY * ca))
+                ci = src.get((sx, sy))
+                if ci:
+                    bmp[X, Y] = ci
+                    stamped.append((X, Y))
+        self._stamped = stamped
+        self._last_ang = ang
+        self._hidden = False
+
+    def step(self, frame):
+        if frame < self._delay:
+            return
+        f = frame - self._delay
+        a = self._amp * math.sin(6.2832 * f / self._period + self._phase)
+        if self._half == "pos":
+            a = abs(a)
+        elif self._half == "neg":
+            a = -abs(a)
+        aq = round(a, 2)                          # ~0.6-deg steps: skip no-op restamps
+        if aq != self._last_ang or self._hidden:
+            self._stamp(aq)
+
+    def detach(self):
+        try:
+            if getattr(self, "_src", None):
+                self._stamp(0.0)                  # settle upright for the fade
+        except Exception:
+            pass
+
+
 class OrbiterAnimator(IntroAnimator):
     """A tiny sprite loops an ellipse over the image (a bee circling the honey pot)."""
 
@@ -948,6 +1079,13 @@ RegionShiftAnimator.FEASIBILITY = {
     "hardware_safe": True, "allocates_per_frame": False,
     "max_pixel_writes_per_frame": 640, "modeled_frame_ms": 7.0,
 }
+RegionRotateAnimator.FEASIBILITY = {
+    # Inverse-scans a bounded box (<=1600 cells, guarded) and rewrites <=320 lit
+    # pixels + erases the prior <=320; the stamped list is rebuilt each frame. Only
+    # runs during the intro hold, so the scan cost is a brief, one-shot expense.
+    "hardware_safe": True, "allocates_per_frame": True,
+    "max_pixel_writes_per_frame": 640, "modeled_frame_ms": 9.0,
+}
 OrbiterAnimator.FEASIBILITY = {
     "hardware_safe": True, "allocates_per_frame": False,
     "max_pixel_writes_per_frame": 8, "modeled_frame_ms": 0.5,
@@ -988,6 +1126,7 @@ ANIMATOR_CLASSES = (
     EmitterAnimator,
     PalettePulseAnimator,
     RegionShiftAnimator,
+    RegionRotateAnimator,
     OrbiterAnimator,
     BlinkAnimator,
     SpriteLiftAnimator,
