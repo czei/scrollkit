@@ -13,4 +13,4 @@ need from submodules, e.g.::
     from scrollkit.display.unified import UnifiedDisplay
 """
 
-__version__ = "0.8.3"
+__version__ = "0.8.4"

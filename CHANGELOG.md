@@ -3,7 +3,7 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.8.4] - 2026-07-08
 
 ### Added
 - `scrollkit.effects.image_animators` — twelve per-frame animators that decorate a
@@ -13,6 +13,26 @@ All notable changes to ScrollKit are recorded here. This project loosely follows
   cycling, and combos). Extracted up from the ThemeParkWaits app's ride-intro
   engine; start/step/detach contract, FEASIBILITY dicts on every class, and an
   ordered `ANIMATOR_CLASSES` catalog.
+- `RegionRotateAnimator` — the thirteenth image animator: tilts the lit pixels
+  inside a box about a pivot *point*, oscillating, for a real rotation (a nodding
+  head, a waving arm, a see-sawing plank) rather than `RegionShift`'s upright
+  `hinge` shear. Hole-free by inverse-mapping every destination pixel; an `exclude`
+  box freezes the attached body it rotates on (no seam tears); cost-guarded
+  (refuses >320 lit px or a >1600-cell scan box and falls back), and settles the
+  region upright on `detach()`.
+- `CelWalkAnimator` — a multi-pose cel walk-cycle primitive: plays an authored
+  walk-cycle spritesheet (a sibling `<image>_walk.bmp` of N panel-sized tiles) via a
+  tile-indexed `TileGrid` while translating the sprite across the panel, so the legs
+  are genuinely different authored drawings frame to frame and the gait reads as real
+  stepping. Pose change is a single tile write and travel is a `tile.x` write: no
+  per-frame allocation, no layer churn.
+- OTA **delta apply** — a device can consume a large combined manifest (app plus a
+  bundled library under `/lib/scrollkit`) on thin free space: it hashes its live tree
+  and downloads/backs up/installs only the files whose sha256 differs, sizing the
+  free-space guard to the delta (`2*delta+50KB`) rather than the whole manifest. The
+  full manifest is still verified after apply; a `created_paths` marker deletes
+  newly-created files on rollback so an interrupted apply leaves no orphans; plus a
+  device-side path-safety allowlist. Verified on hardware.
 - `image_animators.read_indexed_bmp()` — decode an 8-bit indexed BMP straight into a
   writable `Bitmap`. On-device `OnDiskBitmap` is not subscriptable, so animators that
   read/rewrite image pixels need this; the demo and reference generator use it as the
@@ -35,6 +55,25 @@ All notable changes to ScrollKit are recorded here. This project loosely follows
   CircuitPython — on hardware those animations silently fell back to a still image.
 - Composed animators clean up already-started parts when a later part fails to
   start (previously the survivors' overlay layers leaked on the display).
+- **OTA now surfaces real failure reasons instead of "up to date."** A failed check,
+  download, or apply was reported to the app as "device is current," so an invalid
+  published manifest could hide a fleet-wide outage behind a lie. `OTAProgressDisplay`
+  records every outcome in `last_error` (cleared only after a successful stage); only
+  the genuine `UP_TO_DATE` sentinel reads as "current," and an apply failure now paints
+  an "Update / failed" frame on the panel instead of rebooting.
+- **OTA apply is now a crash-safe transaction, with real-CircuitPython fixes** found
+  live on a MatrixPortal S3: route checksums through `hashlib.new()` (no `sha256()` on
+  device), drop `json.dumps(indent=…)` and the `IOError` name (neither exists on
+  device), and replace `os.walk`/`os.makedirs` with `listdir`/`mkdir` helpers. Apply
+  writes `APPLY_STARTED`/`BACKUP_COMPLETE` markers, backs up once per transaction,
+  re-verifies each installed file, writes the `.version` commit marker last, and rolls
+  back staging on failure so a bad payload can't reboot-loop. Manifest validation now
+  rejects an unparseable version loudly and drops the unused mandatory `required` key
+  that had rejected every published manifest.
+- The WiFi setup portal now boots on-device and re-scrolls its instructions:
+  `import socket` moved into the desktop-only branch (CircuitPython has no stdlib
+  `socket`, so the eager import crashed the portal), and the one-line status panel
+  restarts its scroll so the AP name, password, and URL can all be read.
 
 ## [0.8.3] - 2026-07-02
 
