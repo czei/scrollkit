@@ -91,7 +91,7 @@ animator can read on-device), the new call is just:
 ```python
 from scrollkit.effects.image_animators import MotionAnimator
 
-animator = MotionAnimator(path="rise", delay=30)          # pick any of the thirteen
+animator = MotionAnimator(path="rise", delay=30)          # pick any of the fourteen
 animator.start(display, tile, bitmap, palette, base_colors)
 for frame in range(animator.HOLD_FRAMES):                 # HOLD_FRAMES = one full play
     animator.step(frame)                                  # advance the motion 1 frame
@@ -105,5 +105,5 @@ Because you call `step()` + `show()` yourself, this runs in `setup()` directly
 instead of returning to let the queue drive frames — the same shape as the splash
 demos. Full runnable version, three intros handing off to data screens:
 [`demos/medium/image_intro.py`](https://github.com/czei/scrollkit/blob/main/demos/medium/image_intro.py).
-See [Image animators](../guide/effects.md#image-animators) for all thirteen and their
+See [Image animators](../guide/effects.md#image-animators) for all fourteen and their
 feasibility budgets.

@@ -54,7 +54,7 @@ from scrollkit.display.content import DisplayContent, StaticText, ScrollingText,
 from scrollkit.effects.transitions import transition_factory, Transition
 from scrollkit.effects.particles import ParticleEngine
 from scrollkit.effects.reveal_splash import show_reveal_splash
-from scrollkit.effects.image_animators import TwinkleAnimator  # + 12 more image animators
+from scrollkit.effects.image_animators import TwinkleAnimator  # + 13 more image animators
 ```
 
 ## Web

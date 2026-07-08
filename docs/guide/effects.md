@@ -48,7 +48,7 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 | `scrollkit.display.bitmap_text` | palette-animated bitmap text ([guide](bitmap-text.md)) |
 | `scrollkit.effects.particles` | standalone particle systems (sparkles, rain, embers, snow) |
 | `scrollkit.effects.reveal_splash` / `.drip_splash` / `.swarm_reveal` | splash-reveal helpers: `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
-| `scrollkit.effects.image_animators` | per-frame animators that decorate a static image already on screen (twinkle, motion, emitter, glow, region-shift, orbit, blink, sprite-lift, cover, vanish, frame-cycle, combo) |
+| `scrollkit.effects.image_animators` | per-frame animators that decorate a static image already on screen (twinkle, motion, emitter, glow, region-shift, orbit, blink, sprite-lift, cover, vanish, frame-cycle, cel-walk, combo) |
 
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
@@ -117,6 +117,7 @@ ThemeParkWaits ride-intro engine.
 <figure markdown="span">![CoverAnimator](../assets/reference/animators/cover-animator.gif){ width="240" }<figcaption>`CoverAnimator` — the mouth reads shut until it snaps open</figcaption></figure>
 <figure markdown="span">![VanishAnimator](../assets/reference/animators/vanish-animator.gif){ width="240" }<figcaption>`VanishAnimator` — a bite is taken out, and stays bitten</figcaption></figure>
 <figure markdown="span">![FrameCycleAnimator](../assets/reference/animators/frame-cycle-animator.gif){ width="240" }<figcaption>`FrameCycleAnimator` — the whole flag waves (pre-baked frames)</figcaption></figure>
+<figure markdown="span">![CelWalkAnimator](../assets/reference/animators/cel-walk-animator.gif){ width="240" }<figcaption>`CelWalkAnimator` — the ostrich strides across, legs stepping (authored multi-pose cel walk)</figcaption></figure>
 <figure markdown="span">![ComboAnimator](../assets/reference/animators/combo-animator.gif){ width="240" }<figcaption>`ComboAnimator` — rise + exhaust emitter, composed</figcaption></figure>
 </div>
 
@@ -161,7 +162,19 @@ readable Bitmap. Each class advertises `HOLD_FRAMES` (how many frames one play w
     for one animated intro, then hands off to a data screen — and loops through three
     of them. Run it live: `PYTHONPATH=src python demos/medium/image_intro.py`.
 
-The thirteen animators use three motion substrates and compose with `ComboAnimator`
+!!! tip "Runnable example — `demos/medium/walking_ostrich.py`"
+    A **cel walk** is the one animator that plays *authored* frames rather than
+    deforming the loaded bitmap: `CelWalkAnimator` cycles distinct drawn leg poses (a
+    real walk cycle) while the whole sprite strides across, so the ostrich walks in from
+    the left and off the right. The frames live in a **sibling spritesheet** next to the
+    still — `ostrich.bmp` pairs with `ostrich_walk.bmp` (four 64×32 poses in one strip,
+    one palette, sky at slot 0). Because it finds that sheet from the image path, a cel
+    walk is the one animator that needs the path set — `animator.image_path = path`
+    (the app injects it via `for_image`; the demo sets it by hand). Drop a
+    `<name>_walk.bmp` beside any `<name>.bmp` and the same animator walks it. Run it
+    live: `PYTHONPATH=src python demos/medium/walking_ostrich.py`.
+
+The fourteen animators use four motion substrates and compose with `ComboAnimator`
 (e.g. a rocket is `MotionAnimator(path="rise")` + an exhaust `EmitterAnimator`):
 
 | Substrate | Animators | What it does |
@@ -169,6 +182,7 @@ The thirteen animators use three motion substrates and compose with `ComboAnimat
 | **Transparent overlay** above the image (sparse writes cleared by one C `fill`) | `TwinkleAnimator`, `EmitterAnimator`, `OrbiterAnimator`, `BlinkAnimator`, `CoverAnimator` | shimmer, drifting particles, an orbiting sprite, a wink/flicker, a masked-until-cue patch |
 | **Move a tile** — the image's own `TileGrid` or a lifted copy of its subject | `MotionAnimator`, `SpriteLiftAnimator` | traverse / rise / bob / jiggle; or lift a subject onto its own layer and cross a fixed scene (the hole row-inpaints) |
 | **Rewrite the loaded Bitmap** or palette entries | `RegionShiftAnimator`, `RegionRotateAnimator`, `VanishAnimator`, `FrameCycleAnimator`, `PalettePulseAnimator` | wing/flag/jaw motion (sine/ramp/ripple/hinge waves), a true region rotation about a pivot (a head nodding — `exclude` keeps the attached body static), staged erases (a bite), pre-baked ripple frames, a breathing glow |
+| **Play authored cels** — a tile-indexed sibling spritesheet | `CelWalkAnimator` | swap between distinct authored frames (a true walk cycle) while striding across; frames live in a `<name>_walk.bmp` strip, O(1) per frame (a tile index + an `x` write) |
 
 Like the showcase effects, every animator carries a `FEASIBILITY` dict on the **class**
 (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`,

@@ -96,6 +96,16 @@ data screen. Shows the self-driving loop and the animator's start/step/detach
 contract. `demos/medium/image_intro.py` — see the
 [Effects guide](guide/effects.md#image-animators).
 
+### Walking Ostrich
+
+![Walking-ostrich demo](assets/demos/walking_ostrich.gif){ width="480" }
+
+A true multi-pose **cel walk**: `CelWalkAnimator` cycles distinct authored leg
+poses (a real walk cycle) while the ostrich strides across the panel. The frames
+live in a sibling spritesheet, `ostrich.bmp` + `ostrich_walk.bmp`; drop a
+`<name>_walk.bmp` beside any still to walk it. `demos/medium/walking_ostrich.py` —
+see the [Effects guide](guide/effects.md#image-animators).
+
 ### Big Rainbow
 
 ![Rainbow demo](assets/demos/rainbow.gif){ width="480" }

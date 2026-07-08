@@ -117,6 +117,7 @@ PER_DEMO = {
     "drip_value":           {"self_driving": True, "max_frames": 200},
     "golden_transition":    {"seconds": 6.0},
     "image_intro":          {"self_driving": True, "max_frames": 400, "step": 3},
+    "walking_ostrich":      {"self_driving": True, "max_frames": 240, "step": 3},
     "rainbow":              {"seconds": 5.0},
     "temperature":          {"seconds": 5.0, "seed": _seed_network},
     "crypto_dashboard":     {"seconds": 8.0, "seed": _seed_network},
