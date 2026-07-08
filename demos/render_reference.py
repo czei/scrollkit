@@ -200,6 +200,10 @@ IMAGE_ANIMATORS = {
     "FrameCycleAnimator":   ("flag.bmp", "frames",
                              dict(box=(8, 2, 57, 23), nframes=6, amp=2, wavelength=14,
                                   period=3), 96, "the whole flag waves (pre-baked frames)"),
+    "CelWalkAnimator":      ("ostrich.bmp", "cel_walk",
+                             dict(period=6, bob=0), 104,
+                             "the ostrich strides across (authored multi-pose cel walk; "
+                             "frames in the sibling ostrich_walk.bmp)"),
     "ComboAnimator":        ("rocket.bmp", "combo",
                              (("motion", dict(path="rise", delay=40)),
                               ("emitter", dict(box=(29, 27, 37, 29), vx=0, vy=0.5,
@@ -568,7 +572,7 @@ def _build_animator(kind, kwargs):
         "region_rotate": ia.RegionRotateAnimator, "orbiter": ia.OrbiterAnimator,
         "blink": ia.BlinkAnimator, "lift": ia.SpriteLiftAnimator,
         "cover": ia.CoverAnimator, "vanish": ia.VanishAnimator,
-        "frames": ia.FrameCycleAnimator,
+        "frames": ia.FrameCycleAnimator, "cel_walk": ia.CelWalkAnimator,
     }
     if kind == "combo":
         return ia.ComboAnimator([_build_animator(k, kw) for k, kw in kwargs])
@@ -607,6 +611,10 @@ async def _image_animator_sequence(disp, cls_name, *, live=False):
     bmp_name, kind, kwargs, frames, _cap = IMAGE_ANIMATORS[cls_name]
     _odb, bmp, pal, base_colors = _load_intro_image(disp, bmp_name)
     animator = _build_animator(kind, kwargs)
+    # Animators that load a sibling asset (e.g. a cel-walk spritesheet) need the resolved
+    # image path; the host injects it the same way (opt-in via wants_image_path).
+    if getattr(animator, "wants_image_path", False):
+        animator.image_path = os.path.join(ANIMATOR_ART_DIR, bmp_name)
     tile = displayio.TileGrid(bmp, pixel_shader=pal)
     disp.add_layer(tile)
     try:

@@ -1051,6 +1051,101 @@ class ComboAnimator(IntroAnimator):
                 pass
 
 
+class CelWalkAnimator(IntroAnimator):
+    """True multi-pose CEL walk: play an authored walk-cycle spritesheet while the whole
+    sprite strides across the panel. Unlike ``RegionShift`` (one leg region nudged up/down)
+    the legs are genuinely DIFFERENT authored drawings frame to frame, so the gait reads as
+    real stepping. The sprite also translates, so it walks in from one edge and off the other;
+    the static base image is blanked and the fade then shows empty sky (the "subject has left"
+    look of a ``MotionAnimator`` traverse).
+
+    Frames live in a SIBLING strip BMP beside the intro image, ``<image><suffix>.bmp`` — N
+    panel-sized tiles laid out horizontally, sharing ONE palette (sky = index 0). It loads as
+    a tile-indexed TileGrid, so a pose change is a single ``tile[0, 0] = idx`` write and a step
+    of travel is a ``tile.x`` write: no per-frame allocation, no layer add/remove churn.
+
+    Needs the intro image path (``wants_image_path`` -> the host sets ``self.image_path``) to
+    locate the sheet, and a writable base bitmap (``wants_writable_bitmap``) to blank the still.
+    Reusable for any creature: drop ``<name>_walk.bmp`` beside ``<name>.bmp`` and drive it.
+    """
+
+    wants_image_path = True
+    wants_writable_bitmap = True
+    HOLD_FRAMES = 104            # a full off-screen-to-off-screen crossing plus several strides
+
+    def __init__(self, sheet_suffix="_walk", period=6, bob=0, path="traverse_lr",
+                 tile_w=None, tile_h=None):
+        self._suffix = sheet_suffix
+        self._period = max(1, period)     # display frames per pose (the gait clock)
+        self._bob = bob
+        self._path = path
+        self._tw = tile_w
+        self._th = tile_h
+        self._tile = None
+        self._odb = None
+
+    def _sheet_path(self):
+        p = self.image_path.replace("\\", "/")
+        base, dot, ext = p.rpartition(".")
+        return base + self._suffix + "." + ext if dot else p + self._suffix
+
+    def start(self, display, tile, bitmap, palette, base_colors):
+        super().start(display, tile, bitmap, palette, base_colors)
+        # Lazy import: keep the effects module free of a load-time dependency on display.
+        from scrollkit.display.unified import displayio
+        tw = self._tw or display.width
+        th = self._th or display.height
+        self._off = display.width + 2                # fully off-screen at both ends (cf. Motion)
+        # Do ALL fallible work first; mutate host state LAST, so a failure here (missing sheet,
+        # bad BMP, OOM) raises BEFORE we blank the base -> the host falls back to the INTACT
+        # still image, not a blank screen.
+        odb = displayio.OnDiskBitmap(self._sheet_path())
+        pal = odb.pixel_shader
+        len(pal)                                     # functional probe (never hasattr native types)
+        pal[0]
+        pal.make_transparent(0)                      # index 0 = sky (authoring keeps it slot 0)
+        sheet = getattr(odb, "bitmap", odb)          # sim: subscriptable Bitmap; device: the odb
+        n = sheet.width // tw
+        if n < 1:
+            raise ValueError("cel_walk: sheet narrower than one tile")
+        gtile = display.gfx.TileGrid(sheet, pixel_shader=pal, tile_width=tw, tile_height=th)
+        # Commit: blank the static base sprite, then composite the walking strip above it.
+        self._odb = odb
+        self._tile = gtile
+        self._n = n
+        self._apply(0)
+        bitmap.fill(0)
+        display.add_layer(self._tile)
+
+    def _apply(self, frame):
+        self._tile[0, 0] = (frame // self._period) % self._n     # gait clock -> which pose
+        span = self.HOLD_FRAMES - 1 if self.HOLD_FRAMES > 1 else 1
+        t = frame / span
+        if t > 1.0:
+            t = 1.0
+        x0, x1 = ((self._off, -self._off) if self._path == "traverse_rl"
+                  else (-self._off, self._off))
+        self._tile.x = int(round(x0 + (x1 - x0) * t))
+        if self._bob:
+            self._tile.y = int(round(self._bob * math.sin(frame * 0.3)))
+
+    def step(self, frame):
+        self._apply(frame)
+
+    def detach(self):
+        t = getattr(self, "_tile", None)
+        if t is not None and getattr(self, "display", None) is not None:
+            try:
+                self.display.remove_layer(t)
+            except Exception:
+                pass
+        # Null BOTH refs: dropping the OnDiskBitmap closes its file handle promptly
+        # (CircuitPython has a small open-file limit). No base-restore — the sprite walked off,
+        # the base is blank, the fade shows empty sky (matches MotionAnimator traverse).
+        self._tile = None
+        self._odb = None
+
+
 # ------------------------------------------------------------------------------------
 # FEASIBILITY — attached to the CLASSES only (CircuitPython cannot set attributes on
 # function objects; doing so would crash `import scrollkit.effects` on-device).
@@ -1114,6 +1209,12 @@ ComboAnimator.FEASIBILITY = {
     "hardware_safe": True, "allocates_per_frame": True,
     "max_pixel_writes_per_frame": 648, "modeled_frame_ms": 8.0,
 }
+CelWalkAnimator.FEASIBILITY = {
+    # Loads its cel sheet once at start (an OnDiskBitmap streamed from flash, not per-frame);
+    # step() only sets a tile index + x/y — no pixel writes, no allocation.
+    "hardware_safe": True, "allocates_per_frame": False,
+    "max_pixel_writes_per_frame": 0, "modeled_frame_ms": 0.2,
+}
 
 # The public animator primitives, in catalog order — the FEASIBILITY-carrying classes a
 # host can instantiate and drive. Enumerated explicitly (not via __subclasses__, which is
@@ -1133,5 +1234,6 @@ ANIMATOR_CLASSES = (
     CoverAnimator,
     VanishAnimator,
     FrameCycleAnimator,
+    CelWalkAnimator,
     ComboAnimator,
 )
