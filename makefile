@@ -68,10 +68,12 @@ copy-to-circuitpy: lint-errors
 		$(SRC_DIR)/scrollkit/ "$(CIRCUITPY)/lib/scrollkit/"
 
 # Cross-compile scrollkit to .mpy (smaller RAM + faster boot on device).
-# Requires mpy-cross matching your CircuitPython version:  pip install mpy-cross
+# Requires Adafruit's CIRCUITPYTHON mpy-cross matching the board's CP version
+# (the PyPI mpy-cross is MicroPython's — the board rejects its bytecode):
+#   https://adafruit-circuit-python.s3.amazonaws.com/index.html?prefix=bin/mpy-cross/
 MPY_CROSS := mpy-cross
 mpy:
-	@command -v $(MPY_CROSS) >/dev/null 2>&1 || { echo "mpy-cross not found. Install one matching your CircuitPython version: pip install mpy-cross"; exit 1; }
+	@command -v $(MPY_CROSS) >/dev/null 2>&1 || { echo "mpy-cross not found. Use Adafruit's CIRCUITPYTHON build matching your board's CP version (PyPI mpy-cross is MicroPython's — the board rejects its bytecode): https://adafruit-circuit-python.s3.amazonaws.com/index.html?prefix=bin/mpy-cross/"; exit 1; }
 	@echo "Compiling src/scrollkit -> build/scrollkit (.mpy)..."
 	@rm -rf build/scrollkit
 	@# Prune the desktop-only dev/ and simulator/ trees and the host-only

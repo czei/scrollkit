@@ -116,6 +116,50 @@ the new `version` in `manifest.json` and update. The channel name is configurabl
 confusion with the `release-*` archive branches. CI/script is the bridge between
 the immutable archives and the channel.
 
+## Shipping compiled `.mpy` (and what the updater will not do)
+
+Ship scrollkit inside your payload as **`.mpy`, compiled at publish time** —
+roughly half the bytes of `.py` source. On a thin flash that halving matters
+twice: resident footprint, and every future delta (the free-space guard below
+is sized off the delta). The payload key space is your app's policy; the
+reference app publishes the library under `/lib/scrollkit/**` so an app+library
+release lands atomically.
+
+Three hard-won rules:
+
+- **Use the mpy-cross that Adafruit builds from CircuitPython.** The
+  `mpy-cross` package on PyPI is **MicroPython's** compiler — its bytecode
+  (magic byte `'M'`) is rejected by CircuitPython boards (magic `'C'`) with
+  `ValueError: incompatible .mpy file`. Download the binary matching the
+  fleet's CircuitPython version from
+  <https://adafruit-circuit-python.s3.amazonaws.com/index.html?prefix=bin/mpy-cross/>
+  and **pin it (URL + sha256) in your publish script**. The `.mpy` format is
+  stable within a CircuitPython major family (9.x/10.x share one); moving the
+  fleet past a major means bumping the pin and re-publishing.
+- **Make builds deterministic with `-s`.** mpy-cross embeds the source path it
+  was given into the bytecode (for tracebacks). Compiling in a temp dir without
+  `-s` gives every build unique bytes → every manifest checksum churns → the
+  device re-downloads the whole library on every release even when nothing
+  changed. Pass a stable name, ideally the on-device path:
+  `mpy-cross -s lib/scrollkit/effects/particles.py particles.py -o particles.mpy`.
+- **Keep `.py` for development.** Source on the board gives real line numbers
+  in tracebacks; compile only what you publish (and for USB work, an opt-in
+  `MPY=1` deploy mode keeps dev and release layouts one flag apart).
+
+**Free space:** before staging, the client requires
+`2 × (bytes of changed files) + 50 KiB` free on the device — the staged copy
+plus the backup of overwritten files. Deltas, not total manifest size, are
+what must fit.
+
+**The updater never deletes by omission.** A file present on the device but
+absent from the new manifest is left in place — the manifest is purely an
+install-set (deleting on omission would make a torn manifest destructive).
+Consequences to plan around: renaming a device file across releases orphans
+the old name; switching a module `.py` ↔ `.mpy` leaves both on flash, and
+**CircuitPython imports the `.mpy` when both exist**. Clean up layout changes
+with a USB deploy (`rsync --delete`), a wipe-and-recopy, or an explicit
+cleanup step in your app — don't expect OTA to do it.
+
 ## Why branch selection stays off the device
 
 The device **must not** enumerate or discover branches (e.g. calling GitHub's
@@ -136,11 +180,13 @@ on-device branch logic.
 
 ## The recovery guarantee
 
-OTA only ever writes into `/src`. **`boot.py` and the update system are frozen
-and never modified by OTA.** Because they stay intact regardless of any `/src`
-payload failure, the update system can always re-fetch a known-good version on
-the next boot — a bad update can't disable the updater. The previous `/src`
-version is also kept as a backup so a validated-but-bad update can be restored.
+OTA only ever writes app/library content (`/src`, `/code.py`, and — when the
+payload bundles scrollkit — `/lib/scrollkit`). **`boot.py` is frozen and never
+modified by OTA.** Because the boot-time recovery anchor stays intact
+regardless of any payload failure, the update system can always restore or
+re-fetch a known-good version on the next boot — a bad update can't disable
+the updater. Changed files are also kept as a backup so a validated-but-bad
+update can be rolled back.
 
 !!! danger "Never modify boot.py or code.py"
     The recovery design depends on `boot.py`/`code.py` staying frozen. The

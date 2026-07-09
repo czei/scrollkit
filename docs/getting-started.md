@@ -117,15 +117,25 @@ circup install adafruit_requests adafruit_httpserver adafruit_display_text adafr
 
 These boards are memory-constrained (the RP2350 Interstate 75 W especially, with
 no PSRAM). Cross-compiling the library to `.mpy`
-loads faster and uses less RAM than shipping raw `.py`. With `mpy-cross` installed
-(matching your CircuitPython version):
+loads faster and uses less RAM than shipping raw `.py`.
+
+**Do not `pip install mpy-cross`** — that PyPI package is MicroPython's
+compiler, and CircuitPython rejects its bytecode with
+`ValueError: incompatible .mpy file`. Use the binary Adafruit builds from
+CircuitPython itself: download the one matching your board's CircuitPython
+version from the
+[mpy-cross index](https://adafruit-circuit-python.s3.amazonaws.com/index.html?prefix=bin/mpy-cross/),
+`chmod +x` it, and put it on your `PATH` as `mpy-cross` (or pass
+`MPY_CROSS=/path/to/it` to make). Then:
 
 ```bash
-pip install mpy-cross        # match your CircuitPython version
 make mpy                     # -> build/scrollkit/*.mpy
 ```
 
 Then copy `build/scrollkit/` to the device (e.g. `CIRCUITPY/lib/scrollkit/`)
-instead of the raw `src/scrollkit/`.
+instead of the raw `src/scrollkit/`. The `.mpy` format is stable within a
+CircuitPython major family (9.x/10.x share one); recompile with the matching
+mpy-cross when the board moves to a new major. Shipping `.mpy` **over OTA**
+has more rules — see [OTA Updates](guide/ota.md).
 
 Next: the [Easy tutorial](tutorials/easy.md).
