@@ -340,6 +340,84 @@ class TestSLDKCircuitPythonUsage:
         # Document that complex file operations should be avoided
 
 
+class TestNoUnsupportedMathFunctions:
+    """Static source guard: the device path must not call ``math`` functions
+    that exist on desktop CPython but NOT on CircuitPython.
+
+    Same trap class as ``random.shuffle`` below, found the hard way again with
+    ``math.hypot`` (2026-07-09): ``RegionRotateAnimator.start()`` raised
+    ``AttributeError`` on the board, the app's intro loader swallowed it, and
+    the Big Thunder goat's head silently never moved — while every CPython run
+    (unit tests, simulator, previews) rendered fine.
+
+    Allowlist probed from real hardware — ``sorted(dir(math))`` on CircuitPython
+    10.2.1 / MatrixPortal S3, dunders dropped. Notable absences vs CPython:
+    ``hypot``, ``tau``, ``inf``, ``nan``, ``isclose``, ``dist``, ``log2``,
+    ``log10``, ``factorial``, ``gcd``, and the hyperbolic family.
+    """
+
+    CIRCUITPYTHON_MATH = frozenset({
+        "acos", "asin", "atan", "atan2", "ceil", "copysign", "cos", "degrees",
+        "e", "exp", "fabs", "floor", "fmod", "frexp", "isfinite", "isinf",
+        "isnan", "ldexp", "log", "modf", "pi", "pow", "radians", "sin",
+        "sqrt", "tan", "trunc",
+    })
+
+    EXCLUDED_DIRS = ("simulator", "dev")
+
+    @classmethod
+    def _device_path_root(cls):
+        here = os.path.dirname(os.path.abspath(__file__))
+        return os.path.normpath(os.path.join(here, "..", "..", "src", "scrollkit"))
+
+    def _device_path_files(self):
+        root = self._device_path_root()
+        assert os.path.isdir(root), "device-path root not found: %s" % root
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in self.EXCLUDED_DIRS]
+            for name in filenames:
+                if name.endswith(".py"):
+                    yield os.path.join(dirpath, name)
+
+    def _violations_in(self, path):
+        """Return [(lineno, name), ...] for unsupported math.* usage in a file."""
+        with open(path, "r") as f:
+            tree = ast.parse(f.read(), filename=path)
+
+        math_aliases = set()
+        violations = []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "math":
+                        math_aliases.add(alias.asname or "math")
+            elif isinstance(node, ast.ImportFrom) and node.module == "math":
+                for alias in node.names:
+                    if alias.name not in self.CIRCUITPYTHON_MATH:
+                        violations.append((node.lineno, alias.name))
+
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Attribute)
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id in math_aliases
+                    and node.attr not in self.CIRCUITPYTHON_MATH):
+                violations.append((node.lineno, node.attr))
+
+        return violations
+
+    def test_device_path_uses_only_circuitpython_math(self):
+        offenders = []
+        for path in self._device_path_files():
+            for lineno, name in self._violations_in(path):
+                offenders.append("%s:%d math.%s" % (path, lineno, name))
+
+        assert not offenders, (
+            "Device-path code calls math functions absent on CircuitPython "
+            "(CPython-only; the board raises AttributeError at runtime):\n  "
+            + "\n  ".join(offenders))
+
+
 class TestNoUnsupportedRandomFunctions:
     """Static source guard: the device path must not call ``random`` functions
     that exist on desktop CPython but NOT on CircuitPython.

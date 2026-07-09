@@ -579,7 +579,9 @@ class RegionRotateAnimator(IntroAnimator):
                 ci = bitmap[x, y]
                 if ci != 0 and not self._in_excl(x, y):    # body pixels stay put
                     src[(x, y)] = ci
-                    r = math.hypot(x - self._px, y - self._py)
+                    dx = x - self._px
+                    dy = y - self._py
+                    r = math.sqrt(dx * dx + dy * dy)   # math.hypot is absent on CircuitPython
                     if r > maxr:
                         maxr = r
         if not src or len(src) > 320:
@@ -598,16 +600,18 @@ class RegionRotateAnimator(IntroAnimator):
         self._hidden = False
 
     def _stamp(self, ang):
-        bmp = self.bitmap
-        for x, y in self._stamped:               # erase only what we last drew
-            bmp[x, y] = 0
         # forward is dest = R(ang)*(p-pivot)+pivot, so the pre-image of a dest pixel is
         # src = R(-ang)*(dest-pivot)+pivot.  R(-ang) = [[cos, sin], [-sin, cos]].
+        # Compute the whole new pose FIRST (no bitmap writes), then apply it as a
+        # DIFF against the previous pose. The device panel refreshes continuously
+        # from the bitmap, so the old erase-everything-then-slowly-redraw left a
+        # visible "head blinks out" window on every restamp (the desktop simulator
+        # only presents between steps, which is why it never showed there).
         ca = math.cos(ang)
         sa = math.sin(ang)
         px, py = self._px, self._py
         src = self._src
-        stamped = []
+        new = {}
         excl = self._excl
         for Y in range(self._sy0, self._sy1 + 1):
             dY = Y - py
@@ -619,9 +623,15 @@ class RegionRotateAnimator(IntroAnimator):
                 sy = int(round(py - dX * sa + dY * ca))
                 ci = src.get((sx, sy))
                 if ci:
-                    bmp[X, Y] = ci
-                    stamped.append((X, Y))
-        self._stamped = stamped
+                    new[(X, Y)] = ci
+        bmp = self.bitmap
+        for xy in self._stamped:                 # erase only pixels LEAVING the pose
+            if xy not in new:
+                bmp[xy[0], xy[1]] = 0
+        for xy, ci in new.items():               # write only pixels that changed
+            if bmp[xy[0], xy[1]] != ci:
+                bmp[xy[0], xy[1]] = ci
+        self._stamped = list(new)
         self._last_ang = ang
         self._hidden = False
 
