@@ -252,9 +252,26 @@ class OTAClient:
                 return False, f"Server error: {response.status_code}"
 
             try:
-                manifest_data = response.json()
+                # Avoid response.json() when the body can be streamed: .json()
+                # needs the whole body as ONE contiguous allocation, and a
+                # ~30 KB manifest routinely exceeds the largest free block on a
+                # hot CircuitPython heap (the intermittent "Check for Update ...
+                # MemoryError"). Stream the body to flash in small chunks, then
+                # json.load the FILE — the parser reads it incrementally, so the
+                # RAM cost is many small allocations instead of one big one.
+                if getattr(response, "iter_content", None) is None:
+                    manifest_data = response.json()   # desktop mocks/shims
+                else:
+                    part_path = f"{self.update_dir}/manifest.part"
+                    self._stream_body_to_file(response, part_path)
+                    gc.collect()
+                    try:
+                        with open(part_path) as f:
+                            manifest_data = json.load(f)
+                    finally:
+                        self._remove(part_path)
                 manifest = UpdateManifest.from_dict(manifest_data)
-            except ValueError as e:  # CircuitPython: json.loads raises ValueError
+            except ValueError as e:  # CircuitPython: json raises ValueError
                 return False, f"Invalid manifest: {e}"
 
             is_valid, error = manifest.validate()
@@ -407,22 +424,23 @@ class OTAClient:
                 raise OTAError("Server error %d for %s"
                                % (response.status_code, file_path))
 
-            content = response.content
-
-            if len(content) != file_info['size']:
-                raise OTAError("Size mismatch for %s: %d != %d"
-                               % (file_path, len(content), file_info['size']))
-
+            # Stream to flash while hashing per chunk — response.content would
+            # need the whole file as one contiguous allocation (same hot-heap
+            # MemoryError class as the manifest fetch above). Verify AFTER the
+            # write and delete the staged file on any mismatch, so a bad body
+            # never survives in the staging area.
             digest = _sha256()
-            digest.update(content)
-            if _hexdigest(digest) != file_info['checksum']:
-                raise OTAError("Checksum mismatch for %s" % file_path)
-
             local_path = f"{self.update_dir}/{file_path.lstrip('/')}"
-            self._ensure_directory_for_file(local_path)
+            total = self._stream_body_to_file(response, local_path, digest)
 
-            with open(local_path, 'wb') as f:
-                f.write(content)
+            if total != file_info['size']:
+                self._remove(local_path)
+                raise OTAError("Size mismatch for %s: %d != %d"
+                               % (file_path, total, file_info['size']))
+
+            if _hexdigest(digest) != file_info['checksum']:
+                self._remove(local_path)
+                raise OTAError("Checksum mismatch for %s" % file_path)
         finally:
             if response is not None:
                 try:
@@ -775,6 +793,34 @@ class OTAClient:
     def _is_staged(self, file_path):
         """True if this file was downloaded into the staging dir (i.e. changed)."""
         return self._exists(f"{self.update_dir}/{file_path.lstrip('/')}")
+
+    def _stream_body_to_file(self, response, path, digest=None):
+        """Write a response body to ``path`` in small chunks; return the byte count.
+
+        The point is to never hold the whole body in RAM: on a hot CircuitPython
+        heap the largest free block is often smaller than a 30 KB manifest or
+        source file, so ``response.content`` / ``response.json()`` fail with
+        MemoryError while chunked writes sail through. Feeds ``digest`` per
+        chunk when given. Falls back to ``response.content`` when the response
+        has no ``iter_content`` (desktop mocks / simple session shims).
+        """
+        self._ensure_directory_for_file(path)
+        total = 0
+        iter_content = getattr(response, "iter_content", None)
+        with open(path, "wb") as f:
+            if iter_content is None:
+                content = response.content
+                f.write(content)
+                total = len(content)
+                if digest is not None:
+                    digest.update(content)
+            else:
+                for chunk in iter_content(chunk_size=1024):
+                    f.write(chunk)
+                    total += len(chunk)
+                    if digest is not None:
+                        digest.update(chunk)
+        return total
 
     def _remove_mpy_sibling(self, file_path):
         """Delete a same-basename ``.mpy`` before writing a ``.py`` under /lib.
