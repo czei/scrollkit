@@ -1,4 +1,4 @@
-"""Measure real MatrixPortal S3 timing/RAM and write the calibration fixture.
+"""Measure supported-board timing/RAM and write the calibration fixture.
 
 Runs a measurement routine on the connected board via the raw REPL (no files are
 written to the device), parses the printed JSON, and saves it to
@@ -15,7 +15,8 @@ calibration is apples-to-apples:
   - base_app_ram_bytes     : RAM consumed bringing the display up
   - bytes_per_label_px     : RAM per pixel of a 2-color bitmap
 
-Run:  PYTHONSAFEPATH=1 python test/claude/calibrate_device.py [--board <id>]
+Run:  PYTHONSAFEPATH=1 python test/claude/calibrate_device.py \
+          --board <id> --port /dev/cu.usbmodemXXXX
 """
 
 import argparse
@@ -169,10 +170,17 @@ def main():
                     help="which board is connected (default: %(default)s)")
     ap.add_argument("--cp", default="unknown",
                     help="CircuitPython version string for the source label")
+    ap.add_argument("--port", default=None,
+                    help="CircuitPython serial device (uses cpy_repl default when omitted)")
+    ap.add_argument("--baud", type=int, default=115200,
+                    help="serial baud rate (default: %(default)s)")
     args = ap.parse_args()
 
     device_code = DEVICE_CODE.replace("___MK_DEF___", MK_FUNCS[args.board])
-    out = run_on_device(device_code)
+    kwargs = {"baud": args.baud}
+    if args.port:
+        kwargs["port"] = args.port
+    out = run_on_device(device_code, **kwargs)
     line = next((ln for ln in out.splitlines() if ln.startswith("CALIB_JSON ")), None)
     if line is None:
         raise SystemExit("no CALIB_JSON in device output:\n" + out)

@@ -76,11 +76,21 @@ or test import.
    give the board a baseline filename in `_BASELINE_FILENAMES`.
 
 4. **Calibrate once you have the board.** Flash CircuitPython, wire the panel, and
-   capture real numbers over USB:
+   first inspect the board's raw identifier and matrix-pin API over USB:
 
     ```bash
-    PYTHONSAFEPATH=1 python test/claude/calibrate_device.py   --board <id> --cp 10.2.1
-    PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py  --board <id> --cp 10.2.1
+    PYTHONSAFEPATH=1 python test/claude/cpy_repl.py --port /dev/cu.usbmodemXXXX
+    ```
+
+    Confirm that the reported `BOARD_ID` / `MACHINE` maps to the new board and
+    that either `MTX_COMMON` + `MTX_ADDRESS` or `NAMED_MATRIX_PINS` is true. Then
+    capture real numbers:
+
+    ```bash
+    PYTHONSAFEPATH=1 python test/claude/calibrate_device.py \
+        --board <id> --port /dev/cu.usbmodemXXXX --cp 10.2.1
+    PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py \
+        --board <id> --port /dev/cu.usbmodemXXXX --cp 10.2.1
     ```
 
     These write `<id>_baseline.json` and `<id>_benchmarks.json` into
@@ -96,6 +106,9 @@ or test import.
     ```
 
     Then flash the real board and confirm the panel drives correctly.
+
+   The calibration baseline drives feasibility reports; the benchmark table also
+   feeds `scrollkit.dev.performance_guide("<id>")`.
 
 !!! warning "Confirm the board id and pin aliases on real hardware"
     The exact `board.board_id` string and whether a given CircuitPython build

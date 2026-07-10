@@ -54,7 +54,8 @@ install-lint-deps:
 	$(PIP) install ruff
 
 # --- Device deploy ---------------------------------------------------------
-# Copy the library to a connected MatrixPortal S3 (CIRCUITPY/lib/scrollkit).
+# Copy the library to a connected supported CircuitPython board
+# (CIRCUITPY/lib/scrollkit): MatrixPortal S3 or Interstate 75 W.
 # An application's own code.py/boot.py live in the app, not in this repo.
 copy-to-circuitpy: lint-errors
 	@test -d "$(CIRCUITPY)" || { echo "CIRCUITPY not mounted at $(CIRCUITPY)"; exit 1; }

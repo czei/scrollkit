@@ -1,4 +1,4 @@
-"""CircuitPython microbenchmark suite for the MatrixPortal S3.
+"""CircuitPython microbenchmark suite for a supported ScrollKit board.
 
 Measures many distinct operations *separately* so the cost of each library call
 is visible on its own — the key being that interpreted-Python work (per-pixel
@@ -11,7 +11,8 @@ warms up, times an explicit loop with ``time.monotonic_ns()``, and subtracts the
 empty-loop overhead so the number is the marginal cost of the op. Results are
 printed as one JSON line and saved to test/fixtures/device_benchmarks.json.
 
-Run:  PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py [--board <id>]
+Run:  PYTHONSAFEPATH=1 python test/claude/device_benchmarks.py \
+          --board <id> --port /dev/cu.usbmodemXXXX
 """
 
 import argparse
@@ -296,10 +297,17 @@ def main():
                     help="which board is connected (default: %(default)s)")
     ap.add_argument("--cp", default="unknown",
                     help="CircuitPython version string for the table label")
+    ap.add_argument("--port", default=None,
+                    help="CircuitPython serial device (uses cpy_repl default when omitted)")
+    ap.add_argument("--baud", type=int, default=115200,
+                    help="serial baud rate (default: %(default)s)")
     args = ap.parse_args()
 
     device_code = DEVICE_CODE.replace("___MK_DEF___", MK_FUNCS[args.board])
-    out = run_on_device(device_code, exec_timeout=180.0)
+    kwargs = {"baud": args.baud, "exec_timeout": 180.0}
+    if args.port:
+        kwargs["port"] = args.port
+    out = run_on_device(device_code, **kwargs)
     line = next((ln for ln in out.splitlines() if ln.startswith("BENCH_JSON ")), None)
     if line is None:
         raise SystemExit("no BENCH_JSON in device output:\n" + out)

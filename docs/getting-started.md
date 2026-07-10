@@ -104,14 +104,18 @@ to force one). See [Adding New Hardware](guide/hardware.md).
 ### CircuitPython dependencies (circup)
 
 The device also needs the Adafruit libraries ScrollKit uses (e.g.
-`adafruit_requests`, `adafruit_httpserver`, `adafruit_display_text`,
-`adafruit_bitmap_font`, and — on the MatrixPortal S3 — `adafruit_matrixportal`).
-Manage them with [circup](https://github.com/adafruit/circup):
+`adafruit_requests`, `adafruit_httpserver`, `adafruit_display_text`, and
+`adafruit_bitmap_font`). The MatrixPortal S3 additionally needs
+`adafruit_matrixportal`; the Interstate 75 W uses the `rgbmatrix` and
+`framebufferio` modules included in its CircuitPython firmware. Manage the
+bundle libraries with [circup](https://github.com/adafruit/circup):
 
 ```bash
 pip install circup
 circup install adafruit_requests adafruit_httpserver adafruit_display_text adafruit_bitmap_font adafruit_matrixportal
 ```
+
+For an Interstate 75 W, omit `adafruit_matrixportal` from that command.
 
 ### Saving RAM with .mpy (optional)
 

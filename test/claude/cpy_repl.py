@@ -7,11 +7,13 @@ protocol (Ctrl-A enter, Ctrl-D execute, output framed by \\x04), the same
 mechanism ampy/mpremote use.
 
 Usage:
-    python test/claude/cpy_repl.py            # run the built-in recon snippet
+    python test/claude/cpy_repl.py --port /dev/cu.usbmodemXXXX
+                                               # run the built-in recon snippet
     from cpy_repl import run_on_device
-    out = run_on_device(CODE_STRING)
+    out = run_on_device(CODE_STRING, port="/dev/cu.usbmodemXXXX")
 """
 
+import argparse
 import sys
 import time
 
@@ -97,8 +99,22 @@ print("VERSION", sys.version)
 try:
     import board
     print("BOARD_ID", getattr(board, "board_id", "?"))
+    print("MTX_COMMON", bool(getattr(board, "MTX_COMMON", None)))
+    print("MTX_ADDRESS", bool(getattr(board, "MTX_ADDRESS", None)))
+    print("NAMED_MATRIX_PINS", all(hasattr(board, name) for name in
+          ("R0", "G0", "B0", "R1", "G1", "B1", "ROW_A", "ROW_B",
+           "ROW_C", "ROW_D", "CLK", "LAT", "OE")))
 except Exception as e:
     print("BOARD_ERR", repr(e))
+try:
+    print("MACHINE", os.uname().machine)
+except Exception as e:
+    print("MACHINE_ERR", repr(e))
+try:
+    import rgbmatrix, framebufferio
+    print("MATRIX_MODULES", "available")
+except Exception as e:
+    print("MATRIX_MODULES_ERR", repr(e))
 print("ROOT", os.listdir("/"))
 try:
     print("LIB", os.listdir("/lib"))
@@ -109,5 +125,14 @@ print("MEM_FREE", gc.mem_free())
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", default=PORT,
+                        help="CircuitPython serial device (default: %(default)s)")
+    parser.add_argument("--baud", type=int, default=BAUD,
+                        help="serial baud rate (default: %(default)s)")
+    parser.add_argument("--timeout", type=float, default=60.0,
+                        help="raw-REPL execution timeout in seconds (default: %(default)s)")
+    args = parser.parse_args()
     code = sys.stdin.read() if not sys.stdin.isatty() else RECON
-    print(run_on_device(code))
+    print(run_on_device(code, port=args.port, baud=args.baud,
+                        exec_timeout=args.timeout))

@@ -148,6 +148,43 @@ def test_make_matrix_i75w_uses_rgbmatrix_with_board_aliases():
     assert mx is hw
 
 
+def test_make_matrix_i75w_falls_back_to_named_pins():
+    captured = {}
+
+    class FakeRGBMatrix:
+        def __init__(self, **kw):
+            captured.update(kw)
+
+    class FakeFramebufferDisplay:
+        def __init__(self, matrix, auto_refresh=True):
+            self.matrix = matrix
+            self.auto_refresh = auto_refresh
+
+    board_mod = types.ModuleType("board")
+    for name in ("R0", "G0", "B0", "R1", "G1", "B1", "ROW_A", "ROW_B",
+                 "ROW_C", "ROW_D", "ROW_E", "CLK", "LAT", "OE"):
+        setattr(board_mod, name, name)
+    rgbmatrix_mod = types.ModuleType("rgbmatrix")
+    rgbmatrix_mod.RGBMatrix = FakeRGBMatrix
+    fb_mod = types.ModuleType("framebufferio")
+    fb_mod.FramebufferDisplay = FakeFramebufferDisplay
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setitem(sys.modules, "board", board_mod)
+        mp.setitem(sys.modules, "rgbmatrix", rgbmatrix_mod)
+        mp.setitem(sys.modules, "framebufferio", fb_mod)
+        hw, disp, mx = BOARDS[INTERSTATE75_W].make_matrix(64, 32, 4)
+
+    assert isinstance(hw, FakeRGBMatrix)
+    assert captured["rgb_pins"] == ["R0", "G0", "B0", "R1", "G1", "B1"]
+    assert captured["addr_pins"] == ["ROW_A", "ROW_B", "ROW_C", "ROW_D"]
+    assert captured["clock_pin"] == "CLK"
+    assert captured["latch_pin"] == "LAT"
+    assert captured["output_enable_pin"] == "OE"
+    assert isinstance(disp, FakeFramebufferDisplay)
+    assert mx is hw
+
+
 # --- UnifiedDisplay wiring (desktop; no hardware) ---------------------------
 
 def test_unified_display_back_compat_defaults_to_s3():
