@@ -271,6 +271,44 @@ async def test_frame_cycle_single_layer_and_restore():
 
 
 @pytest.mark.asyncio
+async def test_cel_walk_prebakes_a_nodding_head_and_keeps_steps_cheap():
+    """The optional head rig is baked once; walking still only swaps tiles."""
+    d = await _make_display()
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    path = os.path.join(root, "demos", "assets", "animators", "ostrich.bmp")
+    from scrollkit.display.unified import displayio
+
+    odb = displayio.OnDiskBitmap(path)
+    pal = odb.pixel_shader
+    pal.make_transparent(0)
+    base = [pal[i] for i in range(len(pal))]
+    bmp = ia.read_indexed_bmp(d.gfx, path)
+    tile = d.gfx.TileGrid(bmp, pixel_shader=pal)
+    d.add_layer(tile)
+    layers0 = len(d._layer_group)
+
+    anim = ia.CelWalkAnimator(
+        period=6, head_box=(39, 0, 54, 10), head_pivot=(39, 10),
+        head_amp_deg=7, head_steps=4,
+    )
+    anim.image_path = path
+    anim.start(d, tile, bmp, pal, base)
+    assert anim._head_steps == 5                  # odd -> includes the upright pose
+    assert len(d._layer_group) == layers0 + 2     # authored body + nodding-head overlay
+    assert anim._head_tile[0, 0] == 2             # pose 0, upright head (step 2 of 5)
+
+    anim.step(6)                                  # pose 1, peak nod
+    assert anim._tile[0, 0] == 1
+    assert anim._head_tile[0, 0] == 9             # pose 1 * 5 + peak-angle step 4
+    assert anim._head_tile.x == anim._tile.x
+    assert anim._head_tile.y == anim._tile.y
+
+    anim.detach()
+    assert len(d._layer_group) == layers0
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
 async def test_combo_cleans_up_when_a_later_part_fails():
     """The partial-start leak fix: part 1's overlay must not survive part 2's raise."""
     d = await _make_display()

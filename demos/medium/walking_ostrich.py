@@ -3,7 +3,8 @@
 
 `CelWalkAnimator` plays a real WALK CYCLE: it cycles through distinct AUTHORED leg
 poses (not one leg region nudged up and down) while the whole sprite strides across
-the panel. The ostrich walks in from the left, legs stepping, and off the right.
+the panel. The ostrich walks in from the left, legs stepping and head nodding, then
+off the right.
 
     ostrich.bmp  (the still)  +  ostrich_walk.bmp  (4 authored poses, side by side)
 
@@ -107,7 +108,13 @@ class WalkingOstrichDemo(ScrollKitApp):
         tile = displayio.TileGrid(bitmap, pixel_shader=palette)
         display.add_layer(tile)
 
-        animator = CelWalkAnimator(period=6, bob=0)     # a level stride, ~6 frames per pose
+        # Four authored leg poses keep the gait natural.  The small head-and-neck box
+        # is pre-rotated once at start, then tile-swapped in sync with that gait.
+        animator = CelWalkAnimator(
+            period=6, bob=0,
+            head_box=(39, 0, 54, 10), head_pivot=(39, 10),
+            head_amp_deg=7,
+        )
         # A cel walk needs the image path so it can find the sibling ostrich_walk.bmp.
         # The app injects this the same way (opt-in via wants_image_path); here we set it
         # by hand since we're driving the animator directly.

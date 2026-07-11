@@ -166,7 +166,9 @@ readable Bitmap. Each class advertises `HOLD_FRAMES` (how many frames one play w
     A **cel walk** is the one animator that plays *authored* frames rather than
     deforming the loaded bitmap: `CelWalkAnimator` cycles distinct drawn leg poses (a
     real walk cycle) while the whole sprite strides across, so the ostrich walks in from
-    the left and off the right. The frames live in a **sibling spritesheet** next to the
+    the left and off the right. It can also pre-bake a small rotating head/neck region
+    (`head_box`, `head_pivot`, and `head_amp_deg`) to add a nod without per-frame pixel
+    work. The frames live in a **sibling spritesheet** next to the
     still — `ostrich.bmp` pairs with `ostrich_walk.bmp` (four 64×32 poses in one strip,
     one palette, sky at slot 0). Because it finds that sheet from the image path, a cel
     walk is the one animator that needs the path set — `animator.image_path = path`

@@ -1084,14 +1084,36 @@ class CelWalkAnimator(IntroAnimator):
     HOLD_FRAMES = 104            # a full off-screen-to-off-screen crossing plus several strides
 
     def __init__(self, sheet_suffix="_walk", period=6, bob=0, path="traverse_lr",
-                 tile_w=None, tile_h=None):
+                 tile_w=None, tile_h=None, head_box=None, head_pivot=None,
+                 head_amp_deg=0, head_period=None, head_steps=5):
+        """Create an authored cel walk, optionally with a procedurally nodding head.
+
+        ``head_box`` is an inclusive ``(x0, y0, x1, y1)`` box in each cel and
+        ``head_pivot`` is the fixed neck joint.  When both are supplied with a
+        non-zero ``head_amp_deg``, the head pixels are split from every authored
+        cel and a small set of rotated head poses is baked at :meth:`start`.
+        The walk still costs only tile-index and position writes per displayed
+        frame; the one-time bake avoids rotating pixels on the MatrixPortal.
+
+        The box must include only the head/neck and the transparent space its arc
+        crosses.  The default ``head_period`` is one complete authored gait cycle
+        (``period * number_of_cels``), and ``head_steps`` is the number of baked
+        angles across ``-head_amp_deg`` through ``+head_amp_deg``.
+        """
         self._suffix = sheet_suffix
         self._period = max(1, period)     # display frames per pose (the gait clock)
         self._bob = bob
         self._path = path
         self._tw = tile_w
         self._th = tile_h
+        self._head_box = tuple(head_box) if head_box is not None else None
+        self._head_pivot = tuple(head_pivot) if head_pivot is not None else None
+        self._head_amp = head_amp_deg * 0.017453292519943295
+        self._head_period = head_period
+        steps = max(3, head_steps)
+        self._head_steps = steps if steps & 1 else steps + 1
         self._tile = None
+        self._head_tile = None
         self._odb = None
 
     def _sheet_path(self):
@@ -1118,17 +1140,98 @@ class CelWalkAnimator(IntroAnimator):
         n = sheet.width // tw
         if n < 1:
             raise ValueError("cel_walk: sheet narrower than one tile")
-        gtile = display.gfx.TileGrid(sheet, pixel_shader=pal, tile_width=tw, tile_height=th)
+        head_enabled = self._head_box is not None or self._head_pivot is not None
+        if head_enabled:
+            if self._head_box is None or self._head_pivot is None or not self._head_amp:
+                raise ValueError("cel_walk: head rotation needs box, pivot, and non-zero amplitude")
+            sheet, head_sheet = self._bake_head_poses(display.gfx, self._sheet_path(),
+                                                       n, tw, th, len(pal))
+            gtile = display.gfx.TileGrid(sheet, pixel_shader=pal,
+                                         tile_width=tw, tile_height=th)
+            head_tile = display.gfx.TileGrid(head_sheet, pixel_shader=pal,
+                                              tile_width=tw, tile_height=th)
+        else:
+            gtile = display.gfx.TileGrid(sheet, pixel_shader=pal, tile_width=tw, tile_height=th)
+            head_tile = None
         # Commit: blank the static base sprite, then composite the walking strip above it.
         self._odb = odb
         self._tile = gtile
+        self._head_tile = head_tile
         self._n = n
         self._apply(0)
         bitmap.fill(0)
         display.add_layer(self._tile)
+        if self._head_tile is not None:
+            display.add_layer(self._head_tile)
+
+    def _bake_head_poses(self, gfx, sheet_path, n, tw, th, ncolors):
+        """Return a headless cel sheet plus a sheet of pre-rotated head poses.
+
+        A sheet read from ``OnDiskBitmap`` cannot be inspected or changed on
+        CircuitPython.  Decode it once only when this opt-in feature is used;
+        the base sheet retains the authored body/leg poses while the sparse head
+        sheet supplies ``n * head_steps`` rotated alternatives.
+        """
+        x0, y0, x1, y1 = self._head_box
+        px, py = self._head_pivot
+        if x0 < 0 or y0 < 0 or x1 < x0 or y1 < y0 or x1 >= tw or y1 >= th:
+            raise ValueError("cel_walk: head box outside a cel")
+        if not (0 <= px < tw and 0 <= py < th):
+            raise ValueError("cel_walk: head pivot outside a cel")
+
+        base = read_indexed_bmp(gfx, sheet_path)
+        head_sheet = gfx.Bitmap(tw * n * self._head_steps, th, ncolors)
+        max_radius = 1.0
+        head_pixels = []
+        for pose in range(n):
+            pixels = {}
+            offset = pose * tw
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    ci = base[offset + x, y]
+                    if ci:
+                        pixels[(x, y)] = ci
+                        base[offset + x, y] = 0
+                        dx, dy = x - px, y - py
+                        radius = math.sqrt(dx * dx + dy * dy)
+                        if radius > max_radius:
+                            max_radius = radius
+            if not pixels:
+                raise ValueError("cel_walk: head box has no pixels in pose %d" % pose)
+            head_pixels.append(pixels)
+
+        margin = int(max_radius * abs(math.sin(self._head_amp))) + 1
+        sx0, sx1 = max(0, x0 - margin), min(tw - 1, x1 + margin)
+        sy0, sy1 = max(0, y0 - margin), min(th - 1, y1 + margin)
+        for pose, pixels in enumerate(head_pixels):
+            for step in range(self._head_steps):
+                # Equally-spaced angles include the upright rest pose because
+                # head_steps is always odd.
+                angle = self._head_amp * ((2.0 * step / (self._head_steps - 1)) - 1.0)
+                ca, sa = math.cos(angle), math.sin(angle)
+                cell_offset = (pose * self._head_steps + step) * tw
+                # Inverse-map the bounded destination rectangle so the rotated
+                # head stays solid instead of developing forward-map holes.
+                for Y in range(sy0, sy1 + 1):
+                    dy = Y - py
+                    for X in range(sx0, sx1 + 1):
+                        dx = X - px
+                        sx = int(round(px + dx * ca + dy * sa))
+                        sy = int(round(py - dx * sa + dy * ca))
+                        ci = pixels.get((sx, sy))
+                        if ci:
+                            head_sheet[cell_offset + X, Y] = ci
+        return base, head_sheet
 
     def _apply(self, frame):
         self._tile[0, 0] = (frame // self._period) % self._n     # gait clock -> which pose
+        head_tile = self._head_tile
+        if head_tile is not None:
+            cycle = self._head_period or (self._period * self._n)
+            amount = (math.sin(6.2832 * frame / float(max(1, cycle))) + 1.0) * 0.5
+            head_step = int(round(amount * (self._head_steps - 1)))
+            pose = (frame // self._period) % self._n
+            head_tile[0, 0] = pose * self._head_steps + head_step
         span = self.HOLD_FRAMES - 1 if self.HOLD_FRAMES > 1 else 1
         t = frame / span
         if t > 1.0:
@@ -1136,13 +1239,23 @@ class CelWalkAnimator(IntroAnimator):
         x0, x1 = ((self._off, -self._off) if self._path == "traverse_rl"
                   else (-self._off, self._off))
         self._tile.x = int(round(x0 + (x1 - x0) * t))
+        if head_tile is not None:
+            head_tile.x = self._tile.x
         if self._bob:
             self._tile.y = int(round(self._bob * math.sin(frame * 0.3)))
+        if head_tile is not None:
+            head_tile.y = self._tile.y
 
     def step(self, frame):
         self._apply(frame)
 
     def detach(self):
+        head = getattr(self, "_head_tile", None)
+        if head is not None and getattr(self, "display", None) is not None:
+            try:
+                self.display.remove_layer(head)
+            except Exception:
+                pass
         t = getattr(self, "_tile", None)
         if t is not None and getattr(self, "display", None) is not None:
             try:
@@ -1153,6 +1266,7 @@ class CelWalkAnimator(IntroAnimator):
         # (CircuitPython has a small open-file limit). No base-restore — the sprite walked off,
         # the base is blank, the fade shows empty sky (matches MotionAnimator traverse).
         self._tile = None
+        self._head_tile = None
         self._odb = None
 
 
