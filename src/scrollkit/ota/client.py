@@ -180,6 +180,11 @@ class OTAClient:
         self.update_dir = update_dir
         self.backup_dir = backup_dir
         self.download_timeout = 30
+        # Checks get a much shorter leash than downloads: the check runs inside
+        # a synchronous web handler that freezes the display loop for its whole
+        # duration, so a single stalled read must cost seconds, not the full
+        # 30 s download budget ("the box froze for 30 seconds").
+        self.check_timeout = 8
         self.chunk_size = 1024
         self.session = session
 
@@ -216,7 +221,7 @@ class OTAClient:
         if on_error:
             self.on_update_error = on_error
 
-    def _http_get(self, url: str) -> Any:
+    def _http_get(self, url: str, timeout: Any = None) -> Any:
         """Perform an HTTP GET, preferring an injected Session.
 
         ``self.session`` is read live (never cached) so the app can create or
@@ -224,11 +229,15 @@ class OTAClient:
         right before use. When a session is present, its ``.get`` is used (modern
         ``adafruit_requests`` is Session-based and exposes no module-level
         ``get``); otherwise the module-level ``requests.get`` is used (desktop).
+        ``timeout`` overrides ``download_timeout`` (the check path passes the
+        short ``check_timeout``).
         """
+        if timeout is None:
+            timeout = self.download_timeout
         try:
             if self.session is not None:
-                return self.session.get(url, timeout=self.download_timeout)
-            return requests.get(url, timeout=self.download_timeout)
+                return self.session.get(url, timeout=timeout)
+            return requests.get(url, timeout=timeout)
         except Exception as e:
             # Typed boundary error (no `from e` chaining: heap fragmentation on
             # CircuitPython). The public check/download methods catch it and
@@ -253,7 +262,8 @@ class OTAClient:
         # 404 on an older channel, junk content, transport error — falls
         # through to the manifest path unchanged.
         try:
-            v_resp = self._http_get(f"{self.server_url}/version.txt")
+            v_resp = self._http_get(f"{self.server_url}/version.txt",
+                                    timeout=self.check_timeout)
             try:
                 if v_resp.status_code == 200:
                     remote_version = str(v_resp.text).strip()
@@ -276,7 +286,7 @@ class OTAClient:
 
         try:
             url = f"{self.server_url}/manifest.json"
-            response = self._http_get(url)
+            response = self._http_get(url, timeout=self.check_timeout)
 
             if response.status_code != 200:
                 return False, f"Server error: {response.status_code}"

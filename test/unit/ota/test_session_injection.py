@@ -77,7 +77,9 @@ def test_check_for_updates_uses_injected_session(monkeypatch):
     # _FakeResponse has no .text), then the manifest. Both carry the timeout.
     assert [u.rsplit("/", 1)[1] for u, _ in session.calls] == [
         "version.txt", "manifest.json"]
-    assert all(t == client.download_timeout for _, t in session.calls)
+    # Check-path GETs carry the SHORT timeout (the handler freezes the display
+    # for its duration — downloads keep the long download_timeout).
+    assert all(t == client.check_timeout for _, t in session.calls)
 
 
 def test_session_is_read_live_after_construction(monkeypatch):
