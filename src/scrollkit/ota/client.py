@@ -244,6 +244,36 @@ class OTAClient:
         if self.session is None and not requests:
             return False, "Requests library not available"
 
+        # FAST PATH: the channel publishes a ~6-byte version.txt next to the
+        # manifest. Comparing versions needs those bytes, not the ~31 KB / 176-
+        # entry manifest (which the old check fetched, flash-streamed and JSON-
+        # parsed every time — slow, and pure waste when the answer is "up to
+        # date", i.e. almost always). Only a NEWER version proceeds to the full
+        # manifest fetch below (needed then anyway for staging). Any miss —
+        # 404 on an older channel, junk content, transport error — falls
+        # through to the manifest path unchanged.
+        try:
+            v_resp = self._http_get(f"{self.server_url}/version.txt")
+            try:
+                if v_resp.status_code == 200:
+                    remote_version = str(v_resp.text).strip()
+                    # Trust ONLY a strict MAJOR.MINOR[.PATCH] shape: parse_version
+                    # maps junk to (0,0,0), so an unvalidated error page would
+                    # compare as "older" and fake an up-to-date answer.
+                    parts = remote_version.split(".")
+                    if 2 <= len(parts) <= 3 and all(p.isdigit() for p in parts):
+                        probe = UpdateManifest(version=remote_version)
+                        if probe.compare_version(self.current_version) <= 0:
+                            return False, UP_TO_DATE
+            finally:
+                try:
+                    v_resp.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass  # fall through to the manifest fetch
+        gc.collect()
+
         try:
             url = f"{self.server_url}/manifest.json"
             response = self._http_get(url)

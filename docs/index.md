@@ -41,14 +41,14 @@ asyncio.run(HelloWorldApp().run())
 - **One codebase, two targets.** A platform-detecting display layer picks the
   real `displayio` hardware backend on CircuitPython and the simulator on
   desktop. Your application code never branches on platform.
-- **Board-agnostic.** On CircuitPython it auto-detects the board (MatrixPortal S3
-  or Interstate 75 W) and falls back cleanly; adding a board is a small recipe.
+- **Board-agnostic.** On CircuitPython it auto-detects the board, starting with
+  MatrixPortal S3, and falls back cleanly; adding a board is a small recipe.
   See [Adding New Hardware](guide/hardware.md).
 - **Async-first.** A cooperative event loop keeps the display scrolling while
   data refreshes and the web server run as background tasks.
-- **Memory-aware.** Built for the tight RAM budgets of embedded boards (the
-  MatrixPortal S3, the RP2350-based Interstate 75 W): a lightweight import
-  surface and graduated feature degradation when memory is low.
+- **Memory-aware.** Built for the tight RAM budgets of embedded boards such as
+  the MatrixPortal S3: a lightweight import surface and graduated feature
+  degradation when memory is low.
 - **Batteries included.** A content queue, an effects/transitions engine, a
   configuration web UI, manifest-based OTA updates from GitHub, WiFi and HTTP
   helpers, and JSON settings persistence.

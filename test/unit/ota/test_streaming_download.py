@@ -103,3 +103,95 @@ def test_download_file_removes_staged_file_on_checksum_mismatch(tmp_path):
 
     assert ok is False and "Checksum" in msg
     assert not (tmp_path / "updates" / "src" / "big.py").exists()
+
+
+class _TextResponse:
+    """version.txt-shaped response: tiny text body, no iter_content needed."""
+
+    def __init__(self, status_code, text):
+        self.status_code = status_code
+        self.text = text
+
+    def json(self):
+        raise AssertionError("version fast path must not call .json()")
+
+    def close(self):
+        pass
+
+
+class _VersionedSession:
+    """Serves version.txt as text; anything else via _ChunkedResponse routes.
+    Records every URL so tests can assert the manifest was (not) fetched."""
+
+    def __init__(self, version_text, routes=None, version_status=200):
+        self._version_text = version_text
+        self._version_status = version_status
+        self._routes = routes or {}
+        self.urls = []
+
+    def get(self, url, timeout=None):
+        self.urls.append(url)
+        if url.endswith("version.txt"):
+            return _TextResponse(self._version_status, self._version_text)
+        for suffix, body in self._routes.items():
+            if url.endswith(suffix):
+                return _ChunkedResponse(200, body)
+        return _ChunkedResponse(404, b"")
+
+
+def _version_client(tmp_path, session, current="1.0.0"):
+    return OTAClient("https://example.invalid/releases", current_version=current,
+                     update_dir=str(tmp_path / "updates"),
+                     backup_dir=str(tmp_path / "backup"), session=session)
+
+
+def test_up_to_date_answered_by_version_txt_alone(tmp_path):
+    """The common case costs ~6 bytes: equal version -> UP_TO_DATE with the
+    manifest never requested."""
+    session = _VersionedSession("1.0.0\n")
+    client = _version_client(tmp_path, session)
+
+    ok, reason = client.check_for_updates()
+
+    assert ok is False and reason == "No updates available"
+    assert not any(u.endswith("manifest.json") for u in session.urls)
+
+
+def test_newer_version_txt_proceeds_to_manifest(tmp_path):
+    m = UpdateManifest(version="2.0.0", description="test")
+    m.add_file("src/main.py", content=b"print('hi')\n")
+    session = _VersionedSession(
+        "2.0.0\n", routes={"manifest.json": json.dumps(m.to_dict()).encode()})
+    client = _version_client(tmp_path, session)
+
+    ok, got = client.check_for_updates()
+
+    assert ok is True and got.version == "2.0.0"
+    assert any(u.endswith("manifest.json") for u in session.urls)
+
+
+def test_version_txt_404_falls_back_to_manifest(tmp_path):
+    """Channels published before version.txt existed keep working."""
+    m = UpdateManifest(version="2.0.0", description="test")
+    m.add_file("src/main.py", content=b"print('hi')\n")
+    session = _VersionedSession(
+        "ignored", version_status=404,
+        routes={"manifest.json": json.dumps(m.to_dict()).encode()})
+    client = _version_client(tmp_path, session)
+
+    ok, got = client.check_for_updates()
+    assert ok is True and got.version == "2.0.0"
+
+
+def test_junk_version_txt_never_fakes_up_to_date(tmp_path):
+    """parse_version maps junk to (0,0,0); an unvalidated error page would fake
+    'up to date'. Junk must fall through to the manifest instead."""
+    m = UpdateManifest(version="2.0.0", description="test")
+    m.add_file("src/main.py", content=b"print('hi')\n")
+    session = _VersionedSession(
+        "<html>404: Not Found</html>",
+        routes={"manifest.json": json.dumps(m.to_dict()).encode()})
+    client = _version_client(tmp_path, session)
+
+    ok, got = client.check_for_updates()
+    assert ok is True and got.version == "2.0.0"

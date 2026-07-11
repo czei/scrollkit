@@ -256,3 +256,70 @@ class TestWedgeRecovery:
 
         assert resp.status_code == 200
         assert client.session is working
+
+
+class TestRebuildHygiene:
+    """The 2026-07-11 fix: rebuilds must CLOSE the old pool's sockets, not orphan
+    them. Dropping a session to the GC leaves its native mbedtls TLS contexts
+    pinned in the ESP32-S3's internal SRAM; with threshold=2, every pair of
+    transient blips on a multi-day run leaked ~40 KB until all TLS handshakes
+    (data path and the OTA check) died with PK_ALLOC_FAILED / MemoryError."""
+
+    def _fakes(self, events):
+        fake_cm = types.ModuleType("adafruit_connection_manager")
+        fake_cm.connection_manager_close_all = (
+            lambda socket_pool=None: events.append(("close", socket_pool)))
+        fake_requests = types.ModuleType("adafruit_requests")
+
+        class _FakeSession:
+            def __init__(self, pool, ctx):
+                events.append(("new_session", pool))
+        fake_requests.Session = _FakeSession
+        fake_socketpool = types.ModuleType("socketpool")
+        fake_socketpool.SocketPool = lambda radio: "NEWPOOL"
+        fake_wifi = types.ModuleType("wifi")
+        fake_wifi.radio = object()
+        return {
+            "adafruit_connection_manager": fake_cm,
+            "adafruit_requests": fake_requests,
+            "socketpool": fake_socketpool,
+            "wifi": fake_wifi,
+        }, _FakeSession
+
+    def test_rebuild_closes_old_pool_before_new_session(self):
+        """Ordering is the contract: the wedged pool's native sockets are freed
+        BEFORE the replacement TLS context is allocated (the freed internal SRAM
+        is what the new context allocates into)."""
+        events = []
+        old_pool = object()
+        session = MagicMock()
+        session._connection_manager._socket_pool = old_pool
+        client = _adafruit_client(session)
+        fakes, _FakeSession = self._fakes(events)
+
+        with patch.dict(sys.modules, fakes):
+            with patch("scrollkit.network.http_client._logger"):
+                assert client._rebuild_session() is True
+
+        assert events[0] == ("close", old_pool)
+        assert events[1] == ("new_session", "NEWPOOL")
+        assert isinstance(client.session, _FakeSession)
+
+    def test_close_pooled_sockets_targets_the_sessions_pool(self):
+        """The public API closes exactly the current session's pool (per-pool
+        managers keep the web server's own SocketPool untouchable from here)."""
+        events = []
+        pool = object()
+        session = MagicMock()
+        session._connection_manager._socket_pool = pool
+        client = _adafruit_client(session)
+        fakes, _ = self._fakes(events)
+
+        with patch.dict(sys.modules, fakes):
+            assert client.close_pooled_sockets() is True
+        assert events == [("close", pool)]
+
+    def test_close_pooled_sockets_without_session_is_false(self):
+        client = HttpClient(session=None)
+        with patch("scrollkit.network.http_client._logger"):
+            assert client.close_pooled_sockets() is False

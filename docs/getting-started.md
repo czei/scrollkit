@@ -54,9 +54,8 @@ asyncio.run(HelloWorldApp().run())
 On desktop this opens a window showing the simulated 64×32 matrix (the
 `create_display()` override above is what opens it — omit it and the app still
 runs, just headless, since plain `UnifiedDisplay` stays headless on desktop
-unless a window is explicitly asked for). On a supported
-CircuitPython board (the MatrixPortal S3 or the Interstate 75 W) the identical
-code drives the physical panel.
+unless a window is explicitly asked for). On a supported CircuitPython board
+such as the MatrixPortal S3, the identical code drives the physical panel.
 
 ## Writing an app
 
@@ -83,8 +82,8 @@ asyncio.run(MyApp().run())
 
 ## Deploying to hardware
 
-1. Connect a supported board (MatrixPortal S3 or Interstate 75 W) over USB (it
-   mounts as `CIRCUITPY`).
+1. Connect a supported board such as the MatrixPortal S3 over USB (it mounts
+   as `CIRCUITPY`).
 2. Copy `src/` to the device, or run `make copy-to-circuitpy`.
 3. Configure WiFi — two ways:
     - **On the device itself, no file editing** (the end-user path): wire the
@@ -106,22 +105,18 @@ to force one). See [Adding New Hardware](guide/hardware.md).
 The device also needs the Adafruit libraries ScrollKit uses (e.g.
 `adafruit_requests`, `adafruit_httpserver`, `adafruit_display_text`, and
 `adafruit_bitmap_font`). The MatrixPortal S3 additionally needs
-`adafruit_matrixportal`; the Interstate 75 W uses the `rgbmatrix` and
-`framebufferio` modules included in its CircuitPython firmware. Manage the
-bundle libraries with [circup](https://github.com/adafruit/circup):
+`adafruit_matrixportal`. Manage the bundle libraries with
+[circup](https://github.com/adafruit/circup):
 
 ```bash
 pip install circup
 circup install adafruit_requests adafruit_httpserver adafruit_display_text adafruit_bitmap_font adafruit_matrixportal
 ```
 
-For an Interstate 75 W, omit `adafruit_matrixportal` from that command.
-
 ### Saving RAM with .mpy (optional)
 
-These boards are memory-constrained (the RP2350 Interstate 75 W especially, with
-no PSRAM). Cross-compiling the library to `.mpy`
-loads faster and uses less RAM than shipping raw `.py`.
+The MatrixPortal S3 is memory-constrained. Cross-compiling the library to
+`.mpy` loads faster and uses less RAM than shipping raw `.py`.
 
 **Do not `pip install mpy-cross`** — that PyPI package is MicroPython's
 compiler, and CircuitPython rejects its bytecode with

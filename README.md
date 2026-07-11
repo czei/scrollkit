@@ -184,7 +184,6 @@ if is_dev_mode():
 | Platform | Backend | Status |
 |---|---|---|
 | Adafruit MatrixPortal S3 | CircuitPython + displayio | ✅ Calibrated from device |
-| Pimoroni Interstate 75 W (RP2350) | CircuitPython + rgbmatrix | ✅ Supported (perf profile uncalibrated) |
 | Desktop (macOS/Linux/Windows) | SLDK Simulator | ✅ |
 | Custom CircuitPython boards | displayio / rgbmatrix | 🔌 Extensible (see [Adding New Hardware](https://scrollkit.dev/guide/hardware/)) |
 

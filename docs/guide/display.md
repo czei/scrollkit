@@ -9,8 +9,8 @@ content types, and the content queue.
 implements `DisplayInterface` and auto-selects its backend:
 
 - **CircuitPython** → real `displayio` hardware, auto-detecting the board (the
-  Adafruit MatrixPortal S3 or the Pimoroni Interstate 75 W). Pass `board="..."`
-  to force one. See [Adding New Hardware](hardware.md).
+  Adafruit MatrixPortal S3). Pass `board="..."` to force one. See [Adding New
+  Hardware](hardware.md).
 - **Desktop** → the [pygame simulator](simulator.md).
 
 Your app talks to one interface — `set_pixel`, `fill`, `draw_text`, `show`,
@@ -101,7 +101,7 @@ flowchart TB
     q -->|no| sim["import scrollkit.simulator.*<br/>_sim_backend.create_sim_device()"]
     hw --> board{"resolve_board()"}
     board --> b1["MatrixPortal S3<br/>adafruit_matrixportal.Matrix"]
-    board --> b2["Interstate 75 W<br/>rgbmatrix + framebufferio"]
+    board --> b2["Custom CircuitPython board<br/>board=..."]
     sim --> panel["pygame LED-matrix window<br/>(optional hardware-timing model)"]
 ```
 

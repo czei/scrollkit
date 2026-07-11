@@ -324,6 +324,28 @@ class HttpClient:
                 # a rebuild doesn't immediately rebuild again (thrash).
                 self._failures_since_rebuild = 0
 
+    def close_pooled_sockets(self):
+        """Properly close every socket the current session's connection manager
+        holds, releasing their NATIVE resources (each pooled TLS socket pins an
+        mbedtls context — ~40 KB of the ESP32-S3's ~320 KB internal SRAM, which
+        PSRAM cannot substitute for). Public so callers needing native headroom
+        for a new TLS handshake (e.g. an OTA check to a second host) can make
+        room through a supported API. The pool stays valid: the manager opens
+        fresh sockets transparently on the next request.
+
+        Returns True if a close-all ran. Never raises."""
+        session = self.session
+        if session is None:
+            return False
+        try:
+            from adafruit_connection_manager import connection_manager_close_all
+            pool = session._connection_manager._socket_pool
+            connection_manager_close_all(socket_pool=pool)
+            return True
+        except Exception as e:
+            _logger().error(e, "close_pooled_sockets failed")
+            return False
+
     def _rebuild_session(self):
         """Tear down and recreate the adafruit_requests session.
 
@@ -332,9 +354,21 @@ class HttpClient:
         failure short of a reboot. Device-only (the imports exist on CircuitPython
         only); a no-op that returns False on desktop, where the urllib path never
         uses a session. Never raises into the caller.
+
+        HYGIENE IS LOAD-BEARING: the old session's pooled sockets must be
+        properly CLOSED before the replacement exists — dropping them to the GC
+        does not promptly release their native mbedtls TLS contexts. With a
+        rebuild threshold of 2, every pair of transient blips on a multi-day run
+        orphaned another ~40 KB of internal SRAM, until TLS handshakes (data
+        path AND the OTA check) died with mbedtls PK_ALLOC_FAILED / MemoryError.
+        Found 2026-07-11 after a ~30 h soak left the field device in
+        'STALE (network issues)'.
         """
         if not (self.using_adafruit and self.session is not None):
             return False
+        # Release the wedged pool's native sockets/TLS contexts first — this is
+        # both the leak fix and what frees room for the replacement context.
+        self.close_pooled_sockets()
         try:
             import socketpool
             import wifi

@@ -1,12 +1,11 @@
 # Adding New Hardware
 
-ScrollKit runs the same app on more than one HUB75 driver board. Two boards are
+ScrollKit runs the same app on more than one HUB75 driver board. One board is
 supported today:
 
 | Board | Chip | Notes |
 |-------|------|-------|
 | **Adafruit MatrixPortal S3** | ESP32-S3 | The default. Calibrated from a real device. |
-| **Pimoroni Interstate 75 W** | RP2350 | Wired in code; ships with an **uncalibrated estimate** profile until a baseline is captured on the board. |
 
 A board differs from the others in only three places: how the RGB matrix is
 constructed on CircuitPython, the default panel geometry, and the calibrated
@@ -27,7 +26,7 @@ covers how the abstraction works and how to add a board.
 from scrollkit.display.unified import UnifiedDisplay
 
 UnifiedDisplay()                                   # auto-detect; S3 on the desktop
-UnifiedDisplay(board="pimoroni_interstate75_w")    # force a board
+UnifiedDisplay(board="adafruit_matrixportal_s3")    # force a board
 ```
 
 On the real device step 3 means a flashed board "just works" with no code change.
@@ -42,9 +41,9 @@ or test import.
     A board's performance profile is **calibrated** once real timing is captured
     from the device (a `*_baseline.json` ships in the package); until then it uses
     a clearly-labeled `ROUGH_ESTIMATE_UNCALIBRATED` profile. Feasibility reports
-    built from an estimate say so and round to one significant figure. The
-    Interstate 75 W is in the estimate state today. See the
-    [Performance](performance.md) guide for the cost model behind these profiles.
+    built from an estimate say so and round to one significant figure. See the
+    [Performance](performance.md) guide for the cost model behind these
+    profiles.
 
 ## Adding a board, step by step
 

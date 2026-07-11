@@ -72,11 +72,12 @@ def test_check_for_updates_uses_injected_session(monkeypatch):
     assert isinstance(manifest, UpdateManifest)
     assert manifest.version == "2.0.0"
 
-    # The session serviced exactly one GET, to the manifest URL, with the timeout.
-    assert len(session.calls) == 1
-    url, timeout = session.calls[0]
-    assert url.endswith("/manifest.json")
-    assert timeout == client.download_timeout
+    # The session serviced every GET (none leaked to module requests): the
+    # ~6-byte version.txt fast-path probe first (which falls through here —
+    # _FakeResponse has no .text), then the manifest. Both carry the timeout.
+    assert [u.rsplit("/", 1)[1] for u, _ in session.calls] == [
+        "version.txt", "manifest.json"]
+    assert all(t == client.download_timeout for _, t in session.calls)
 
 
 def test_session_is_read_live_after_construction(monkeypatch):
@@ -95,7 +96,8 @@ def test_session_is_read_live_after_construction(monkeypatch):
 
     assert has_update is True
     assert manifest.version == "2.0.0"
-    assert len(session.calls) == 1
+    # version.txt probe + manifest, both via the live-assigned session.
+    assert len(session.calls) == 2
 
 
 def test_for_github_passes_session_through():
@@ -125,5 +127,5 @@ def test_no_session_falls_back_to_module_requests(monkeypatch):
 
     assert has_update is True
     assert manifest.version == "2.0.0"
-    assert len(calls) == 1
-    assert calls[0][0].endswith("/manifest.json")
+    assert [u.rsplit("/", 1)[1] for u, _ in calls] == [
+        "version.txt", "manifest.json"]
