@@ -65,3 +65,37 @@ async def test_add_and_remove_layer_are_idempotent():
     d.remove_layer(tg)
     d.remove_layer(tg)                        # removing absent is a no-op
     assert len(d._layer_group) == 0
+
+
+@pytest.mark.asyncio
+async def test_clear_layers_takeover_blank_and_painter_selfheal():
+    """clear_layers() (the takeover blank for OTA install messages) must strip
+    EVERY persistent layer — clear() deliberately doesn't, which is how the
+    'Updating — DO NOT UNPLUG' text ended up painted OVER the interrupted ride
+    screen's bitmap layers (2026-07-12). The bounded painter's canvas lives in
+    the same group, so its state must reset and self-heal on the next draw."""
+    d = await _make()
+    d.add_layer(_layer(d))
+    d.add_layer(_layer(d))
+    await d.set_pixel(3, 3, 0xFF0000)          # bounded painter joins _layer_group
+    assert len(d._layer_group) == 3
+
+    d.clear_layers()
+
+    assert len(d._layer_group) == 0
+    # Painter self-heals: the next draw rebuilds a canvas that IS composited
+    # (stale refs would silently draw into an orphaned bitmap).
+    await d.set_pixel(5, 5, 0x00FF00)
+    assert d._paint_tile is not None
+    assert d._paint_tile in list(d._layer_group)
+
+
+@pytest.mark.asyncio
+async def test_remove_layer_idempotent_after_clear_layers():
+    """Content objects cleaning up after a takeover must not raise."""
+    d = await _make()
+    tg = _layer(d)
+    d.add_layer(tg)
+    d.clear_layers()
+    d.remove_layer(tg)                         # already gone — must be a no-op
+    assert len(d._layer_group) == 0

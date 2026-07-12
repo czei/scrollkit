@@ -125,3 +125,34 @@ async def test_show_centers_multiline_and_swallows_display_errors(mock_display):
     # A display that raises must not propagate out of the OTA flow.
     mock_display.draw_text.side_effect = RuntimeError("panel gone")
     await ota._show(["X"])     # no raise
+
+
+def test_show_strips_layers_before_takeover_message():
+    """_show is a TAKEOVER: it must call display.clear_layers() (when the display
+    has one) before painting, or the message lands on top of the interrupted
+    content's persistent bitmap layers."""
+    import asyncio
+
+    events = []
+
+    class _Display:
+        height = 32
+
+        def clear_layers(self):
+            events.append("clear_layers")
+
+        async def clear(self):
+            events.append("clear")
+
+        async def draw_text(self, *a, **k):
+            events.append("draw_text")
+
+        async def show(self):
+            events.append("show")
+
+    ota = OTAProgressDisplay(_fake_client(), display=_Display())
+    asyncio.run(ota._show(["Updating", "DO NOT", "UNPLUG!"]))
+
+    assert events[0] == "clear_layers"          # takeover blank comes FIRST
+    assert events[1] == "clear"
+    assert events[-1] == "show"

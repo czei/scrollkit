@@ -120,6 +120,32 @@ class GraphicsMixin:
                 lg.pop(i)
                 return
 
+    def clear_layers(self):
+        """Strip EVERY persistent layer — the takeover blank.
+
+        ``clear()`` deliberately leaves ``_layer_group`` alone (per-frame label
+        reset must not disturb long-lived effect layers), so a full-screen
+        takeover message needs this instead: without it, an interrupted ride
+        screen's bitmap layers stay composited and the takeover text paints ON
+        TOP of them (the "Updating — DO NOT UNPLUG over the ride list" bug,
+        2026-07-12). Content objects whose layers vanish are unaffected later:
+        ``remove_layer`` is idempotent.
+
+        The bounded painter's canvas lives in ``_layer_group`` too, so its refs
+        are reset here — ``_ensure_paint`` rebuilds a composited canvas on the
+        next ``set_pixel``/``fill_rect`` (stale refs would silently draw into a
+        bitmap no longer in the displayio tree).
+        """
+        lg = getattr(self, "_layer_group", None)
+        if lg is None:
+            return
+        while len(lg):
+            lg.pop()
+        self._paint_bitmap = None
+        self._paint_palette = None
+        self._paint_tile = None
+        self._paint_colors = {}
+
     # --- bounded painters -----------------------------------------------------
     def _ensure_paint(self):
         if self._paint_bitmap is not None:

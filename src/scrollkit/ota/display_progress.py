@@ -137,6 +137,12 @@ class OTAProgressDisplay:
         if isinstance(lines, str):
             lines = [lines]
         try:
+            # Takeover: strip the interrupted content's persistent bitmap layers
+            # (intro tiles, wait-number compositions, effect overlays) — clear()
+            # alone leaves them composited and this message paints OVER them.
+            clear_layers = getattr(self.display, "clear_layers", None)
+            if clear_layers is not None:
+                clear_layers()
             await self.display.clear()
             line_h = 9                      # ~8px glyphs + 1px gap
             height = getattr(self.display, "height", 32)
