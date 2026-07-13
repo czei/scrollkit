@@ -47,21 +47,29 @@ class WiFiManager:
     Manages WiFi connections for the application
     """
     
-    def __init__(self, settings_manager):
+    def __init__(self, settings_manager, ap_name=None):
         """
         Initialize the WiFi manager
-        
+
         Args:
             settings_manager: The settings manager
+            ap_name: Brand name for the setup-portal access point. The SSID a
+                customer sees while onboarding is ``"<ap_name>-<tail>"`` where
+                the tail is a short MAC-derived suffix (kept library-side so two
+                un-onboarded boxes in one home never broadcast identical SSIDs).
+                Apps SHOULD pass their product name — the default is the
+                generic ``WifiManager`` prefix, deliberately not a product name
+                (branding belongs to the app, never hardwired here).
         """
         self.settings_manager = settings_manager
+        self._ap_base = ap_name or "WifiManager"
         self.ssid, self.password = self._resolve_credentials()
         self.is_connected = False
         self.wifi_client = None
         self.ap_enabled = False
 
         # Development mode values
-        self.AP_SSID = "WifiManager_DEV"
+        self.AP_SSID = self._ap_base + "-DEV"
         self.AP_PASSWORD = "password"
 
         try:
@@ -72,10 +80,10 @@ class WiFiManager:
                 self.wifi = None
                 self.HAS_WIFI = False
                 # Set dummy values for development
-                self.AP_SSID = "WifiManager_DEV"
+                self.AP_SSID = self._ap_base + "-DEV"
                 self.AP_PASSWORD = "password"
                 return
-                
+
             # Try to import CircuitPython specific modules
             import wifi
             self.wifi = wifi
@@ -84,7 +92,7 @@ class WiFiManager:
             mac_ap = ' '.join([hex(i) for i in self.wifi.radio.mac_address_ap])
             mac_ap = mac_ap.replace('0x', '').replace(' ', '').upper()
             # access point settings
-            self.AP_SSID = "WifiManager_" + mac_ap[5:10] + mac_ap[1:2]
+            self.AP_SSID = self._ap_base + "-" + mac_ap[5:10] + mac_ap[1:2]
             self.AP_PASSWORD = "password"
             self.AP_AUTHMODES = [self.wifi.AuthMode.WPA2, self.wifi.AuthMode.PSK]
             

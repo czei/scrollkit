@@ -39,7 +39,9 @@ class TestWiFiManager:
                     assert wifi_manager.ssid == 'TestSSID'
                     assert wifi_manager.password == 'TestPassword'
                     assert wifi_manager.is_connected is False
-                    assert "WifiManager_" in wifi_manager.AP_SSID
+                    # Hyphen separator since ap_name became configurable:
+                    # "<base>-<MAC tail>" (base defaults to WifiManager).
+                    assert "WifiManager-" in wifi_manager.AP_SSID
     
     def test_initialization_without_wifi(self):
         """Test initialization without WiFi module available"""
@@ -360,3 +362,23 @@ class TestRunSetupPortal:
         with patch("scrollkit.web.wifi_setup.WiFiSetupPortal",
                    MagicMock(return_value=portal_instance)):
             assert await wm.run_setup_portal() is False
+
+class TestAccessPointNaming:
+    """The onboarding AP's SSID base is per-app configuration (ap_name), never a
+    product name hardwired in the library. The library owns only the uniqueness
+    tail (MAC-derived on hardware, -DEV off-device)."""
+
+    def _make(self, **kw):
+        mock_sm = MagicMock()
+        with patch('scrollkit.network.wifi_manager.load_credentials') as lc:
+            lc.return_value = ('TestSSID', 'TestPassword')
+            return WiFiManager(mock_sm, **kw)
+
+    def test_default_base_is_generic(self):
+        wm = self._make()
+        assert wm.AP_SSID.startswith("WifiManager-")
+        assert "ThemeParkWaits" not in wm.AP_SSID     # no app brand in the library
+
+    def test_app_brand_flows_through(self):
+        wm = self._make(ap_name="ThemeParkWaits")
+        assert wm.AP_SSID.startswith("ThemeParkWaits-")

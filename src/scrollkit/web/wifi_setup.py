@@ -7,7 +7,8 @@ architecture, not a revert). The flow:
 1. The device can't join Wi-Fi (no/wrong credentials), so the app calls
    ``WiFiManager.run_setup_portal(display=...)`` — usually right after a
    failed ``connect()``.
-2. The device starts its own access point (``WifiManager_XXXX``) and shows
+2. The device starts its own access point (named by the app via
+   ``WiFiManager(ap_name=...)``, e.g. ``ThemeParkWaits-XXXX``) and shows
    join instructions on the LED panel.
 3. The user's phone joins that AP and opens ``http://192.168.4.1``: a page
    with the scanned nearby networks (signal bars), a manual-SSID field, and
