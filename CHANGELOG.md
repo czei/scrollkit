@@ -3,6 +3,61 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.5] - 2026-07-13
+
+A hardening release forged by a fielded MatrixPortal S3: three of these fixes
+were found because a real device failed in the field, not because a test went
+red. Detailed post-mortem in the ThemeParkWaits app repo
+(`docs/ota-check-failure-ledger.md`).
+
+### Fixed
+- `RegionRotateAnimator` now works on real hardware: `math.hypot` does not
+  exist on CircuitPython (start() raised, hosts silently fell back to a still
+  image), and the erase-everything-then-redraw restamp flickered against the
+  panel's continuous refresh — restamps are now pose diffs, byte-identical to
+  the old poses.
+- OTA client streams manifest and file bodies to flash in small chunks instead
+  of `response.json()` / `response.content` — a ~31 KB body needed one
+  contiguous allocation that a hot heap often cannot provide (intermittent
+  `MemoryError` on update checks).
+- `HttpClient._rebuild_session` closes the old pool's sockets before building
+  the replacement (new public `close_pooled_sockets()`). Dropping the pool to
+  the GC orphaned its native mbedtls TLS contexts (~40 KB of ESP32-S3 internal
+  SRAM each); with a rebuild threshold of 2, multi-day uptime starved every
+  TLS handshake (`PK_ALLOC_FAILED` / `MemoryError` / `Out of sockets`).
+- Update checks use a dedicated 8 s `check_timeout` (downloads keep 30 s): the
+  check runs inside a synchronous handler that freezes the display for its
+  duration, so one stalled read must not cost 30 frozen seconds.
+- OTA takeover messages ("Updating — DO NOT UNPLUG") blank the screen properly:
+  new `GraphicsMixin.clear_layers()` strips persistent bitmap layers that
+  `clear()` deliberately leaves alone (the message used to paint on top of the
+  interrupted content), resetting the bounded painter so it self-heals.
+
+### Added
+- ~6-byte update checks: `check_for_updates` reads the channel's `version.txt`
+  first and answers "up to date" without fetching the manifest (strict
+  MAJOR.MINOR[.PATCH] validation so an error page can never fake the answer;
+  404 falls back to the manifest for older channels). Publishers ship
+  `version.txt` beside `manifest.json`.
+- `WiFiManager(ap_name=...)`: apps brand the onboarding portal's access point
+  (e.g. `ThemeParkWaits-XXXX`); the library owns only the MAC-derived
+  uniqueness tail and never hardwires a product name.
+- Interstate 75 W bring-up: named-matrix-pin fallback coverage, a host-side
+  smoke probe, and `--port`-aware device calibration/benchmark tooling.
+- CircuitPython math-surface guard test: device-path code is statically checked
+  against the REAL board's `math` module (no `hypot`, `tau`, `inf`, `nan`,
+  `isclose`, `log2`, `log10`, ...), the same trap class as `random.shuffle`.
+- Cel-walk demo: nodding head.
+
+### Docs
+- New OTA guide section: shipping the library as `.mpy` — pinned
+  CircuitPython-matched mpy-cross (the PyPI `mpy-cross` package is
+  MicroPython's compiler and boards reject its bytecode), `-s` for
+  deterministic builds, the free-space rule, and the updater's
+  no-deletion-by-omission semantics.
+- Corrected the `pip install mpy-cross` guidance in getting-started and the
+  makefile.
+
 ## [0.8.4] - 2026-07-08
 
 ### Added
