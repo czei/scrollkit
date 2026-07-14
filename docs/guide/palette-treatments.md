@@ -54,11 +54,21 @@ selects by it). All take a 5-stop **theme** `(base, dim, flat, warm, hot)`
 — darkest to hottest — and start/end painting `flat`, so an invisible
 tile swap in and out is seamless.
 
-`VelvetSweep`, `AnchorWake`, `HaloPulse`, `SonarSweep`, `CipherRain`,
-`InkShimmer`, `RimLight`, `HeatmapDrift`, `EclipseCross`,
-`GradientDwell` (crossfade to a two-stop gradient edition and back),
-`StrokeAnatomy`, `RouteCircuit`, and `PacketTrace` (the one that owns
-display sprites — call `start(display)` / `detach()` around it).
+| Class | Partition | Motion |
+|-------|-----------|--------|
+| `VelvetSweep` | `diagonal` | ![](../assets/reference/treatments/velvet-sweep.gif){ width="300" }<br>A hot sheen travels diagonally across the dimmed mark, like light over velvet. |
+| `AnchorWake` | `anchor` | ![](../assets/reference/treatments/anchor-wake.gif){ width="300" }<br>Warmth flows outward from the anchor through the mark, and a dimmer echo returns. |
+| `HaloPulse` | `radial` | ![](../assets/reference/treatments/halo-pulse.gif){ width="300" }<br>Circular pressure waves expand outward through radial bands. |
+| `SonarSweep` | `angle` | ![](../assets/reference/treatments/sonar-sweep.gif){ width="300" }<br>A wedge sweeps around the anchor, leaving a fading afterglow. |
+| `CipherRain` | `rain` | ![](../assets/reference/treatments/cipher-rain.gif){ width="300" }<br>Phase-staggered highlights descend within the strokes, column by column. |
+| `InkShimmer` | `checker` | ![](../assets/reference/treatments/ink-shimmer.gif){ width="300" }<br>Interleaved groups slowly exchange two close shades — a satin shimmer, quiet enough for long dwells. |
+| `RimLight` | `exposure` | ![](../assets/reference/treatments/rim-light.gif){ width="300" }<br>A light source passes over; whichever stroke edge faces it catches a pale highlight. |
+| `HeatmapDrift` | `regions` | ![](../assets/reference/treatments/heatmap-drift.gif){ width="300" }<br>Coherent regions warm and cool independently, like detections surfacing on a map. |
+| `EclipseCross` | `diagonal` | ![](../assets/reference/treatments/eclipse-cross.gif){ width="300" }<br>A deep shadow crosses the flat mark with a hot corona at its leading edge and a dusk trail behind. |
+| `GradientDwell` | `diagonal` | ![](../assets/reference/treatments/gradient-dwell.gif){ width="300" }<br>The mark crossfades to a two-stop gradient edition, dwells, and returns to flat. |
+| `StrokeAnatomy` | `topology` | ![](../assets/reference/treatments/stroke-anatomy.gif){ width="300" }<br>Endpoints, corners, junctions, and runs trade emphasis in turn: the typography under analysis. |
+| `RouteCircuit` | `route` | ![](../assets/reference/treatments/route-circuit.gif){ width="300" }<br>Hot packets crawl the route sections from both ends and converge on the terminus, which flares. |
+| `PacketTrace` | `route` | ![](../assets/reference/treatments/packet-trace.gif){ width="300" }<br>Packet dots crawl the actual strokes toward the terminus while sections glow in their wake. The one treatment that owns display sprites — call `start(display)` / `detach()` around it. |
 
 The caller owns pacing **and blinks**: after each `step()`, `blink_now`
 is True on the exact frames the choreography wants an identity blink:

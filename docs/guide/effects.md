@@ -314,6 +314,8 @@ while not sw.is_complete:
     await display.show()
 ```
 
+![swirl](../assets/reference/splashes/swirl.gif){ width="300" }
+
 ## Swarm true-color and reverse modes (0.9.0)
 
 `SwarmReveal` can now assemble an arbitrary source image's exact colors —
@@ -321,3 +323,5 @@ pass `pixel_colors={(x, y): 0xRRGGBB}` (the palette is derived for you) or
 `text_colors=` + `index_map={(x, y): ramp_index}` for explicit control.
 And `reverse=True` runs the deconstruction: the image starts fully lit and
 each bird CARRIES ITS PIXEL AWAY, leaving darkness when the flock disperses.
+
+![swarm-reverse](../assets/reference/splashes/swarm-reverse.gif){ width="300" }
