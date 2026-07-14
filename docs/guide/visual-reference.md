@@ -98,6 +98,32 @@ Setup-time reveals that assemble a word or logo. Documented in
 <figure markdown="span">![reveal](../assets/reference/splashes/reveal.gif){ width="240" }<figcaption>reveal — wink off non-text pixels</figcaption></figure>
 <figure markdown="span">![drip](../assets/reference/splashes/drip.gif){ width="240" }<figcaption>drip — pixels fall into place</figcaption></figure>
 <figure markdown="span">![swarm](../assets/reference/splashes/swarm.gif){ width="240" }<figcaption>swarm — a flock assembles the image</figcaption></figure>
+<figure markdown="span">![swarm-reverse](../assets/reference/splashes/swarm-reverse.gif){ width="240" }<figcaption>swarm reverse — the flock carries the image away</figcaption></figure>
+<figure markdown="span">![swirl](../assets/reference/splashes/swirl.gif){ width="240" }<figcaption>SwirlIn — sprites spiral onto their targets</figcaption></figure>
+
+</div>
+
+## Palette treatments
+
+Dwell animations on a palette-partitioned mark — pure palette writes,
+zero per-frame pixel work. Documented in
+[Palette Partitions & Treatments](palette-treatments.md).
+
+<div class="grid" markdown>
+
+<figure markdown="span">![velvet-sweep](../assets/reference/treatments/velvet-sweep.gif){ width="240" }<figcaption>VelvetSweep — a hot sheen crosses diagonally</figcaption></figure>
+<figure markdown="span">![anchor-wake](../assets/reference/treatments/anchor-wake.gif){ width="240" }<figcaption>AnchorWake — warmth flows out and echoes back</figcaption></figure>
+<figure markdown="span">![halo-pulse](../assets/reference/treatments/halo-pulse.gif){ width="240" }<figcaption>HaloPulse — pressure waves expand radially</figcaption></figure>
+<figure markdown="span">![sonar-sweep](../assets/reference/treatments/sonar-sweep.gif){ width="240" }<figcaption>SonarSweep — a wedge sweeps with afterglow</figcaption></figure>
+<figure markdown="span">![cipher-rain](../assets/reference/treatments/cipher-rain.gif){ width="240" }<figcaption>CipherRain — staggered highlights descend</figcaption></figure>
+<figure markdown="span">![ink-shimmer](../assets/reference/treatments/ink-shimmer.gif){ width="240" }<figcaption>InkShimmer — interleaved satin shimmer</figcaption></figure>
+<figure markdown="span">![rim-light](../assets/reference/treatments/rim-light.gif){ width="240" }<figcaption>RimLight — a passing light catches stroke edges</figcaption></figure>
+<figure markdown="span">![heatmap-drift](../assets/reference/treatments/heatmap-drift.gif){ width="240" }<figcaption>HeatmapDrift — regions warm and cool</figcaption></figure>
+<figure markdown="span">![eclipse-cross](../assets/reference/treatments/eclipse-cross.gif){ width="240" }<figcaption>EclipseCross — a shadow with a hot corona</figcaption></figure>
+<figure markdown="span">![gradient-dwell](../assets/reference/treatments/gradient-dwell.gif){ width="240" }<figcaption>GradientDwell — a gradient edition and back</figcaption></figure>
+<figure markdown="span">![stroke-anatomy](../assets/reference/treatments/stroke-anatomy.gif){ width="240" }<figcaption>StrokeAnatomy — endpoints, corners, junctions, runs</figcaption></figure>
+<figure markdown="span">![route-circuit](../assets/reference/treatments/route-circuit.gif){ width="240" }<figcaption>RouteCircuit — packets converge on the terminus</figcaption></figure>
+<figure markdown="span">![packet-trace](../assets/reference/treatments/packet-trace.gif){ width="240" }<figcaption>PacketTrace — dots crawl the actual strokes</figcaption></figure>
 
 </div>
 

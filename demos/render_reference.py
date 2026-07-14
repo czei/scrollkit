@@ -136,6 +136,8 @@ SPLASHES = {
     "reveal": ("REVEAL", 150),
     "drip":   ("DRIP", 200),
     "swarm":  ("SWARM", 260),
+    "swarm-reverse": ("SWARM", 300),
+    "swirl":  ("SWIRL", 120),
 }
 
 # Particle systems — slug -> (max_particles, frames).
@@ -453,6 +455,48 @@ def _splash_body(slug):
         elif slug == "drip":
             await show_drip_splash(display, px, color=0x00CCFF, fall_speed=1,
                                    stagger=2, hold_seconds=1.2)
+        elif slug == "swarm-reverse":
+            from scrollkit.effects.swarm_reveal import SwarmReveal
+            sw = SwarmReveal(px, text_color=0xFFCC00, bird_color=0xFFE08A,
+                             num_birds=22, bird_speed=2.6, reverse=True)
+            sw.start(display)
+            await display.show()
+            await asyncio.sleep(1.0)               # the lit image, then...
+            steps = 0
+            while not sw.is_complete and steps < 2000:
+                sw.step()
+                steps += 1
+                if await display.show() is False:
+                    break
+                await asyncio.sleep(0.05)
+            sw.detach()
+        elif slug == "swirl":
+            from scrollkit.effects.swirl_in import SwirlIn
+            gfx = display.gfx
+            entries = []
+            for i, ch in enumerate(text):
+                cpx = pixels_from_text(ch, x=0, y=0)
+                if not cpx:
+                    continue
+                w = max(x for x, _ in cpx) + 1
+                h = max(y for _, y in cpx) + 1
+                bmp = gfx.Bitmap(w, h, 2)
+                for (x, y) in cpx:
+                    bmp[x, y] = 1
+                pal = gfx.Palette(2)
+                pal.make_transparent(0)
+                pal[1] = 0xFFCC00
+                tile = gfx.TileGrid(bmp, pixel_shader=pal)
+                tile.hidden = True
+                display.add_layer(tile)
+                entries.append((tile, _center_x_pixels(text) + i * 6, 12, w, h))
+            sw = SwirlIn(entries)
+            while not sw.is_complete:
+                sw.step()
+                if await display.show() is False:
+                    break
+                await asyncio.sleep(0.05)
+            await asyncio.sleep(1.2)
         else:
             await show_swarm_splash(display, px, text_color=0xFFCC00,
                                     bird_color=0xFFE08A, num_birds=22,
