@@ -2,22 +2,36 @@
 
 ## Install
 
-ScrollKit lives in `src/scrollkit/`. For desktop development you need the
-simulator extras (pygame + numpy + Pillow):
+Choose the release path before installing:
+
+- **Using ScrollKit in a desktop project:** install the stable PyPI release.
+  A version tag such as `v0.8.4` corresponds to a released package. Pin the
+  version in production/reproducible builds.
+- **Contributing or trying unreleased work:** clone `master` and install it
+  editable. `master` is a development branch, not the normal consumer path.
+- **Deploying to CircuitPython:** copy a tested source or matching `.mpy` build
+  into the app's `lib/` payload. Devices should not follow `master` directly.
+
+For a stable desktop install, use the simulator extras (pygame + numpy + Pillow):
 
 ```bash
 pip install "scrollkit[simulator]"
+# Or pin a known release: pip install "scrollkit[simulator]==X.Y.Z"
 ```
 
-Or, to modify ScrollKit itself or run the bundled demos (what the rest of
-this page assumes), clone the repo and install it editable — your edits to
-`src/scrollkit/` take effect without reinstalling:
+To modify ScrollKit itself or run the bundled demos (what the rest of this page
+assumes), clone the repo and install it editable — your edits to `src/scrollkit/`
+take effect without reinstalling:
 
 ```bash
 git clone https://github.com/czei/scrollkit.git
 cd scrollkit
 pip install -e ".[simulator]"
 ```
+
+The legacy-looking `release-*` branches and an optional `live` branch described
+in [OTA Updates](guide/ota.md) are application deployment channels. They are not
+alternative package-install branches.
 
 Run anything from the repo root with `src` on the path:
 
