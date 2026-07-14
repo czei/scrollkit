@@ -56,6 +56,23 @@ asyncio.run(HelloWorldApp().run())   # auto-detects MatrixPortal hardware vs des
 > [getting-started guide](https://scrollkit.dev/getting-started/)
 > for the full `ScrollKitApp` / `UnifiedDisplay` API.
 
+## The showcase reel
+
+Sixty seconds of what the library actually ships — an endless self-scheduling
+teaser where every act names the effect it's playing: the boid swarm assembles
+SWARM, a velvet sheen sweeps VELVET, IRIS irises in and out. All 13 transitions,
+all 13 palette treatments, splashes, scrollers, bitmap-text effects, particles,
+and two animated characters, mixed by a weighted-age scheduler so it never
+repeats itself.
+
+<p align="center">
+  <!-- Absolute URL so the image also renders on the PyPI project page -->
+  <img src="https://raw.githubusercontent.com/czei/scrollkit/master/docs/assets/demos/showcase_reel.gif" alt="ScrollKit showcase reel: a flying owl air-drops the letters of SCROLLKIT, then named effects play act by act on a 64×32 LED panel" width="480">
+</p>
+
+Run it yourself with `python demos/hard/showcase_reel.py`, or browse the
+[Demo Gallery](https://scrollkit.dev/demos/) for the rest.
+
 ## Architecture
 
 ScrollKit runs unchanged on the MatrixPortal S3 (CircuitPython) and a desktop

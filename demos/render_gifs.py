@@ -122,6 +122,7 @@ PER_DEMO = {
     "temperature":          {"seconds": 5.0, "seed": _seed_network},
     "crypto_dashboard":     {"seconds": 8.0, "seed": _seed_network},
     "showcase":             {"seconds": 9.0, "step": 3},
+    "showcase_reel":        {"self_driving": True, "max_frames": 420, "step": 3},
     "swarm_reveal":         {"self_driving": True, "max_frames": 170},
 }
 

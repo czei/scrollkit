@@ -139,6 +139,27 @@ A scripted reel that announces and demonstrates every signature effect:
 characterful scrolls, theatrical transitions, and palette-animated bitmap text.
 `demos/hard/showcase.py` — see the [Effects guide](guide/effects.md).
 
+### Showcase Reel
+
+![Showcase-reel demo](assets/demos/showcase_reel.gif){ width="480" }
+
+The whole toolbox as an endless, self-scheduling teaser: every act NAMES the
+effect it plays (the swarm assembles SWARM, a velvet sheen sweeps VELVET), so
+the reel doubles as a table of contents for the guides. All 13 transitions, all
+13 palette treatments, the splashes, scrollers, bitmap-text effects and
+particles, mixed by the `ActScheduler` so nothing similar plays twice running —
+with a cel-animated owl and a zigzag bee crossing between acts (their sprite
+code is the [Character Animation](guide/character-animation.md) tutorial's
+worked example). `demos/hard/showcase_reel.py`
+
+A full minute of the reel at true device speed (20 fps):
+
+<video controls loop muted playsinline preload="metadata" width="480">
+  <source src="../assets/video/showcase-reel.mp4" type="video/mp4">
+  Your browser doesn't support embedded video —
+  <a href="../assets/video/showcase-reel.mp4">download the MP4</a>.
+</video>
+
 ### Swarm Reveal
 
 ![Swarm-reveal demo](assets/demos/swarm_reveal.gif){ width="480" }
