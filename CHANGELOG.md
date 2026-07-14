@@ -3,6 +3,36 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] - 2026-07-14
+
+The DarkOwl promotion: the effect mechanisms invented for the DarkOwl LED
+logo sign — a 24/7 show on a MatrixPortal S3 — generalized into the library.
+The headline is palette-partition animation: bake a mark's pixels into an
+indexed layer once, then animate purely with palette writes.
+
+### Added
+- `effects/palette_partition.py`: `PalettePartition` (indexed layer with
+  reserved identity slots) plus ten partition builders (diagonal, anchor
+  distance, radial, angular, rain phase, checker, exposure, Voronoi regions,
+  stroke topology, BFS route) and `bfs_paths`.
+- `effects/palette_treatments.py`: thirteen frame-driven dwell treatments
+  (VelvetSweep, AnchorWake, HaloPulse, SonarSweep, CipherRain, InkShimmer,
+  RimLight, HeatmapDrift, EclipseCross, GradientDwell, StrokeAnatomy,
+  RouteCircuit, PacketTrace) with a 5-stop theme contract, caller-owned
+  blink beats (`blink_now`), `TREATMENT_CLASSES` + `treatments_for()`.
+- `effects/swirl_in.py`: `SwirlIn` — sprites spiral in around a center onto
+  exact target positions (deliberately NOT a named Transition: it needs a
+  per-sprite target list).
+- `SwarmReveal` true-color and reverse modes: `index_map=` / `pixel_colors=`
+  paint an arbitrary source image's exact colors; `reverse=True` pre-lights
+  the image and the flock carries it away pixel by pixel.
+- `utils/scheduler.py`: `ActScheduler` — weighted-age, family-aware deck
+  picking for 24/7 variety (least-recently-seen leads, no family repeats,
+  `force=` for openers).
+- Visual Reference: a `treatments` gallery category with a sample for every
+  treatment class (coverage-gated); `capabilities()` gains a
+  `palette_treatments` section.
+
 ## [0.8.5] - 2026-07-13
 
 A hardening release forged by a fielded MatrixPortal S3: three of these fixes

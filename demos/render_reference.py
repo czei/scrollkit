@@ -504,6 +504,103 @@ def _preview_splash(slug):
 
 
 # ---------------------------------------------------------------------------
+# Route: palette treatments (a partitioned word driven step-by-step; every
+# class in TREATMENT_CLASSES needs an entry — test_reference_coverage gates).
+# ---------------------------------------------------------------------------
+
+# class name -> (partition builder, extra ctor kwargs, max capture frames)
+TREATMENTS = {
+    "VelvetSweep":   ("diagonal", {}, 140),
+    "AnchorWake":    ("anchor", {}, 140),
+    "HaloPulse":     ("radial", {}, 170),
+    "SonarSweep":    ("angle", {}, 140),
+    "CipherRain":    ("rain", {}, 210),
+    "InkShimmer":    ("checker", {}, 180),
+    "RimLight":      ("exposure", {}, 170),
+    "HeatmapDrift":  ("regions", {}, 190),
+    "EclipseCross":  ("diagonal", {}, 140),
+    "GradientDwell": ("diagonal", {"lo": 0x104070, "hi": 0x2090C0}, 110),
+    "StrokeAnatomy": ("topology", {}, 140),
+    "RouteCircuit":  ("route", {}, 140),
+    "PacketTrace":   ("route", {}, 220),
+}
+_TREATMENT_THEME = (0x70140E, 0x8F1B12, 0xB02318, 0xC93A1E, 0xE65A28)
+
+
+def _treatment_body(cls_name):
+    partition, kwargs, _frames = TREATMENTS[cls_name]
+
+    async def body(display):
+        from scrollkit.display.unified import displayio
+        from scrollkit.effects import palette_partition as pp
+        from scrollkit.effects import palette_treatments as pt
+        from scrollkit.effects.reveal_splash import pixels_from_text
+
+        text = "DARK"
+        slots = {p: 1 for p in
+                 pixels_from_text(text, x=_center_x_pixels(text), y=12)}
+        cls = getattr(pt, cls_name)
+        if partition == "route":
+            body_px = sorted(slots)
+            q = len(body_px) // 4
+            paths = [set(body_px[i * q:(i + 1) * q]) for i in range(3)]
+            terminus = set(body_px[3 * q:])
+            gm, n = pp.map_route(slots, paths, terminus, sections=3)
+            fx = pp.PalettePartition(displayio, slots, gm, n)
+            if cls_name == "RouteCircuit":
+                t = cls(fx, _TREATMENT_THEME,
+                        routes=(tuple(range(0, 6)), (8, 7, 6)))
+            else:
+                t = cls(fx, _TREATMENT_THEME, paths=pp.bfs_paths(paths),
+                        runs=(((0, 1), 0), ((2,), -10)))
+        else:
+            builders = {
+                "diagonal": lambda: pp.map_diagonal(slots, 10),
+                "anchor": lambda: pp.map_anchor_distance(slots, 32, 10),
+                "radial": lambda: pp.map_radial(slots, 32, 15, 10),
+                "angle": lambda: pp.map_angle(slots, 32, 15, 14),
+                "rain": lambda: pp.map_rain(slots, 10),
+                "checker": lambda: pp.map_checker(slots, 4),
+                "exposure": lambda: pp.map_exposure(slots),
+                "regions": lambda: pp.map_regions(slots, 10),
+                "topology": lambda: pp.map_topology(slots),
+            }
+            gm, n = builders[partition]()
+            fx = pp.PalettePartition(displayio, slots, gm, n)
+            t = cls(fx, _TREATMENT_THEME, **kwargs)
+
+        display.add_layer(fx.tile)
+        fx.fill(_TREATMENT_THEME[2])
+        fx.tile.hidden = False
+        if hasattr(t, "start"):
+            t.start(display)                     # PacketTrace's sprites
+        while not t.is_complete:
+            t.step()
+            if await display.show() is False:
+                break
+            await asyncio.sleep(0.05)
+        if hasattr(t, "detach"):
+            t.detach()
+        display.remove_layer(fx.tile)
+    return body
+
+
+def _gen_treatment(cls_name, out):
+    _, _, max_frames = TREATMENTS[cls_name]
+    app = _SelfDrivingApp(_treatment_body(cls_name))
+    asyncio.run(_capture_self_driving(app, max_frames))
+    saved = app.display.save_gif(out, target_width=REF_WIDTH,
+                                 max_colors=REF_COLORS, frame_step=REF_STEP)
+    return _saved(out if saved else "")
+
+
+def _preview_treatment(cls_name):
+    app = _SelfDrivingApp(_treatment_body(cls_name),
+                          title="ScrollKit reference — %s" % cls_name)
+    asyncio.run(app.run())
+
+
+# ---------------------------------------------------------------------------
 # Route: particles (direct drive with a small real sleep so the time-based
 # physics actually advance between captured frames).
 # ---------------------------------------------------------------------------
@@ -778,6 +875,16 @@ def build_jobs():
         add("splashes", slug,
             (lambda sl=slug, o=out: _gen_splash(sl, o)),
             (lambda sl=slug: _preview_splash(sl)))
+
+    # Palette treatments (enumerated from the live TREATMENT_CLASSES catalog)
+    from scrollkit.effects.palette_treatments import TREATMENT_CLASSES
+    for cls in TREATMENT_CLASSES:
+        cls_name = cls.__name__
+        slug = _slug(cls_name)
+        out = _out("treatments", slug)
+        add("treatments", slug,
+            (lambda n=cls_name, o=out: _gen_treatment(n, o)),
+            (lambda n=cls_name: _preview_treatment(n)))
 
     # Particles
     for slug in PARTICLES:

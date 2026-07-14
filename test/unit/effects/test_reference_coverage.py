@@ -66,9 +66,17 @@ def test_build_jobs_enumerates_every_category_with_unique_slugs():
     assert len(slugs) == len(set(slugs)), "duplicate sample slug(s)"
     categories = {j["category"] for j in jobs}
     assert categories == {"transitions", "scrollers", "palette", "content",
-                          "splashes", "particles", "animators", "gradient", "colors"}
+                          "splashes", "treatments", "particles", "animators",
+                          "gradient", "colors"}
     # a representative slug from each animated + still route resolves
     for slug in ("iris-snap", "kinetic-marquee", "rainbow-chase",
-                 "scrollingtext-scroll", "drip", "snow", "twinkle-animator",
-                 "vertical", "spectrum", "named-colors"):
+                 "scrollingtext-scroll", "drip", "velvet-sweep", "snow",
+                 "twinkle-animator", "vertical", "spectrum", "named-colors"):
         assert slug in slugs, slug
+
+
+def test_every_palette_treatment_has_a_sample():
+    rr = _load_generator()
+    from scrollkit.effects.palette_treatments import TREATMENT_CLASSES
+    live = {cls.__name__ for cls in TREATMENT_CLASSES}
+    assert live == set(rr.TREATMENTS)

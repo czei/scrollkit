@@ -64,6 +64,7 @@ nav:
       - Theatrical Transitions: guide/transitions.md
       - Gradient Text: guide/gradient-text.md
       - Palette-Animated Bitmap Text: guide/bitmap-text.md
+      - Palette Partitions & Treatments: guide/palette-treatments.md
       - Web Interface: guide/web.md
       - OTA Updates: guide/ota.md
       - Networking: guide/networking.md

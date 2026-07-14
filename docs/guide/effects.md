@@ -295,3 +295,29 @@ real speed.
 For the measured costs behind the budget (C bulk calls vs interpreted Python, the
 refresh floor, and the swarm rewrite that motivated all of this), see the
 [Performance](performance.md) guide.
+
+## Swirl entrance (0.9.0)
+
+`SwirlIn` spirals a set of positioned sprites in around a center point,
+each entering far offscreen and unwinding onto its exact target — a word
+assembling as a rotating spiral. It takes a per-sprite target list, so it
+is deliberately **not** a named Transition (nothing content-agnostic could
+construct it):
+
+```python
+from scrollkit.effects.swirl_in import SwirlIn
+
+entries = [(tile, x, y, w, h) for tile, x, y, w, h in my_sprites]
+sw = SwirlIn(entries)                     # center, radius, stagger tunable
+while not sw.is_complete:
+    sw.step()
+    await display.show()
+```
+
+## Swarm true-color and reverse modes (0.9.0)
+
+`SwarmReveal` can now assemble an arbitrary source image's exact colors —
+pass `pixel_colors={(x, y): 0xRRGGBB}` (the palette is derived for you) or
+`text_colors=` + `index_map={(x, y): ramp_index}` for explicit control.
+And `reverse=True` runs the deconstruction: the image starts fully lit and
+each bird CARRIES ITS PIXEL AWAY, leaving darkness when the flock disperses.

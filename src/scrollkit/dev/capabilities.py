@@ -146,6 +146,17 @@ def _effects():
         out.append({"name": "SwarmReveal", "doc": _first_line(SwarmReveal)})
     except ImportError:
         pass
+    try:
+        from ..effects.palette_partition import PalettePartition
+        out.append({"name": "PalettePartition",
+                    "doc": _first_line(PalettePartition)})
+    except ImportError:
+        pass
+    try:
+        from ..effects.swirl_in import SwirlIn
+        out.append({"name": "SwirlIn", "doc": _first_line(SwirlIn)})
+    except ImportError:
+        pass
     return out
 
 
@@ -225,6 +236,26 @@ def _palette_effects():
             out.append({"name": nm, "doc": _first_line(cls),
                         "applies_to": "BitmapText",
                         "pairs_with": list(getattr(cls, "PAIRS_WITH", ()))})
+    return out
+
+
+def _palette_treatments():
+    """``[{name, doc, partition, feasibility}]`` for the partition dwell
+    treatments (see :mod:`scrollkit.effects.palette_treatments`).
+
+    Frame-driven classes animating a :class:`PalettePartition` purely with
+    palette writes; ``partition`` names the recommended partition builder.
+    Enumerated via the module's explicit ``TREATMENT_CLASSES`` catalog.
+    """
+    out = []
+    try:
+        from ..effects.palette_treatments import TREATMENT_CLASSES
+    except ImportError:
+        return out
+    for cls in TREATMENT_CLASSES:
+        out.append({"name": cls.__name__, "doc": _first_line(cls),
+                    "partition": cls.PARTITION,
+                    "feasibility": getattr(cls, "FEASIBILITY", None)})
     return out
 
 
@@ -322,6 +353,7 @@ def capabilities():
     for key, fn in (("content_types", _content_types), ("priorities", _priorities),
                     ("effects", _effects), ("transitions", _transitions),
                     ("scrolling", _scrolling), ("palette_effects", _palette_effects),
+                    ("palette_treatments", _palette_treatments),
                     ("image_animators", _image_animators),
                     ("text_fills", _text_fills), ("color_utilities", _color_utilities),
                     ("named_colors", _named_colors),

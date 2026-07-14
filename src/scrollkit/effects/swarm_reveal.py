@@ -107,15 +107,46 @@ class SwarmReveal:
         bird_speed:      Pixels per frame a bird may travel (a higher value fills
                          faster but flocks less tightly).
         disperse_frames: Frames the flock flies off after the image is complete.
+        index_map:       Optional explicit ``{(x, y): palette_index}`` (indices
+                         ``1..len(text_colors)``) assigning each target pixel its
+                         exact ramp stop — a true-color image instead of the
+                         bounding-box gradient. Requires ``text_colors``.
+        pixel_colors:    Optional ``{(x, y): 0xRRGGBB}`` — the fully explicit
+                         alternative: the unique colors become the palette and
+                         each pixel takes its own color. Mutually exclusive with
+                         ``text_colors``/``index_map``; also supplies ``pixels``
+                         if that iterable and this dict cover the same cells.
+        reverse:         When True the image starts fully lit and each bird
+                         CARRIES ITS PIXEL AWAY (writes transparent) instead of
+                         delivering it — the deconstruction of the reveal.
+                         Works with every color mode.
     """
 
     def __init__(self, pixels, text_color=0xFFCC00, bird_color=0xFFE08A,
                  num_birds=14, bird_speed=2.4, disperse_frames=18,
-                 text_colors=None, color_axis="vertical"):
+                 text_colors=None, color_axis="vertical",
+                 index_map=None, pixel_colors=None, reverse=False):
         self.pixels = pixels
         self.text_color = text_color
         # A ramp of >=1 colors (low->high). Empty/None -> single-color path.
         self.text_colors = tuple(text_colors) if text_colors else None
+        if pixel_colors is not None:
+            if self.text_colors is not None or index_map is not None:
+                raise ValueError(
+                    "pixel_colors replaces text_colors/index_map")
+            ordered = []
+            seen = {}
+            for p in sorted(pixel_colors):
+                c = pixel_colors[p]
+                if c not in seen:
+                    seen[c] = len(ordered) + 1      # palette indices from 1
+                    ordered.append(c)
+            self.text_colors = tuple(ordered)
+            index_map = {p: seen[c] for p, c in pixel_colors.items()}
+        if index_map is not None and self.text_colors is None:
+            raise ValueError("index_map requires text_colors")
+        self._explicit_index_map = index_map
+        self.reverse = bool(reverse)
         self.color_axis = color_axis if color_axis in (
             "vertical", "horizontal", "diagonal") else "vertical"
         self.bird_color = bird_color
@@ -193,7 +224,20 @@ class SwarmReveal:
         # ONCE here so the per-capture write in step() is a single O(1) dict
         # lookup with no float math (keeps the num_birds^2 frame budget intact).
         if self.text_colors is not None:
-            self._index_map = self._build_index_map(self._remaining)
+            if self._explicit_index_map is not None:
+                self._index_map = {p: self._explicit_index_map[p]
+                                   for p in self._remaining
+                                   if p in self._explicit_index_map}
+            else:
+                self._index_map = self._build_index_map(self._remaining)
+
+        # Reverse mode: the image starts fully lit (a one-time start() cost,
+        # not per-frame); each capture in step() then writes 0 — carry-away.
+        if self.reverse:
+            bmp = self._text_bmp
+            imap = self._index_map
+            for (x, y) in self._remaining:
+                bmp[x, y] = 1 if imap is None else imap.get((x, y), 1)
 
         # Spawn the flock from the screen edges in small clusters.
         self._birds = [self._spawn_bird() for _ in range(self.num_birds)]
@@ -354,7 +398,10 @@ class SwarmReveal:
                         self._remaining.discard(b.target)
                         # Single-color: write 1 (unchanged). Gradient: a single
                         # precomputed O(1) lookup — no per-capture float math.
-                        if self._index_map is None:
+                        # Reverse: the bird carries the pixel away instead.
+                        if self.reverse:
+                            self._text_bmp[tx, ty] = 0
+                        elif self._index_map is None:
                             self._text_bmp[tx, ty] = 1
                         else:
                             self._text_bmp[tx, ty] = self._index_map.get(b.target, 1)

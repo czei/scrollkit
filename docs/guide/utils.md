@@ -65,3 +65,22 @@ set for single-colour needs. For the 16 named colours used by the minimal API:
 
 Feed any of these straight to a [gradient text fill](gradient-text.md)
 (`palette=...`).
+
+## ActScheduler (0.9.0)
+
+For signs that run 24/7, plain randomness repeats itself. `ActScheduler`
+draws from decks of `(name, family, payload)` entries so nothing whose
+visual family just played is picked, and the least-recently-seen material
+surfaces first (weight `(age+1)^2`; new entries start old, so fresh
+material leads):
+
+```python
+from scrollkit.utils.scheduler import ActScheduler
+
+sched = ActScheduler()
+name, family, run = sched.pick(BUILDS, "builds", avoid=last_families)
+name, family, run = sched.pick(BUILDS, "builds", force="hunt")  # an opener
+```
+
+Ages are kept per deck key, so one instance schedules independent decks
+(builds, dwell treatments, exits, layouts...).

@@ -22,6 +22,14 @@ into RAM. Import each submodule directly instead:
   screen — start/step/detach, not the ``Transition`` contract) —
   ``from scrollkit.effects.image_animators import TwinkleAnimator, MotionAnimator,
   ComboAnimator``
+- **Palette partitions** (indexed layers animated purely by palette writes) —
+  ``from scrollkit.effects.palette_partition import PalettePartition,
+  map_diagonal, map_radial, map_route``
+- **Palette treatments** (dwell animations on a partition — the gallery) —
+  ``from scrollkit.effects.palette_treatments import VelvetSweep, HaloPulse,
+  TREATMENT_CLASSES, treatments_for``
+- **Swirl entrance** (sprites spiral in onto their targets) —
+  ``from scrollkit.effects.swirl_in import SwirlIn``
 - **Text-rendering helpers** —
   ``from scrollkit.effects.text_render import pixels_from_font_text, font_text_width``
 
