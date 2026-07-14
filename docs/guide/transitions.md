@@ -37,21 +37,21 @@ There are **thirteen** built-in transitions. The **setting name** is the value t
 `transition_style` setting takes (and what [`transitions_for()`](#choosing-a-transition)
 returns); the **class** is what you import. The order below is the UI/dropdown order.
 
-| Setting name | Class | Motion | Sample |
-|--------------|-------|--------|--------|
-| `Drop from Sky` | `DropFromSky` | New content **slides into place from an edge** — default top, or set `direction` to `"bottom"`/`"left"`/`"right"`. A slide-in *sibling*, not the cover→reveal contract (see the note below). | ![](../assets/reference/transitions/drop-from-sky.gif){ width="180" } |
-| `Pixel Dissolve` | `PixelDissolve` | Text crumbles away as random 4×4 blocks cover the screen, then the new content dissolves back in block-by-block — like film grain burning through. Works naturally over moving text. | ![](../assets/reference/transitions/pixel-dissolve.gif){ width="180" } |
-| `Column Rain` | `ColumnRain` | Sixteen thin 4 px drops fall from the top in shuffled order, so ~4 are mid-fall at any moment — reads as actual rainfall, not a directional wipe. | ![](../assets/reference/transitions/column-rain.gif){ width="180" } |
-| `Gradual Reveal` | `GradualReveal` | Staggered vertical bands (default 8) wipe in left-to-right, then peel back right-to-left. Clean and architectural — not rain. | ![](../assets/reference/transitions/gradual-reveal.gif){ width="180" } |
-| `Scan Fold` | `ScanFold` | Top and bottom scanlines fold toward the horizontal centre until covered, then unfold outward. Two bars per frame — very fast; good on scrolling text. | ![](../assets/reference/transitions/scan-fold.gif){ width="180" } |
-| `Horizontal Wipe` | `HorizontalWipe` | A crisp vertical edge sweeps left-to-right to cover, then back to reveal. One rect per frame; pairs well with fast-scrolling text. | ![](../assets/reference/transitions/horizontal-wipe.gif){ width="180" } |
-| `Glitch Bars` | `GlitchBars` | Random-height horizontal bars (1–4 rows) flash on in shuffled order — like a corrupted video signal — then clear in reverse. Looks alive over moving text. | ![](../assets/reference/transitions/glitch-bars.gif){ width="180" } |
-| `Diagonal Wipe` | `DiagonalWipe` | A diagonal boundary sweeps top-left → bottom-right to cover, then bottom-right → top-left to reveal. One delta span per row per frame. | ![](../assets/reference/transitions/diagonal-wipe.gif){ width="180" } |
-| `Iris Snap` | `IrisSnap` | A chunky diamond aperture grows to hide the screen, then a diamond hole opens to reveal it (per-row span table). | ![](../assets/reference/transitions/iris-snap.gif){ width="180" } |
-| `Venetian Shutters` | `VenetianShutters` | Coarse horizontal bands (default 8) close then open like blinds, slightly staggered. | ![](../assets/reference/transitions/venetian-shutters.gif){ width="180" } |
-| `Mosaic Resolve` | `MosaicResolve` | Blocks (default 8×4) cover then reveal in a fixed pseudo-random order — only the newly-changed blocks are written each frame. Deterministic given `seed`. | ![](../assets/reference/transitions/mosaic-resolve.gif){ width="180" } |
-| `CRT Collapse` | `CRTCollapse` | A CRT power-off: the picture collapses to a center scanline, then blooms back open from that line. | ![](../assets/reference/transitions/crt-collapse.gif){ width="180" } |
-| `Light Slit` | `LightSlitRewrite` | A bright vertical scanner (default 3 px) sweeps across, covering on the way out and revealing the new content on the way back. | ![](../assets/reference/transitions/light-slit.gif){ width="180" } |
+| Setting name | Class | Motion |
+|--------------|-------|--------|
+| `Drop from Sky` | `DropFromSky` | ![](../assets/reference/transitions/drop-from-sky.gif){ width="300" }<br>New content **slides into place from an edge** — default top, or set `direction` to `"bottom"`/`"left"`/`"right"`. A slide-in *sibling*, not the cover→reveal contract (see the note below). |
+| `Pixel Dissolve` | `PixelDissolve` | ![](../assets/reference/transitions/pixel-dissolve.gif){ width="300" }<br>Text crumbles away as random 4×4 blocks cover the screen, then the new content dissolves back in block-by-block — like film grain burning through. Works naturally over moving text. |
+| `Column Rain` | `ColumnRain` | ![](../assets/reference/transitions/column-rain.gif){ width="300" }<br>Sixteen thin 4 px drops fall from the top in shuffled order, so ~4 are mid-fall at any moment — reads as actual rainfall, not a directional wipe. |
+| `Gradual Reveal` | `GradualReveal` | ![](../assets/reference/transitions/gradual-reveal.gif){ width="300" }<br>Staggered vertical bands (default 8) wipe in left-to-right, then peel back right-to-left. Clean and architectural — not rain. |
+| `Scan Fold` | `ScanFold` | ![](../assets/reference/transitions/scan-fold.gif){ width="300" }<br>Top and bottom scanlines fold toward the horizontal centre until covered, then unfold outward. Two bars per frame — very fast; good on scrolling text. |
+| `Horizontal Wipe` | `HorizontalWipe` | ![](../assets/reference/transitions/horizontal-wipe.gif){ width="300" }<br>A crisp vertical edge sweeps left-to-right to cover, then back to reveal. One rect per frame; pairs well with fast-scrolling text. |
+| `Glitch Bars` | `GlitchBars` | ![](../assets/reference/transitions/glitch-bars.gif){ width="300" }<br>Random-height horizontal bars (1–4 rows) flash on in shuffled order — like a corrupted video signal — then clear in reverse. Looks alive over moving text. |
+| `Diagonal Wipe` | `DiagonalWipe` | ![](../assets/reference/transitions/diagonal-wipe.gif){ width="300" }<br>A diagonal boundary sweeps top-left → bottom-right to cover, then bottom-right → top-left to reveal. One delta span per row per frame. |
+| `Iris Snap` | `IrisSnap` | ![](../assets/reference/transitions/iris-snap.gif){ width="300" }<br>A chunky diamond aperture grows to hide the screen, then a diamond hole opens to reveal it (per-row span table). |
+| `Venetian Shutters` | `VenetianShutters` | ![](../assets/reference/transitions/venetian-shutters.gif){ width="300" }<br>Coarse horizontal bands (default 8) close then open like blinds, slightly staggered. |
+| `Mosaic Resolve` | `MosaicResolve` | ![](../assets/reference/transitions/mosaic-resolve.gif){ width="300" }<br>Blocks (default 8×4) cover then reveal in a fixed pseudo-random order — only the newly-changed blocks are written each frame. Deterministic given `seed`. |
+| `CRT Collapse` | `CRTCollapse` | ![](../assets/reference/transitions/crt-collapse.gif){ width="300" }<br>A CRT power-off: the picture collapses to a center scanline, then blooms back open from that line. |
+| `Light Slit` | `LightSlitRewrite` | ![](../assets/reference/transitions/light-slit.gif){ width="300" }<br>A bright vertical scanner (default 3 px) sweeps across, covering on the way out and revealing the new content on the way back. |
 
 !!! note "`DropFromSky` is a duck-typed sibling, not a `Transition` subclass"
     It slides the *new* content in from an edge via a `pre_render_hook` instead of
