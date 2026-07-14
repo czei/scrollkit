@@ -66,12 +66,13 @@ def test_build_jobs_enumerates_every_category_with_unique_slugs():
     assert len(slugs) == len(set(slugs)), "duplicate sample slug(s)"
     categories = {j["category"] for j in jobs}
     assert categories == {"transitions", "scrollers", "palette", "content",
-                          "splashes", "treatments", "particles", "animators",
-                          "gradient", "colors"}
+                          "splashes", "treatments", "particles", "characters",
+                          "animators", "gradient", "colors"}
     # a representative slug from each animated + still route resolves
     for slug in ("iris-snap", "kinetic-marquee", "rainbow-chase",
                  "scrollingtext-scroll", "drip", "velvet-sweep", "snow",
-                 "twinkle-animator", "vertical", "spectrum", "named-colors"):
+                 "owl-cel-flap", "twinkle-animator", "vertical", "spectrum",
+                 "named-colors"):
         assert slug in slugs, slug
 
 
@@ -80,3 +81,17 @@ def test_every_palette_treatment_has_a_sample():
     from scrollkit.effects.palette_treatments import TREATMENT_CLASSES
     live = {cls.__name__ for cls in TREATMENT_CLASSES}
     assert live == set(rr.TREATMENTS)
+
+
+def test_character_samples_animate_the_reel_demos_own_art():
+    """Every character sample must be generatable from the live showcase-reel
+    demo — the tutorial (docs/guide/character-animation.md) quotes that code,
+    so the sample config and the demo must not drift apart."""
+    rr = _load_generator()
+    reel = rr._load_reel()
+    for name in ("OWL_FLY_UP", "OWL_FLY_DOWN", "BIG_OWL_UP", "BIG_OWL_MID",
+                 "BIG_OWL_DOWN", "BEE_UP", "BEE_DOWN", "SPRITE_CHARS",
+                 "SPRITE_COLORS", "_mirror", "_ease_in", "_ease_out"):
+        assert hasattr(reel, name), name
+    assert set(rr.CHARACTERS) == {"owl-flap", "owl-cel-flap", "owl-stoop",
+                                  "bee-zigzag", "letter-drop"}

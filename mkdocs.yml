@@ -65,6 +65,7 @@ nav:
       - Gradient Text: guide/gradient-text.md
       - Palette-Animated Bitmap Text: guide/bitmap-text.md
       - Palette Partitions & Treatments: guide/palette-treatments.md
+      - Character Animation: guide/character-animation.md
       - Web Interface: guide/web.md
       - OTA Updates: guide/ota.md
       - Networking: guide/networking.md

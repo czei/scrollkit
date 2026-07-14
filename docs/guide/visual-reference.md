@@ -139,6 +139,22 @@ Lightweight particle systems. Documented in [Effects](effects.md#particles).
 
 </div>
 
+## Character animation
+
+Sprite characters built from ASCII rows — pose cycling, mirroring, eased
+flight paths, carried props. Animated with the showcase-reel demo's own art.
+Full tutorial: [Character Animation](character-animation.md).
+
+<div class="grid" markdown>
+
+<figure markdown="span">![owl-flap](../assets/reference/characters/owl-flap.gif){ width="240" }<figcaption>Two-pose flap — mirrored art on the return trip</figcaption></figure>
+<figure markdown="span">![owl-cel-flap](../assets/reference/characters/owl-cel-flap.gif){ width="240" }<figcaption>Three-pose cel flap on a sine swoop</figcaption></figure>
+<figure markdown="span">![owl-stoop](../assets/reference/characters/owl-stoop.gif){ width="240" }<figcaption>The stoop — ease-in dive, ease-out climb</figcaption></figure>
+<figure markdown="span">![bee-zigzag](../assets/reference/characters/bee-zigzag.gif){ width="240" }<figcaption>Bee zigzag — a sine path with a two-pose flap</figcaption></figure>
+<figure markdown="span">![letter-drop](../assets/reference/characters/letter-drop.gif){ width="240" }<figcaption>Carrying props — letters released from the talons</figcaption></figure>
+
+</div>
+
 ## Image animators
 
 Per-frame motion layered onto a *static image* already on screen — the image holds while

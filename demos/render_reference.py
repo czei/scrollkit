@@ -147,6 +147,18 @@ PARTICLES = {
     "ember":   (16, 120),
 }
 
+# Character-animation samples — slug -> max capture frames. Each animates the
+# showcase-reel demo's OWN sprite art and pose/easing idioms (imported from
+# demos/hard/showcase_reel.py), so these GIFs can never drift from the code
+# that docs/guide/character-animation.md quotes.
+CHARACTERS = {
+    "owl-flap":     170,
+    "owl-cel-flap": 110,
+    "owl-stoop":    100,
+    "bee-zigzag":   100,
+    "letter-drop":  180,
+}
+
 # Image animators — class name -> (bmp filename, kind, kwargs, frames, caption). Each
 # decorates a static image already on screen; the kwargs are the owner-art-directed
 # ThemeParkWaits intro specs the engine was extracted from, one recognisable subject per
@@ -695,6 +707,185 @@ async def _preview_particles(slug):
 
 
 # ---------------------------------------------------------------------------
+# Route: character animation (the sprite/pose/easing idioms the tutorial
+# teaches, animated with the showcase-reel demo's own art and helpers).
+# ---------------------------------------------------------------------------
+
+def _load_reel():
+    """Import demos/hard/showcase_reel.py (not a package) by file path."""
+    import importlib.util
+    path = os.path.join(_HERE, "hard", "showcase_reel.py")
+    spec = importlib.util.spec_from_file_location("_reel_for_reference", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _character_body(slug):
+    async def body(display):
+        import math
+        from scrollkit.display.unified import displayio
+        reel = _load_reel()
+
+        palette = displayio.Palette(len(reel.SPRITE_COLORS))
+        for i, color in enumerate(reel.SPRITE_COLORS):
+            palette[i] = color
+        palette.make_transparent(0)
+
+        def tile(rows):
+            h, w = len(rows), len(rows[0])
+            bmp = displayio.Bitmap(w, h, len(reel.SPRITE_COLORS))
+            for y, row in enumerate(rows):
+                for x, ch in enumerate(row):
+                    slot = reel.SPRITE_CHARS[ch]
+                    if slot:
+                        bmp[x, y] = slot
+            t = displayio.TileGrid(bmp, pixel_shader=palette)
+            t.hidden = True
+            display.add_layer(t)
+            return t
+
+        def pose(tiles, order, per, frame, x, y):
+            """Show one pose of a cycle at (x, y); hide the others."""
+            i = order[(frame // per) % len(order)]
+            for j, t in enumerate(tiles):
+                if j == i:
+                    t.x, t.y = x, y
+                    t.hidden = False
+                else:
+                    t.hidden = True
+
+        async def frame():
+            ok = await display.show()
+            await asyncio.sleep(0.05)
+            return ok is not False
+
+        small = (reel.OWL_FLY_UP, reel.OWL_FLY_DOWN)
+        big = (reel.BIG_OWL_UP, reel.BIG_OWL_MID, reel.BIG_OWL_DOWN)
+
+        if slug == "owl-flap":
+            # Two-pose flap, out and back — the return trip is the MIRRORED art.
+            right = [tile(reel._mirror(rows)) for rows in small]
+            left = [tile(rows) for rows in small]
+            for tiles, x0, dx in ((right, -16, 2), (left, 66, -2)):
+                for f in range(41):
+                    pose(tiles, (0, 1), 3, f, x0 + dx * f, 11)
+                    if not await frame():
+                        return
+                for t in tiles:
+                    t.hidden = True
+        elif slug == "owl-cel-flap":
+            # Three poses cycled UP -> MID -> DOWN -> MID: a true cel flap.
+            tiles = [tile(rows) for rows in big]
+            travel = 64 + 24 + 6
+            total = travel // 2
+            for f in range(total + 1):
+                t = f / total
+                x = int(round(64 + 3 - travel * t))
+                y = 3 + int(round(8 * math.sin(math.pi * t)))
+                pose(tiles, (0, 1, 2, 1), 2, f, x, y)
+                if not await frame():
+                    return
+        elif slug == "owl-stoop":
+            # The hunting arc: an ease-in dive, then an ease-out climb.
+            tiles = [tile(reel._mirror(rows)) for rows in big]
+            dive, climb = 30, 34
+            for f in range(dive + climb + 1):
+                if f <= dive:
+                    p = f / dive
+                    x = -26 + 40 * p
+                    y = -4 + 20 * reel._ease_in(p)
+                else:
+                    q = (f - dive) / climb
+                    x = 14 + 56 * q
+                    y = 16 - 22 * reel._ease_out(q)
+                pose(tiles, (0, 1, 2, 1), 2, f, int(round(x)), int(round(y)))
+                if not await frame():
+                    return
+        elif slug == "bee-zigzag":
+            # Sine-path zigzag with a two-pose flap every other frame.
+            tiles = [tile(rows) for rows in (reel.BEE_UP, reel.BEE_DOWN)]
+            for f in range(46):
+                x = int(round(-15 + 1.8 * f))
+                y = 12 + int(round(5.0 * math.sin(f * 0.30)))
+                pose(tiles, (0, 1), 2, f, x, y)
+                if not await frame():
+                    return
+        else:  # letter-drop: props released from the talons as the owl passes
+            from scrollkit.effects.reveal_splash import pixels_from_text
+            word, scale, y_land = "CARGO", 2, 16
+            x0 = (64 - (6 * len(word) - 1) * scale) // 2
+            letters = []
+            for i, ch in enumerate(word):
+                lpx = pixels_from_text(ch, x=0, y=0)
+                w = (max(px for px, _ in lpx) + 1) * scale
+                bmp = displayio.Bitmap(w, 7 * scale, 2)
+                for (gx, gy) in lpx:
+                    for sx in range(scale):
+                        for sy in range(scale):
+                            bmp[gx * scale + sx, gy * scale + sy] = 1
+                lpal = displayio.Palette(2)
+                lpal.make_transparent(0)
+                lpal[1] = 0x30B8B0
+                t = displayio.TileGrid(bmp, pixel_shader=lpal)
+                t.hidden = True
+                display.add_layer(t)
+                letters.append((t, x0 + i * 6 * scale, y_land, w))
+            owl = [tile(rows) for rows in small]     # left-facing pass
+            owl_w = len(small[0][0])
+            falling, dropped = [], set()
+            x, f = 66.0, 0
+            while x > -owl_w - 2 or falling:
+                x -= 1.6
+                if x > -owl_w - 2:
+                    pose(owl, (0, 1), 3, f, int(round(x)), 0)
+                else:
+                    for t in owl:
+                        t.hidden = True
+                center = x + owl_w * 0.35
+                for i in range(len(letters)):
+                    t, tx, _ty, w = letters[i]
+                    if i not in dropped and center <= tx + w / 2:
+                        dropped.add(i)
+                        falling.append([i, 0])
+                still = []
+                for item in falling:
+                    i, phase = item
+                    t, tx, ty, _w = letters[i]
+                    if phase < 7:
+                        p = phase / 7.0
+                        t.x, t.y = tx, int(round(7 + (ty - 7) * p * p))
+                        t.hidden = False
+                        item[1] += 1
+                        still.append(item)
+                    else:
+                        t.x, t.y = tx, ty
+                falling = still
+                f += 1
+                if not await frame():
+                    return
+            for _ in range(20):
+                if not await frame():
+                    return
+    return body
+
+
+def _gen_character(slug, out):
+    max_frames = CHARACTERS[slug]
+    app = _SelfDrivingApp(_character_body(slug))
+    asyncio.run(_capture_self_driving(app, max_frames))
+    saved = app.display.save_gif(out, target_width=REF_WIDTH,
+                                 max_colors=REF_COLORS, frame_step=REF_STEP)
+    return _saved(out if saved else "")
+
+
+def _preview_character(slug):
+    app = _SelfDrivingApp(_character_body(slug),
+                          title="ScrollKit reference — %s" % slug)
+    asyncio.run(app.run())
+
+
+# ---------------------------------------------------------------------------
 # Route: image animators (per-frame motion layered onto a static image). Loads
 # the subject BMP as a layer, then drives the animator's start/step/detach contract
 # exactly as the host does — mirroring the app's intro pipeline (OnDiskBitmap for the
@@ -936,6 +1127,13 @@ def build_jobs():
         add("particles", slug,
             (lambda sl=slug, o=out: asyncio.run(_gen_particles(sl, o))),
             (lambda sl=slug: asyncio.run(_preview_particles(sl))))
+
+    # Character-animation samples (the tutorial's worked example)
+    for slug in CHARACTERS:
+        out = _out("characters", slug)
+        add("characters", slug,
+            (lambda sl=slug, o=out: _gen_character(sl, o)),
+            (lambda sl=slug: _preview_character(sl)))
 
     # Image animators (enumerated from the live ANIMATOR_CLASSES catalog)
     from scrollkit.effects.image_animators import ANIMATOR_CLASSES
