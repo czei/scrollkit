@@ -8,8 +8,9 @@ as a table of contents for the per-effect tutorials in the docs.
 
 What plays (scheduled so nothing similar ever runs twice in a row):
 
-  builds / exits   all 13 theatrical transitions — six as named acts' own
-                   build+exit, the rest as anonymous wipes around the dwells
+  builds / exits   all 13 theatrical transitions — each gets a named act
+                   (build, a true screen-to-screen content swap, exit), and
+                   six double as anonymous wipes around the dwells
   dwells           all 13 palette treatments, run on a partitioned word
   splashes         reveal wink, drip, swarm (both directions), swirl
   interstitials    KineticMarquee, WaveRider, the 5 bitmap-text palette
@@ -784,12 +785,23 @@ class ShowcaseReelApp(ScrollKitApp):
     # -- named acts: transitions ---------------------------------------------------
 
     async def _act_transition(self, word, scale, tname):
-        """The named transition builds its own word AND takes it away — shown
-        twice so the pattern is unmistakable."""
+        """The named transition builds its own word, then does its REAL job —
+        a cover -> swap-while-hidden -> reveal between two different screens
+        (the word jumps position and heats up) — then takes it away. Three
+        passes of the pattern, one of them a true content swap."""
         entry = self._word(word, scale)
         if not await self._reveal_word_via(tname, entry):
             return False
-        if not await self._hold(22):
+        if not await self._hold(14):
+            return False
+
+        def swap_screens():
+            tile = entry["tile"]
+            tile.y = 3 if random.random() < 0.5 else 29 - entry["h"]
+            self._word_palette[1] = self._theme[4]
+        if not await self._swap_via(tname, swap_screens):
+            return False
+        if not await self._hold(14):
             return False
         if not await self._hide_word_via(tname):
             return False

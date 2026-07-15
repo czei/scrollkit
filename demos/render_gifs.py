@@ -13,7 +13,7 @@ Run (regenerate all 12 GIFs):
     make docs-gifs
     # or:  PYTHONSAFEPATH=1 PYTHONPATH=src python demos/render_gifs.py
 
-Render only some:   python demos/render_gifs.py hello_world showcase
+Render only some:   python demos/render_gifs.py hello_world showcase_reel
 Use live network:   python demos/render_gifs.py --live temperature
 
 This is a docs/tooling script, not a demo itself — it imports each demo module
@@ -121,7 +121,6 @@ PER_DEMO = {
     "rainbow":              {"seconds": 5.0},
     "temperature":          {"seconds": 5.0, "seed": _seed_network},
     "crypto_dashboard":     {"seconds": 8.0, "seed": _seed_network},
-    "showcase":             {"seconds": 9.0, "step": 3},
     "showcase_reel":        {"self_driving": True, "max_frames": 420, "step": 3},
     "swarm_reveal":         {"self_driving": True, "max_frames": 170},
 }

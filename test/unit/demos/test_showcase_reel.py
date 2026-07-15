@@ -1,30 +1,39 @@
-"""US7 — the showcase reel runs strict end-to-end and demos every signature effect.
+"""US7 — the showcase reel demos every signature effect under the strict gate.
 
-Loads the actual ``demos/hard/showcase.py`` reel and verifies:
-  - it visits ALL 14 announced scenes (3 scrollers + 7 transitions + 4 palette
-    effects), and
-  - it cleans up its effect layers between scenes (no layer leak), and
-  - a full pass passes the strict feasibility gate at 20 fps end to end.
+Pins ``demos/hard/showcase_reel.py`` (the self-driving reel that replaced the
+announced title-card showcase):
+
+  - the act decks advertise EVERY signature effect — all 13 transitions as
+    named acts, all 13 palette treatments, the splashes, the scrollers and
+    bitmap-text banners, the particles, and both characters; and
+  - a forced sample of acts (the owl opener, a treatment, a transition act's
+    screen-to-screen swap, the swarm) plays end to end on a STRICT display —
+    the feasibility gate raises if any effect busts the 20 fps device budget.
+
+The reel is self-driving (setup() runs the show), so the runtime test drives
+setup() as a task and swaps the app's ~20 fps frame presenter for a no-sleep
+version — same rendering, unit-test speed.
 """
 
 import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
+import asyncio
 import importlib.util
+import random
+import time
 
 import pytest
 
 pygame = pytest.importorskip("pygame")
 
-from scrollkit.app.base import ScrollKitApp
-from scrollkit.dev import run_headless
-
 _DEMO_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..",
-                          "demos", "hard", "showcase.py")
+                          "demos", "hard", "showcase_reel.py")
 
 
 def _load_demo():
-    spec = importlib.util.spec_from_file_location("showcase_demo", _DEMO_PATH)
+    spec = importlib.util.spec_from_file_location("showcase_reel_demo",
+                                                  _DEMO_PATH)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -32,67 +41,91 @@ def _load_demo():
 
 DEMO = _load_demo()
 
-# Enough frames to complete one full pass through every scene (and wrap), measured
-# from the reel pacing — so every scene boundary (layer attach/detach + the strict
-# gate) is exercised, not just the first few.
-FULL_PASS_FRAMES = 2300
+TREATMENT_ACTS = {"velvet", "wake", "halo", "sonar", "cipher", "ink", "rim",
+                  "heatmap", "eclipse", "gradient", "anatomy", "circuit",
+                  "trace"}
+TRANSITION_ACTS = {"lightslit", "iris", "mosaic", "gradual", "venetian",
+                   "scanfold", "crt", "dissolve", "glitch", "columnrain",
+                   "diagonal", "wipe", "dropsky"}
+OTHER_ACTS = {"scrollkit", "swarm", "drip", "wink", "swirl", "splitflap",
+              "sparkle", "snow", "emberp"}
+INTERSTITIALS = {"owl-l", "owl-r", "bee-r", "bee-l", "marquee", "wave",
+                 "rainbow", "mono", "neon", "chrome", "hazard"}
 
 
-def _reel_app():
-    class _App(ScrollKitApp):
-        def __init__(self):
-            super().__init__(enable_web=False, update_interval=10)
-            self._c = None
-
-        async def create_display(self):
-            from scrollkit.display.simulator import SimulatorDisplay
-            return SimulatorDisplay(width=64, height=32)
-
-        async def prepare_display_content(self):
-            return self._c
-
-        async def setup(self):
-            self._c = DEMO.ShowcaseReel()
-    return _App()
+def test_decks_advertise_every_signature_effect():
+    """Structural completeness: nothing can quietly drop out of the reel."""
+    app = DEMO.ShowcaseReelApp()
+    acts, mids = app._decks()
+    act_names = {entry[0] for entry in acts}
+    mid_names = {entry[0] for entry in mids}
+    assert TREATMENT_ACTS <= act_names, TREATMENT_ACTS - act_names
+    assert TRANSITION_ACTS <= act_names, TRANSITION_ACTS - act_names
+    assert OTHER_ACTS <= act_names, OTHER_ACTS - act_names
+    assert INTERSTITIALS <= mid_names, INTERSTITIALS - mid_names
+    # every act carries a (name, family, callable) shape the scheduler needs
+    for entry in acts + mids:
+        assert len(entry) == 3 and callable(entry[2]), entry[0]
 
 
-def test_reel_runs_strict_end_to_end():
-    result = run_headless(_reel_app(), frames=FULL_PASS_FRAMES,
-                          hardware=True, strict=True)
-    assert result.errors == [], result.errors
-    assert result.ok is True
-    assert result.advanced is True
+def test_transition_deck_names_cover_all_13_library_transitions():
+    """13 named transition acts <-> 13 library transitions, no drift."""
+    from scrollkit.config.transition_names import TRANSITION_NAMES
+    assert len(TRANSITION_ACTS) == len(TRANSITION_NAMES) == 13
 
 
 @pytest.mark.asyncio
-async def test_reel_visits_all_scenes_without_leaking_layers():
-    from scrollkit.display.simulator import SimulatorDisplay
-    d = SimulatorDisplay(width=64, height=32)
-    await d.initialize()
-    reel = DEMO.ShowcaseReel()
-    n_scenes = len(reel.SCENES)
-    visited = set()
-    peak_layers = 0
-    for _ in range(FULL_PASS_FRAMES):
-        await d.clear()
-        await reel.render(d)
-        await d.show()
-        visited.add(reel._i)
-        peak_layers = max(peak_layers, len(d._layer_group))
-        if len(visited) == n_scenes:
-            break
-    # Every announced scene was reached...
-    assert visited == set(range(n_scenes)), visited
-    # ...and effect layers are detached between scenes — at most the single
-    # persistent (transparent) paint canvas plus one active effect layer remains.
-    assert peak_layers <= 2, peak_layers
+async def test_forced_acts_play_end_to_end_under_the_strict_gate():
+    random.seed(11)
+    app = DEMO.ShowcaseReelApp(
+        force_acts=["scrollkit", "velvet", "iris", "swarm"])
 
+    # Strict display: the feasibility gate raises FeasibilityError if any act
+    # busts the modeled 20 fps hardware budget.
+    async def strict_display():
+        from scrollkit.display.simulator import SimulatorDisplay
+        return SimulatorDisplay(width=64, height=32, strict=True)
+    app.create_display = strict_display
 
-def test_reel_advertises_every_signature_effect():
-    # The reel must chain all three classes + the foundation, announced by name.
-    labels = [s.LABEL for s in DEMO.ShowcaseReel().SCENES]
-    for expected in ["MARQUEE", "WAVERIDER", "SPLITFLAP",
-                     "IRIS", "VENETIAN", "MOSAIC", "CRT FOLD", "LIGHTSLIT",
-                     "RAIN", "DROP IN",
-                     "RAINBOW", "NEON TUBE", "CHROME", "HAZARD"]:
-        assert expected in labels, expected
+    # Same rendering, no 20 fps pacing sleep — unit-test speed.
+    async def fast_frame(self):
+        ok = await self.display.show()
+        await asyncio.sleep(0)
+        return ok is not False
+    orig_frame = DEMO.ShowcaseReelApp._frame
+    DEMO.ShowcaseReelApp._frame = fast_frame
+    try:
+        await app._initialize_display()
+        app.display.start_recording()
+        app.running = True
+        task = asyncio.create_task(app.setup())
+        deadline = time.monotonic() + 60
+        try:
+            while (not task.done()
+                   and len(app.display._recording or []) < 900
+                   and time.monotonic() < deadline):
+                await asyncio.sleep(0)
+        finally:
+            app.running = False
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except BaseException:
+                    pass
+        if task.done() and not task.cancelled() and task.exception():
+            raise task.exception()
+
+        frames = app.display._recording or []
+        # The forced acts alone span ~800 frames; reaching the cap means the
+        # opener, treatment, transition swap, and swarm all rendered.
+        assert len(frames) >= 900, len(frames)
+        lit = sum(1 for f in frames[::40] if f.max() > 40)
+        assert lit >= 10, "reel rendered mostly-dark frames"
+    finally:
+        DEMO.ShowcaseReelApp._frame = orig_frame
+        app.display.stop_recording()
+        try:
+            await app.cleanup()
+        except Exception:
+            pass

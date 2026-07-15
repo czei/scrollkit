@@ -16,13 +16,14 @@ all built to respect the device's memory and frame budget.
       horizontal/diagonal wipes, glitch-bars, drop-from-sky
     - **[Palette-animated bitmap text](bitmap-text.md)** — rainbow, mono, neon, chrome, hazard
 
-    See `demos/hard/showcase.py` for a reel that announces and demonstrates every
-    one of them.
+    See `demos/hard/showcase_reel.py` for a reel that demonstrates every one of
+    them (and the rest of the library) — each act names the effect it plays.
 
-The `showcase` demo runs the whole reel — characterful scrolls, theatrical
-transitions, and palette-animated bitmap text — back to back:
+The `showcase_reel` demo runs the whole catalog — transitions, palette
+treatments, splashes, scrollers, bitmap text, particles, and two animated
+characters — as an endless self-scheduling show:
 
-![Showcase reel](../assets/demos/showcase.gif){ width="480" }
+![Showcase reel](../assets/demos/showcase_reel.gif){ width="480" }
 
 ## One effect contract, plus standalone helpers
 

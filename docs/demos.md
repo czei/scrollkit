@@ -131,14 +131,6 @@ rotating coin, and a scrolling price ticker — fed by two no-key APIs with chun
 fetch, web config, and OTA. `demos/hard/crypto_dashboard.py` — the
 [Hard tutorial](tutorials/hard.md).
 
-### Showcase
-
-![Showcase demo](assets/demos/showcase.gif){ width="480" }
-
-A scripted reel that announces and demonstrates every signature effect:
-characterful scrolls, theatrical transitions, and palette-animated bitmap text.
-`demos/hard/showcase.py` — see the [Effects guide](guide/effects.md).
-
 ### Showcase Reel
 
 ![Showcase-reel demo](assets/demos/showcase_reel.gif){ width="480" }
