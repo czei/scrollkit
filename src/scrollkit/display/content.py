@@ -37,6 +37,7 @@ def _resolve_color(color):
 
     ``None``  → library default_color setting (or 0xFFFFFF if no app running)
     ``str``   → a named settings key; reads the current value from _settings
+    ``(r, g, b)`` → packed to ``0xRRGGBB``
     ``int``   → used as-is
     """
     if color is None:
@@ -48,6 +49,15 @@ def _resolve_color(color):
             except Exception:
                 pass
         return 0xFFFFFF
+    if isinstance(color, (tuple, list)) and len(color) == 3:
+        try:
+            r, g, b = (int(c) for c in color)
+        except (TypeError, ValueError):
+            return color
+        if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
+            return (r << 16) | (g << 8) | b
+        # Out-of-range channels pass through unpacked so dev.validate() can
+        # flag them (color_out_of_range) instead of silently wrapping.
     return color
 
 
@@ -218,7 +228,8 @@ class StaticText(_GradientFillMixin, DisplayContent):
             text: Text to display
             x: X coordinate
             y: Y coordinate
-            color: Text color as 24-bit RGB int (None = use library default_color setting)
+            color: Text color as a 24-bit RGB int or ``(r, g, b)`` tuple
+                (None = use library default_color setting)
             duration: Display duration in seconds
             priority: Queue priority (default Priority.NORMAL)
             palette: ``None`` for a flat ``color`` (the default). A sequence of two
@@ -289,7 +300,8 @@ class ScrollingText(_GradientFillMixin, DisplayContent):
             text: Text to display / scroll.
             x: Starting X (None = right edge for scrolling, centred for static).
             y: Y coordinate (baseline).
-            color: 24-bit RGB int (None = library default_color setting).
+            color: 24-bit RGB int or ``(r, g, b)`` tuple (None = library
+                default_color setting).
             speed: px/sec (None = library scroll_speed setting; 0 = static mode).
             priority: Queue priority (default Priority.NORMAL).
             static_duration: Seconds to show text before completing in static mode.

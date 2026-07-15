@@ -47,8 +47,6 @@ PYTHONPATH=src python demos/easy/hello_world.py
 
 ```python
 import asyncio
-import sys
-sys.path.insert(0, "src")
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText

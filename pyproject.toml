@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scrollkit"
-version = "0.9.0"
+version = "0.9.1"
 description = "LED Matrix Display Framework for CircuitPython and Desktop"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -33,7 +33,10 @@ classifiers = [
 # These are simulator-only — the base package and the on-device (CircuitPython)
 # path must stay dependency-free.
 simulator = ["pygame>=2.0", "Pillow>=9.0", "numpy>=1.21"]
-web = ["aiohttp>=3.8"]
+# Desktop settings web UI — provides the ``adafruit_httpserver`` module that
+# SettingsWebServer lazy-imports (stdlib socket as the pool). On CircuitPython
+# the same module comes from the Adafruit bundle, not pip.
+web = ["adafruit-circuitpython-httpserver>=4.0"]
 # dev pulls in the simulator so `pip install -e .[dev]` is the single command that
 # gets everything the test suite needs (it runs against the simulator).
 dev = ["scrollkit[simulator]", "pytest>=7.0", "pytest-asyncio>=0.21", "pytest-cov>=4.0", "pytest-timeout>=2.1", "diff-cover>=9.0", "ruff>=0.1", "requests>=2.28"]

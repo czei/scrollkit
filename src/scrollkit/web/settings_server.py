@@ -300,6 +300,14 @@ class SettingsWebServer:
     async def start(self):
         try:
             self._build_server()
+        except ImportError:
+            # Optional dependency absent — the app runs fine without the web UI,
+            # so say how to get it rather than dumping an error.
+            print('Web settings UI disabled - adafruit_httpserver not installed '
+                  '(desktop: pip install "scrollkit[web]"; CircuitPython: copy '
+                  'adafruit_httpserver from the Adafruit bundle to /lib)')
+            return False
+        try:
             self._server.start(self._host, self._port)
             self._running = True
             return True

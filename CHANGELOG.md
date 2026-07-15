@@ -3,6 +3,44 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.1] - 2026-07-15
+
+First-run developer experience, from a clean-room audit of what
+`pip install "scrollkit[simulator]"` actually delivers to a new user.
+
+### Fixed
+- Simulator `displayio.FourWire(reset=...)` no longer overwrites its callable
+  `reset()` method with the reset pin.
+- `StaticText`/`ScrollingText` now accept `(r, g, b)` tuple colors — previously
+  a tuple silently rendered the wrong color (the docs' own
+  `color=(0, 255, 128)` example drew blue instead of green).
+- The `[web]` extra now installs `adafruit-circuitpython-httpserver` — the
+  dependency `SettingsWebServer` actually imports — instead of `aiohttp`,
+  which nothing in the library uses. `pip install "scrollkit[web]"` gives a
+  working browser settings UI on desktop.
+- The README / docs Quick Start now opens the simulator window
+  (`create_display()` → `SimulatorDisplay`); the previous snippet ran headless
+  and invisible on desktop. Dropped the leftover `sys.path.insert(0, "src")`
+  repo-ism from the getting-started example.
+
+### Changed
+- Quieter, friendlier desktop startup: a missing `adafruit_httpserver` prints
+  one actionable line instead of a stack of failures; the meaningless desktop
+  "Free memory: 100000 bytes" placeholder is no longer printed (real device
+  and hardware-sim numbers still are); "Starting SLDK application" is now
+  "Starting ScrollKit application"; and importing the library on desktop no
+  longer creates an empty `error_log` in the working directory (the file
+  appears on first actual write).
+
+### Added
+- Focused simulator primitive, URL utility, and MP4 recording tests, including
+  a real ffmpeg/ffprobe H.264 smoke check.
+- A non-writing MatrixPortal S3 raw-REPL smoke probe (`make test-device-s3
+  PORT=...`) for deployed-library, panel, painter, text, refresh, and memory
+  validation.
+- CI changed-line coverage on pull requests plus clean-wheel and media-encode
+  smoke jobs, so package data and MP4 support are verified before release.
+
 ## [0.9.0] - 2026-07-14
 
 The DarkOwl promotion: the effect mechanisms invented for the DarkOwl LED

@@ -27,8 +27,14 @@ panel pixel for pixel and exports its own GIFs and videos, like the one above.
 import asyncio
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText
+from scrollkit.display.simulator import SimulatorDisplay   # desktop-only import
 
 class HelloWorldApp(ScrollKitApp):
+    async def create_display(self):
+        # Open the desktop simulator window. On CircuitPython hardware, delete
+        # this override (and its import) — the default display drives the panel.
+        return SimulatorDisplay(width=64, height=32)
+
     async def setup(self):
         self.content_queue.add(
             ScrollingText("Hello, World!", y=12, color=(0, 255, 128)))

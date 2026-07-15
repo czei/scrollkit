@@ -41,13 +41,19 @@ channels for application payloads, not alternate `pip` installation channels.
 import asyncio
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText
+from scrollkit.display.simulator import SimulatorDisplay   # desktop-only import
 
 class HelloWorldApp(ScrollKitApp):
+    async def create_display(self):
+        # Open the desktop simulator window. On CircuitPython hardware, delete
+        # this override (and its import) — the default display drives the panel.
+        return SimulatorDisplay(width=64, height=32)
+
     async def setup(self):
         self.content_queue.add(
             ScrollingText("Hello, LED Matrix!", y=12, color=0x00AAFF))
 
-asyncio.run(HelloWorldApp().run())   # auto-detects MatrixPortal hardware vs desktop simulator
+asyncio.run(HelloWorldApp().run())
 ```
 
 > The top-level `scrollkit` package deliberately performs **no** imports (every

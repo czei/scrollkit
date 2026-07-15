@@ -38,7 +38,7 @@ except ImportError:  # CircuitPython has no 'typing' module
     pass
 from ..display.content import ContentQueue
 from ..display.interface import DisplayInterface
-from .memory import free_memory
+from .memory import free_memory, DESKTOP_FREE_BYTES
 
 
 class _SuspendRender:
@@ -58,7 +58,7 @@ class _SuspendRender:
 
 
 class SLDKApp:
-    """Base class for SLDK applications.
+    """Base class for ScrollKit applications.
     
     Implements three-process architecture:
     1. Display process - Always runs
@@ -92,7 +92,7 @@ class SLDKApp:
                  enable_watchdog: bool = False, watchdog_timeout: int = 8,
                  enable_auto_reboot: bool = False,
                  max_refresh_failures: int = None) -> None:
-        """Initialize SLDK application.
+        """Initialize ScrollKit application.
 
         Args:
             enable_web: Whether to enable web server (if memory allows)
@@ -558,19 +558,18 @@ class SLDKApp:
             if not web_server:
                 return
             
-            print("Web server process started")
-            
-            # Start the web server
+            # Start the web server. A False return means start() already
+            # explained why (e.g. adafruit_httpserver not installed) — the app
+            # keeps running without the web UI, so don't pile on more output.
             if await web_server.start():
                 print(f"Web interface available at: {web_server.get_server_url()}")
-                
+
                 # Run web server
                 await web_server.run_forever()
-            else:
-                print("Failed to start web server")
-            
+
         except ImportError:
-            print("Web server not available - adafruit_httpserver is required")
+            print('Web settings UI disabled - adafruit_httpserver not installed '
+                  '(desktop: pip install "scrollkit[web]")')
         except Exception as e:
             print(f"Web server error: {e}")
     
@@ -583,7 +582,9 @@ class SLDKApp:
             if now - self._last_memory_report > self._memory_report_interval:
                 gc.collect()
                 free = free_memory()
-                if free > 0:
+                # Only a real (device) or modeled (hardware-sim) number is worth
+                # reporting; the desktop placeholder constant is meaningless.
+                if free > 0 and free != DESKTOP_FREE_BYTES:
                     print(f"Free memory: {free} bytes")
                 self._last_memory_report = now
                 
@@ -594,7 +595,7 @@ class SLDKApp:
     
     async def run(self) -> None:
         """Run the application with three processes."""
-        print("Starting SLDK application")
+        print("Starting ScrollKit application")
         
         # Initialize display
         await self._initialize_display()

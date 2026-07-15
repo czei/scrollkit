@@ -60,7 +60,19 @@ class TestStaticText:
         assert text2.color == 0x00FF00
         assert text3.color == 0x0000FF
         assert text4.color == 0xFFFFFF
-    
+
+    def test_tuple_colors_pack_to_int(self):
+        """(r, g, b) tuples and lists resolve to packed 0xRRGGBB ints."""
+        assert StaticText("t", color=(0, 255, 128)).color == 0x00FF80
+        assert StaticText("t", color=[255, 0, 0]).color == 0xFF0000
+        assert ScrollingText("t", color=(0, 255, 128)).color == 0x00FF80
+        # Whole-number floats are fine
+        assert StaticText("t", color=(12.0, 0, 1)).color == 0x0C0001
+        # Out-of-range tuples pass through so dev.validate() can flag them
+        assert StaticText("t", color=(300, 0, 0)).color == (300, 0, 0)
+        # A tuple is an explicit value, not a named-setting key
+        assert StaticText("t", color=(1, 2, 3))._color_setting is None
+
     @pytest.mark.asyncio
     async def test_static_text_render(self, mock_display):
         """Test rendering static text to display."""

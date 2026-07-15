@@ -117,6 +117,15 @@ class ErrorHandler:
                 self.is_readonly = True
                 print(f"Failed to delete existing log file: {file_name}")
 
+        # Desktop CPython (storage is None; a patched-storage test never lands
+        # here): the working directory is writable — skip the probe so merely
+        # importing the library neither creates an empty log file in the
+        # developer's cwd nor prints device diagnostics. The file appears on
+        # the first actual write.
+        if storage is None:
+            self.is_readonly = False
+            return
+
         # Verify writability WITHOUT truncating: append-open creates the file if it
         # is missing and leaves any existing contents intact (so PRODUCTION keeps
         # the prior session's log for post-mortem).
