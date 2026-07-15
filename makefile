@@ -11,7 +11,7 @@ PYTEST := PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) -m pytest
 
 .PHONY: all test test-unit test-all test-coverage lint lint-errors test-with-lint \
         format clean mpy copy-to-circuitpy hero docs-gifs docs-reference deploy-docs \
-        install-test-deps install-dev-deps install-lint-deps
+        install-test-deps install-dev-deps install-lint-deps test-device-s3
 
 all: test
 
@@ -26,6 +26,14 @@ test-all:
 
 test-coverage:
 	$(PYTEST) --cov=scrollkit --cov-report=term --cov-report=html
+
+# Non-writing smoke probe for an already-deployed MatrixPortal S3 library.
+# First deliberately copy the current source with `make copy-to-circuitpy`, then
+# run `make test-device-s3 PORT=/dev/cu.usbmodemXXXX`.
+PORT ?=
+test-device-s3:
+	@test -n "$(PORT)" || { echo "Set PORT, e.g. make test-device-s3 PORT=/dev/cu.usbmodemXXXX"; exit 2; }
+	PYTHONSAFEPATH=1 $(PYTHON) test/claude/smoke_matrixportal_s3.py --port "$(PORT)"
 
 # --- Linting / formatting --------------------------------------------------
 lint:
@@ -94,7 +102,7 @@ hero:
 	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_hero.py
 
 # Regenerate the Demo Gallery GIF previews (-> docs/assets/demos/).
-# Pass demo names to render only some, e.g.:  make docs-gifs ARGS="hello_world showcase"
+# Pass demo names to render only some, e.g.:  make docs-gifs ARGS="hello_world showcase_reel"
 docs-gifs:
 	PYTHONSAFEPATH=1 PYTHONPATH=$(SRC_DIR) $(PYTHON) demos/render_gifs.py $(ARGS)
 

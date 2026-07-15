@@ -25,7 +25,10 @@ class FourWire:
         self.spi_bus = spi_bus
         self.command = command
         self.chip_select = chip_select
-        self.reset = reset
+        # Keep the optional reset *pin* separate from reset(), which is part of
+        # the displayio.FourWire API. Storing it as ``self.reset`` makes the
+        # method uncallable whenever a caller supplies a reset pin.
+        self.reset_pin = reset
         self.baudrate = baudrate
         self.polarity = polarity
         self.phase = phase

@@ -10,6 +10,23 @@ hardware/CircuitPython-specific behaviour.
 Driver: `test/claude/reliability_harness.py` (host-orchestrated over USB), built on
 the raw-REPL driver `test/claude/cpy_repl.py`.
 
+## Library smoke test
+
+For a quick end-to-end check of the **currently deployed ScrollKit library** on
+a MatrixPortal S3, deliberately copy the source first, then run the non-writing
+raw-REPL probe:
+
+```bash
+python -m pip install -e ".[device]"
+make copy-to-circuitpy
+make test-device-s3 PORT=/dev/cu.usbmodemXXXX
+```
+
+It verifies MatrixPortal S3 board selection, 64×32 initialization, painter/text
+rendering, refresh completion, and reports `gc.mem_free()`. It does not modify
+the board filesystem or run network, OTA, or watchdog fault injection; use the
+reliability harness below for those specialised diagnostics.
+
 ---
 
 ## The fixes under test

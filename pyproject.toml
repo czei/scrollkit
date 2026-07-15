@@ -36,7 +36,10 @@ simulator = ["pygame>=2.0", "Pillow>=9.0", "numpy>=1.21"]
 web = ["aiohttp>=3.8"]
 # dev pulls in the simulator so `pip install -e .[dev]` is the single command that
 # gets everything the test suite needs (it runs against the simulator).
-dev = ["scrollkit[simulator]", "pytest>=7.0", "pytest-asyncio>=0.21", "pytest-cov>=4.0", "pytest-timeout>=2.1", "ruff>=0.1", "requests>=2.28"]
+dev = ["scrollkit[simulator]", "pytest>=7.0", "pytest-asyncio>=0.21", "pytest-cov>=4.0", "pytest-timeout>=2.1", "diff-cover>=9.0", "ruff>=0.1", "requests>=2.28"]
+# Host-side raw-REPL smoke tools for a deliberately attached MatrixPortal S3.
+# This is not part of the device library and is intentionally opt-in.
+device = ["pyserial>=3.5"]
 docs = ["mkdocs>=1.5", "mkdocs-material>=9.0", "mkdocstrings[python]>=0.24"]
 
 [project.urls]

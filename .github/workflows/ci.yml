@@ -49,6 +49,85 @@ jobs:
       - name: Unit tests (incl. strict feasibility gate)
         run: make test-unit
 
+  coverage:
+    # New and changed library lines must be tested, without imposing a sudden
+    # percentage target on pre-existing uncovered code.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Measure changed-line coverage
+        run: |
+          PYTHONSAFEPATH=1 PYTHONPATH=src python -m pytest test/unit --cov=scrollkit --cov-report=xml:coverage.xml
+          diff-cover coverage.xml --compare-branch "origin/${{ github.base_ref }}" --fail-under=100
+
+  media:
+    # Mocked recording tests run in the normal matrix. This job additionally
+    # exercises a real H.264 ffmpeg pipe and inspects it with ffprobe.
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install ffmpeg and test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Encode an MP4 smoke video
+        run: PYTHONSAFEPATH=1 PYTHONPATH=src python -m pytest test/unit/simulator/test_recording.py -m ffmpeg -q
+
+  package-smoke:
+    # Editable installs in the unit matrix cannot prove that package data reaches
+    # users. Build a wheel, install it into an isolated venv, then render from
+    # outside the checkout so Python cannot fall back to src/.
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Build and install wheel in a clean environment
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          python -m venv /tmp/scrollkit-wheel-smoke
+          WHEEL="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          /tmp/scrollkit-wheel-smoke/bin/pip install "$WHEEL[simulator]"
+
+      - name: Import and render from installed wheel
+        run: |
+          cd /tmp
+          PYTHONSAFEPATH=1 /tmp/scrollkit-wheel-smoke/bin/python "$GITHUB_WORKSPACE/test/packaging/wheel_smoke.py"
+
   docs:
     runs-on: ubuntu-latest
     steps:
