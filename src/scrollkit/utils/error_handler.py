@@ -118,12 +118,17 @@ class ErrorHandler:
                 print(f"Failed to delete existing log file: {file_name}")
 
         # Desktop CPython (storage is None; a patched-storage test never lands
-        # here): the working directory is writable — skip the probe so merely
-        # importing the library neither creates an empty log file in the
-        # developer's cwd nor prints device diagnostics. The file appears on
-        # the first actual write.
+        # here): probe the log DIRECTORY instead of append-opening the file, so
+        # merely importing the library neither creates an empty log file in the
+        # developer's cwd nor prints device diagnostics. The file appears on the
+        # first actual write; write_to_file() still self-corrects if this probe
+        # was wrong.
         if storage is None:
-            self.is_readonly = False
+            log_dir = os.path.dirname(self.fileName) or "."
+            try:
+                self.is_readonly = not os.access(log_dir, os.W_OK)
+            except OSError:
+                self.is_readonly = True
             return
 
         # Verify writability WITHOUT truncating: append-open creates the file if it
