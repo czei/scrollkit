@@ -30,6 +30,10 @@ Run on desktop (opens a pygame window):
     python demos/hard/showcase_reel.py --throttle   # crawl at real device speed
     python demos/hard/showcase_reel.py --strict     # hard feasibility gate
 
+    # Jump the queue: play these acts first, then let the scheduler take over
+    # (any act name from the deck — swarm, velvet, iris, cipher, drip, ...).
+    python demos/hard/showcase_reel.py swarm iris glitch
+
 The same code runs unchanged on an Adafruit MatrixPortal S3.
 """
 
@@ -290,9 +294,10 @@ class _Pos:
 class ShowcaseReelApp(ScrollKitApp):
     """The ScrollKit teaser reel: every effect, announced by the word it plays on."""
 
-    def __init__(self):
+    def __init__(self, force_acts=()):
         super().__init__(enable_web=False, update_interval=3600)
         self._theme = THEMES[0][1]
+        self._force_queue = list(force_acts)   # act names to play first
 
     async def create_display(self):
         if sys.implementation.name == "circuitpython":
@@ -1145,8 +1150,12 @@ class ShowcaseReelApp(ScrollKitApp):
         self._theme = colors
 
         self._used = set(getattr(self, "_prev_families", ()))
-        name, fam, act = self._sched.pick(
-            acts, "act", self._used, force="scrollkit" if first else None)
+        # Queue-jumping: CLI-named acts play first; otherwise the boot opener.
+        if self._force_queue:
+            force = self._force_queue.pop(0)
+        else:
+            force = "scrollkit" if first else None
+        name, fam, act = self._sched.pick(acts, "act", self._used, force=force)
         self._used.add(fam)
         if not await act():
             return False
@@ -1169,13 +1178,25 @@ class ShowcaseReelApp(ScrollKitApp):
             await self.display.create_window("ScrollKit Showcase Reel (hard)")
         self._build_sprites()
         self._sched = ActScheduler()
+        acts, _mids = self._decks()
+        valid = set(entry[0] for entry in acts)
+        unknown = [n for n in self._force_queue if n not in valid]
+        if unknown:
+            print("unknown act(s): %s" % ", ".join(unknown))
+            print("acts: %s" % ", ".join(sorted(valid)))
+            self._force_queue = [n for n in self._force_queue if n in valid]
         while self.running:
             if await self._act() is False:
                 return self._request_shutdown()
 
 
 if __name__ == "__main__":
+    # Positional args name acts to play first; flags go to _demo_support.
+    _force = [a for a in sys.argv[1:] if not a.startswith("-")]
+    for _a in _force:
+        sys.argv.remove(_a)
     if _support is not None:
-        _support.main(ShowcaseReelApp(), "ScrollKit showcase reel (hard)")
+        _support.main(ShowcaseReelApp(force_acts=_force),
+                      "ScrollKit showcase reel (hard)")
     else:
-        asyncio.run(ShowcaseReelApp().run())
+        asyncio.run(ShowcaseReelApp(force_acts=_force).run())
