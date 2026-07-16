@@ -123,12 +123,18 @@ class WiFiManager:
         return load_credentials()
 
     async def reset(self):
-        """Reset the microcontroller after delay"""
+        """Reset the microcontroller after delay.
+
+        COLD reset (radio off first): a raw reset from an associated station
+        carries warm radio state into the next session (EBUSY-on-new-connect
+        degradation; multi-model review 2026-07-16 flagged this path as the
+        remaining warm-reset footgun).
+        """
         await asyncio.sleep(4)
         if not is_dev_mode():
             try:
-                import microcontroller
-                microcontroller.reset()
+                from ..utils.system_utils import cold_reset
+                cold_reset()
             except ImportError:
                 _logger().debug("Microcontroller module not available, skipping reset")
                 # In non-hardware environments, just simulate a reset
@@ -294,11 +300,14 @@ class WiFiManager:
                 _logger().error(e, "radio disable/enable failed; trying plain connect")
             ssid, password = self._resolve_credentials()
             if not ssid:
+                self.is_connected = False
                 return False
             wifi.radio.connect(ssid, password)
-            return wifi.radio.ipv4_address is not None
+            self.is_connected = wifi.radio.ipv4_address is not None
+            return self.is_connected
         except Exception as e:
             _logger().error(e, "WiFi bounce_sync failed")
+            self.is_connected = False
             return False
         
     def save_credentials(self):
