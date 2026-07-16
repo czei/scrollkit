@@ -84,3 +84,22 @@ name, family, run = sched.pick(BUILDS, "builds", force="hunt")  # an opener
 
 Ages are kept per deck key, so one instance schedules independent decks
 (builds, dwell treatments, exits, layouts...).
+
+
+## cold_reset (0.9.2)
+
+A `microcontroller.reset()` issued while the WiFi station is associated
+carries warm radio state into the next session — which then degrades until
+new outbound connects fail `OSError: 16` while pooled keep-alive flows keep
+working (see [the radio bounce](networking.md#the-radio-bounce-link-up-new-connects-dead-092)).
+`cold_reset()` disables the radio, lets the driver settle, then resets:
+
+```python
+from scrollkit.utils.system_utils import cold_reset
+cold_reset()    # never returns on CircuitPython
+```
+
+Every deliberate reboot inside the library (OTA apply, the auto-reboot
+watchdog, `WiFiManager.reset()`) already goes through it; use it for your
+app's own reboot paths (web-triggered restarts, crash handlers) instead of a
+raw `microcontroller.reset()`.

@@ -23,6 +23,33 @@ radio is available (always `False` on CircuitPython; `True` on desktop unless
 the test suite mocks a `wifi` module) — the canonical desktop-vs-device check
 for network code.
 
+### The radio bounce: link up, new connects dead (0.9.2)
+
+There is a field failure `reconnect()` cannot see: the ESP32-S3's session
+degrades so **new outbound connects fail `OSError: 16` (EBUSY) while pooled
+keep-alive connections — and the device's own web server — keep working**.
+The link reports connected, so anything that watches "is WiFi up" never acts,
+and the box quietly serves stale data. Triggers observed on hardware: a reset
+issued while the station was associated (see `cold_reset()` in
+[Utilities](utils.md#cold_reset-092)), and long uptimes on multi-AP mesh
+networks.
+
+`bounce()` (async) and `bounce_sync()` (for synchronous call sites like web
+handlers) force a radio restart and fresh association even when the link
+looks healthy. **A bounce alone is not the cure**: any
+`adafruit_requests.Session` built on the pre-bounce association keeps its
+stale socket plumbing and still fails. Complete every bounce with a full
+session rebuild:
+
+```python
+if await wifi_manager.bounce():
+    http_client.rebuild_session()   # fresh SocketPool + ssl context + Session
+```
+
+A good escalation ladder bounces after a few consecutive fetch failures and
+keeps a cold-reset watchdog as the last resort; classify errors first so a
+remote API outage doesn't trigger radio surgery.
+
 ## WiFi onboarding portal (no file editing)
 
 A brand-new (or moved) device has no way onto the local network, and asking a
@@ -96,6 +123,12 @@ underlying exception is retained on `http.last_error` for diagnostics —
 `seconds_since_last_success()` and the diagnostics `note_fetch_result` hook read
 it to decide when displayed data has gone stale. A mock provider that returns a
 response is passed through unchanged (no raise).
+
+`rebuild_session()` (0.9.2) tears down the current session's pooled sockets —
+releasing their native mbedTLS contexts — and installs a fresh
+`SocketPool` + ssl context + `Session`. It is the required second half of a
+[radio bounce](#the-radio-bounce-link-up-new-connects-dead-092), and useful on
+its own when the pool's native state is suspect.
 
 ## Blocking I/O is real on CircuitPython
 

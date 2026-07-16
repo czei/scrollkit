@@ -64,6 +64,36 @@ So choosing *which* release a device runs is done by controlling **what
 `manifest.json` on that one branch says** — not by pointing the device somewhere
 new. That branch is the device's *channel*.
 
+## The cheap check: `check_url` (0.9.2)
+
+`check_for_updates()` against raw.githubusercontent has a hidden cost: that
+host serves an **RSA-2048 certificate chain**, and mbedTLS verifies RSA with
+multi-kilobyte allocations from the ESP32-S3's ~320 KB internal SRAM — which a
+running app may not have free. The failure is `OSError: -16256`
+(`-0x3F80 PK_ALLOC_FAILED`), it hits the *check* — the thing you do hourly —
+and no amount of GC-heap headroom fixes it, because PSRAM can't back TLS.
+
+`check_url` splits the problem: publish a ~6-byte `version.txt` on a host you
+control with a lightweight **ECDSA** chain (a stock Let's Encrypt cert is
+one), and point the check at it:
+
+```python
+ota = OTAClient.for_github(
+    owner="OWNER", repo="REPO", branch="live",
+    current_version="1.0.0",
+    check_url="https://example.com/ota/version.txt",
+)
+```
+
+With `check_url` set, a check **never handshakes with the download host**: an
+up-to-date answer costs one tiny ECDSA GET, and a newer version returns a
+version-only result whose manifest is fetched at **download time** — which
+your app should run at early boot (before it allocates its runtime state),
+where the RSA handshake has maximal internal-SRAM headroom. The publish flow
+must keep `version.txt` in lockstep with the channel's `manifest.json`; make
+a stale check endpoint fail your release script loudly, because a device that
+reads an old `version.txt` silently believes it is up to date.
+
 ## Publishing a release (desktop / CI)
 
 `scrollkit.ota.publish` is the library-blessed producer side — use it instead of

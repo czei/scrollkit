@@ -158,6 +158,36 @@ if diag.safe_mode:                              # too many fault-reboots in a ro
 diag.note_fetch_result(ok=True)                 # on a healthy refresh
 ```
 
+**The watchdog arms unconditionally on hardware (0.9.2).** Earlier versions
+silently skipped arming whenever a host had the USB serial port open — so a
+board that lived next to a computer (or behind a forgotten browser Web-Serial
+tab) ran with no watchdog at all, and nobody could tell. Two consequences of
+the change:
+
+- **Size `watchdog_timeout` above your longest legitimate event-loop block.**
+  A synchronous HTTP call inside a web handler or one big fetch can block for
+  10-20 s; with the 8 s default the board will reset-loop the moment it runs
+  armed for real. A frozen box that self-heals within a minute is the goal —
+  the timeout does not need to be tight, it needs to be *survivable*.
+- **Interactive debugging opts out explicitly**: create a file named
+  `/no_watchdog` on the device *before* rebooting into the debug session
+  (`open('/no_watchdog','w').close()` at the REPL; delete it to re-arm). Once
+  a RESET-mode watchdog is armed it cannot be stopped from the REPL, and the
+  board resets shortly after you Ctrl-C.
+
+**Persistent render failures starve the watchdog on purpose (0.9.2).** The
+display loop feeds the watchdog each frame, but after
+`MAX_CONSECUTIVE_RENDER_ERRORS` (10) consecutive `step_frame()` errors it
+stops — a permanently-broken render path gets a hardware reset instead of a
+frozen panel that looks healthy to the watchdog. One successful frame resumes
+feeding.
+
+**Surface the state.** `app.watchdog_state` is a human-readable arming outcome
+("armed: 60s (RESET)", "DISARMED: /no_watchdog dev marker", ...) and
+`app.frames_rendered` counts the display loop's successful frames — put both
+on your status page. A frozen frame counter means the display loop died; an
+advancing counter with a dark panel means the output path died below Python.
+
 The record lives in `microcontroller.nvm`, so it survives both soft resets and power
 loss (unlike a flash log a crash can wipe). After `RAPID_BOOT_LIMIT` fault-reboots
 with no clean run it trips **safe mode** — break a deterministic boot loop instead of

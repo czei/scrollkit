@@ -47,13 +47,16 @@ PYTHONPATH=src python demos/easy/hello_world.py
 
 ```python
 import asyncio
+import sys
 
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import ScrollingText
-from scrollkit.display.simulator import SimulatorDisplay
 
 class HelloWorldApp(ScrollKitApp):
     async def create_display(self):
+        if sys.implementation.name == "circuitpython":
+            return await super().create_display()
+        from scrollkit.display.simulator import SimulatorDisplay
         return SimulatorDisplay(width=64, height=32)
 
     async def setup(self):
@@ -63,11 +66,12 @@ class HelloWorldApp(ScrollKitApp):
 asyncio.run(HelloWorldApp().run())
 ```
 
-On desktop this opens a window showing the simulated 64×32 matrix (the
-`create_display()` override above is what opens it — omit it and the app still
-runs, just headless, since plain `UnifiedDisplay` stays headless on desktop
-unless a window is explicitly asked for). On a supported CircuitPython board
-such as the MatrixPortal S3, the identical code drives the physical panel.
+On desktop this opens a window showing the simulated 64×32 matrix. On a supported
+CircuitPython board such as the MatrixPortal S3, the platform branch delegates to
+the base app and `UnifiedDisplay` drives the physical panel. Keeping the
+desktop-only simulator import inside that branch is important: importing it at
+module scope would fail on CircuitPython. If you omit the entire
+`create_display()` override, the app still runs headless on desktop.
 
 ## Writing an app
 
