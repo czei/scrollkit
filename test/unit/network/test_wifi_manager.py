@@ -382,3 +382,70 @@ class TestAccessPointNaming:
     def test_app_brand_flows_through(self):
         wm = self._make(ap_name="ThemeParkWaits")
         assert wm.AP_SSID.startswith("ThemeParkWaits-")
+
+
+class TestBounce:
+    """bounce(): the forced radio restart for the looks-up-but-outbound-dead wedge."""
+
+    @pytest.mark.asyncio
+    async def test_bounce_is_noop_true_in_dev_mode(self):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=True):
+            wifi_manager = WiFiManager(MagicMock())
+            wifi_manager.connect = AsyncMock(return_value=True)
+
+            assert await wifi_manager.bounce() is True
+            wifi_manager.connect.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bounce_toggles_radio_and_reconnects_even_when_connected(self):
+        """Unlike reconnect(), bounce() must act while the link LOOKS up — the
+        2026-07-15 wedge kept is_connected True while outbound was dead."""
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
+            mock_wifi = MagicMock()
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                wifi_manager = WiFiManager(MagicMock())
+                wifi_manager.is_connected = True
+                wifi_manager.connect = AsyncMock(return_value=True)
+
+                assert await wifi_manager.bounce() is True
+
+                # Radio power-cycled (left ON afterwards) and reassociated.
+                assert mock_wifi.radio.enabled is True
+                wifi_manager.connect.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_bounce_never_raises(self):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
+            mock_wifi = MagicMock()
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                wifi_manager = WiFiManager(MagicMock())
+                wifi_manager.connect = AsyncMock(side_effect=RuntimeError("assoc failed"))
+
+                assert await wifi_manager.bounce() is False
+
+    @pytest.mark.asyncio
+    async def test_bounce_sync_is_noop_true_in_dev_mode(self):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=True):
+            wifi_manager = WiFiManager(MagicMock())
+            assert wifi_manager.bounce_sync() is True
+
+    def test_bounce_sync_toggles_radio_and_connects(self):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
+            mock_wifi = MagicMock()
+            mock_wifi.radio.ipv4_address = "10.0.0.9"
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                wifi_manager = WiFiManager(MagicMock())
+                wifi_manager._resolve_credentials = lambda: ("SSID", "pw")
+
+                assert wifi_manager.bounce_sync() is True
+                assert mock_wifi.radio.enabled is True
+                mock_wifi.radio.connect.assert_called_once_with("SSID", "pw")
+
+    def test_bounce_sync_never_raises(self):
+        with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
+            mock_wifi = MagicMock()
+            mock_wifi.radio.connect.side_effect = RuntimeError("assoc failed")
+            with patch.dict('sys.modules', {'wifi': mock_wifi}):
+                wifi_manager = WiFiManager(MagicMock())
+                wifi_manager._resolve_credentials = lambda: ("SSID", "pw")
+                assert wifi_manager.bounce_sync() is False

@@ -129,7 +129,8 @@ class OTAClient:
 
     @classmethod
     def for_github(cls, owner, repo, branch="releases", current_version="0.0.0",
-                   update_dir="/updates", backup_dir="/backup", session=None):
+                   update_dir="/updates", backup_dir="/backup", session=None,
+                   check_url=None):
         """Build an OTAClient that fetches updates from GitHub raw content.
 
         Constructs the base URL
@@ -149,7 +150,8 @@ class OTAClient:
         """
         url = "https://raw.githubusercontent.com/{}/{}/{}".format(owner, repo, branch)
         return cls(url, current_version=current_version,
-                   update_dir=update_dir, backup_dir=backup_dir, session=session)
+                   update_dir=update_dir, backup_dir=backup_dir, session=session,
+                   check_url=check_url)
 
     def __init__(
         self,
@@ -158,6 +160,7 @@ class OTAClient:
         update_dir: str = "/updates",
         backup_dir: str = "/backup",
         session: Any = None,
+        check_url: str = None,
     ) -> None:
         """Initialize OTA client.
 
@@ -174,8 +177,21 @@ class OTAClient:
                 (see ``_http_get``), so it may be assigned/replaced after
                 construction. When ``None`` the module-level ``requests.get`` is
                 used (desktop, where the PyPI ``requests`` module has ``.get``).
+            check_url: Optional full URL of a ``version.txt`` on a DIFFERENT
+                host than ``server_url``. Rationale (ThemeParkWaits ledger,
+                attempt #5): the frequent update CHECK must not depend on a TLS
+                handshake to ``server_url`` — raw.githubusercontent.com serves
+                an RSA-2048 chain whose mbedtls PK verification needs more
+                internal SRAM than a running app has free (``OSError: -16256``,
+                PK_ALLOC_FAILED). Pointing the check at a ~6-byte version.txt
+                on an ECDSA-chain host the operator controls makes the check as
+                cheap as the app's ordinary data fetches. When set, a check
+                NEVER touches ``server_url`` — the manifest fetch is deferred
+                to download time (run it at early boot, where internal SRAM
+                headroom is maximal).
         """
         self.server_url = update_server_url.rstrip('/')
+        self.check_url = check_url
         self.current_version = current_version
         self.update_dir = update_dir
         self.backup_dir = backup_dir
@@ -261,9 +277,9 @@ class OTAClient:
         # manifest fetch below (needed then anyway for staging). Any miss —
         # 404 on an older channel, junk content, transport error — falls
         # through to the manifest path unchanged.
+        version_url = self.check_url or f"{self.server_url}/version.txt"
         try:
-            v_resp = self._http_get(f"{self.server_url}/version.txt",
-                                    timeout=self.check_timeout)
+            v_resp = self._http_get(version_url, timeout=self.check_timeout)
             try:
                 if v_resp.status_code == 200:
                     remote_version = str(v_resp.text).strip()
@@ -275,21 +291,76 @@ class OTAClient:
                         probe = UpdateManifest(version=remote_version)
                         if probe.compare_version(self.current_version) <= 0:
                             return False, UP_TO_DATE
+                        if self.check_url:
+                            # Check-only answer: a NEWER version exists. Do NOT
+                            # fetch the manifest here — with check_url set, the
+                            # whole point is that a check never handshakes with
+                            # server_url (see __init__). The files-less probe
+                            # makes download_update() fetch the real manifest
+                            # at download time.
+                            if self.on_update_available:
+                                self.on_update_available(probe)
+                            return True, probe
+                    elif self.check_url:
+                        # 200 + junk body from the dedicated check host is a
+                        # failed check, not a licence to fall through.
+                        msg = (f"Update check failed: invalid version.txt "
+                               f"from {version_url}")
+                        if self.on_update_error:
+                            self.on_update_error(msg)
+                        return False, msg
+                elif self.check_url:
+                    msg = f"Update check failed: {version_url} -> {v_resp.status_code}"
+                    if self.on_update_error:
+                        self.on_update_error(msg)
+                    return False, msg
             finally:
                 try:
                     v_resp.close()
                 except Exception:
                     pass
-        except Exception:
-            pass  # fall through to the manifest fetch
+        except Exception as e:
+            if self.check_url:
+                # With a dedicated check host there is no fallback: falling
+                # through to the server_url manifest would resurrect exactly
+                # the heavy handshake this path exists to avoid.
+                msg = f"Update check failed: {e}"
+                if self.on_update_error:
+                    self.on_update_error(msg)
+                return False, msg
+            # No check_url: a fast-path miss (404 on an older channel, junk
+            # content, transport error) falls through to the manifest fetch.
         gc.collect()
 
+        manifest, error = self._fetch_manifest(timeout=self.check_timeout)
+        if manifest is None:
+            if self.on_update_error:
+                self.on_update_error(error)
+            return False, error
+
+        if manifest.compare_version(self.current_version) > 0:
+            self.available_update = manifest
+            if self.on_update_available:
+                self.on_update_available(manifest)
+            return True, manifest
+
+        return False, UP_TO_DATE
+
+    def _fetch_manifest(self, timeout: Any = None):
+        """Fetch + parse ``{server_url}/manifest.json``.
+
+        Returns ``(manifest, "")`` or ``(None, reason)``; never raises. Split
+        out of ``check_for_updates`` so ``download_update`` can resolve a
+        files-less version probe (the ``check_url`` path defers this fetch to
+        download time, when it can run with maximal internal-SRAM headroom).
+        """
+        response = None
         try:
             url = f"{self.server_url}/manifest.json"
-            response = self._http_get(url, timeout=self.check_timeout)
+            response = self._http_get(url, timeout=timeout or self.download_timeout)
 
             if response.status_code != 200:
-                return False, f"Server error: {response.status_code}"
+                return None, f"Server error: {response.status_code}"
 
             try:
                 # Avoid response.json() when the body can be streamed: .json()
@@ -312,29 +383,20 @@ class OTAClient:
                         self._remove(part_path)
                 manifest = UpdateManifest.from_dict(manifest_data)
             except ValueError as e:  # CircuitPython: json raises ValueError
-                return False, f"Invalid manifest: {e}"
+                return None, f"Invalid manifest: {e}"
 
             is_valid, error = manifest.validate()
             if not is_valid:
-                return False, f"Invalid manifest: {error}"
+                return None, f"Invalid manifest: {error}"
 
-            if manifest.compare_version(self.current_version) > 0:
-                self.available_update = manifest
-                if self.on_update_available:
-                    self.on_update_available(manifest)
-                return True, manifest
-
-            return False, UP_TO_DATE
+            return manifest, ""
 
         except Exception as e:
             # A NetworkError from _http_get on an unreachable server lands here and
-            # becomes the (False, reason) tuple the public contract promises.
-            error_msg = f"Update check failed: {e}"
-            if self.on_update_error:
-                self.on_update_error(error_msg)
-            return False, error_msg
+            # becomes the (None, reason) tuple this helper promises.
+            return None, f"Update check failed: {e}"
         finally:
-            if 'response' in locals():
+            if response is not None:
                 try:
                     response.close()
                 except Exception:
@@ -358,6 +420,17 @@ class OTAClient:
 
         if self.session is None and not requests:
             return False, "Requests library not available"
+
+        # A files-less manifest is the version probe from a check_url check
+        # (which deliberately never fetched the real manifest — see __init__).
+        # Resolve it now, at download time.
+        if not manifest.files:
+            manifest, error = self._fetch_manifest()
+            if manifest is None:
+                return False, error
+            if manifest.compare_version(self.current_version) <= 0:
+                return False, UP_TO_DATE
+            self.available_update = manifest
 
         # Path-safety: reject a manifest that would install outside the release
         # roots or escape via ``..`` before touching the filesystem. Device-only
@@ -995,14 +1068,23 @@ class OTAClient:
         return self._exists(path)
 
     def reboot_device(self) -> None:
-        """Reboot the device to complete update."""
+        """Reboot the device to complete update.
+
+        COLD reset (radio off first): a warm-radio reset after the apply left
+        the next session's new outbound connects failing EBUSY — the first
+        post-update check then failed (2026-07-15, ThemeParkWaits ledger).
+        """
         if PLATFORM == 'circuitpython':
             try:
-                microcontroller.reset()
+                from ..utils.system_utils import cold_reset
+                cold_reset()
             except Exception:
                 try:
-                    supervisor.reload()
+                    microcontroller.reset()
                 except Exception:
-                    print("Cannot reboot - please manually restart")
+                    try:
+                        supervisor.reload()
+                    except Exception:
+                        print("Cannot reboot - please manually restart")
         else:
             print("Reboot not supported on this platform")

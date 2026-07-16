@@ -232,15 +232,74 @@ class WiFiManager:
     async def reconnect(self):
         """
         Reconnect to WiFi if disconnected
-        
+
         Returns:
             True if connected, False otherwise
         """
         if self.is_connected:
             return True
-            
+
         # Try to reconnect
         return await self.connect()
+
+    async def bounce(self):
+        """FORCE a radio restart + fresh association, even when the link looks up.
+
+        ``reconnect()`` is useless against the long-uptime field wedge this
+        exists for: after ~26 h the ESP32's WiFi/lwIP session can degrade so
+        INBOUND traffic still works (the radio reports connected, the device's
+        web server answers) while every OUTBOUND ``connect()`` fails EBUSY —
+        session rebuilds and pooled-socket eviction cannot clear it, but a
+        radio disconnect + reassociation does (verified live on hardware,
+        2026-07-15: a bare ``wifi.radio.connect()`` at the REPL restored
+        outbound TCP AND TLS with the wedged app state still in RAM).
+
+        After a successful bounce the caller should drop pooled sockets
+        (``HttpClient.close_pooled_sockets()``) — they belonged to the dead
+        association. Returns True if reassociated; never raises. Desktop/dev:
+        no-op True.
+        """
+        if is_dev_mode():
+            return True
+        try:
+            try:
+                import wifi
+                wifi.radio.enabled = False
+                await asyncio.sleep(1)
+                wifi.radio.enabled = True
+            except Exception as e:
+                _logger().error(e, "radio disable/enable failed; trying plain connect")
+            return bool(await self.connect())
+        except Exception as e:
+            _logger().error(e, "WiFi bounce failed")
+            return False
+
+    def bounce_sync(self):
+        """Synchronous ``bounce()`` for non-async call sites (the update-check
+        runs inside a synchronous web handler). Radio off → settle → on →
+        direct ``wifi.radio.connect`` with the saved credentials — no display
+        callbacks, no retries. Returns True if reassociated; never raises.
+        Desktop/dev: no-op True.
+        """
+        if is_dev_mode():
+            return True
+        try:
+            import time
+            import wifi
+            try:
+                wifi.radio.enabled = False
+                time.sleep(1)
+                wifi.radio.enabled = True
+            except Exception as e:
+                _logger().error(e, "radio disable/enable failed; trying plain connect")
+            ssid, password = self._resolve_credentials()
+            if not ssid:
+                return False
+            wifi.radio.connect(ssid, password)
+            return wifi.radio.ipv4_address is not None
+        except Exception as e:
+            _logger().error(e, "WiFi bounce_sync failed")
+            return False
         
     def save_credentials(self):
         """

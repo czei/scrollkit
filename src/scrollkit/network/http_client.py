@@ -324,6 +324,20 @@ class HttpClient:
                 # a rebuild doesn't immediately rebuild again (thrash).
                 self._failures_since_rebuild = 0
 
+    def rebuild_session(self):
+        """PUBLIC session rebuild — the completion of a WiFi radio bounce.
+
+        A bounce (``WiFiManager.bounce``/``bounce_sync``) reassociates the
+        radio, but a session built on the PRE-bounce association keeps its
+        stale ``SocketPool``/ssl plumbing — new sockets from it still fail
+        EBUSY, which is why the 2026-07-15 overnight bounces logged
+        "reassociated" at failures 3/6/9 and cured nothing (the REPL cure
+        always built a fresh pool + session after reconnecting). Callers must
+        rebuild the session AFTER every bounce; this is the supported way.
+        Returns True if a fresh session was installed.
+        """
+        return self._rebuild_session()
+
     def close_pooled_sockets(self):
         """Properly close every socket the current session's connection manager
         holds, releasing their NATIVE resources (each pooled TLS socket pins an

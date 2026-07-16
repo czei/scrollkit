@@ -195,3 +195,85 @@ def test_junk_version_txt_never_fakes_up_to_date(tmp_path):
 
     ok, got = client.check_for_updates()
     assert ok is True and got.version == "2.0.0"
+
+
+# --------------------------------------------------------------------------- #
+# check_url: the dedicated ECDSA-host check (ThemeParkWaits ledger attempt #5)
+# --------------------------------------------------------------------------- #
+
+CHECK_URL = "https://ota-check.example/ota/version.txt"
+
+
+def _check_url_client(tmp_path, session, current="1.0.0"):
+    return OTAClient("https://example.invalid/releases", current_version=current,
+                     update_dir=str(tmp_path / "updates"),
+                     backup_dir=str(tmp_path / "backup"), session=session,
+                     check_url=CHECK_URL)
+
+
+def test_check_url_up_to_date_never_touches_server_url(tmp_path):
+    session = _VersionedSession("1.0.0\n")
+    client = _check_url_client(tmp_path, session)
+
+    ok, reason = client.check_for_updates()
+
+    assert ok is False and reason == "No updates available"
+    assert session.urls == [CHECK_URL]
+
+
+def test_check_url_newer_answers_without_manifest(tmp_path):
+    """A newer version.txt answers the check by itself: the RSA-host manifest
+    fetch this path exists to avoid must not happen at check time."""
+    session = _VersionedSession("2.0.0\n")
+    client = _check_url_client(tmp_path, session)
+
+    ok, probe = client.check_for_updates()
+
+    assert ok is True and probe.version == "2.0.0"
+    assert not probe.files
+    assert session.urls == [CHECK_URL]
+
+
+def test_check_url_error_does_not_fall_back_to_manifest(tmp_path):
+    """With a dedicated check host there is no fallback: falling through to
+    server_url would resurrect the heavy handshake."""
+    session = _VersionedSession("ignored", version_status=404)
+    client = _check_url_client(tmp_path, session)
+
+    ok, reason = client.check_for_updates()
+
+    assert ok is False and "Update check failed" in reason
+    assert not any(u.endswith("manifest.json") for u in session.urls)
+
+
+def test_check_url_junk_version_is_a_failed_check(tmp_path):
+    """Junk from the check host must surface as a failure, not fall through."""
+    session = _VersionedSession("<html>error</html>")
+    client = _check_url_client(tmp_path, session)
+
+    ok, reason = client.check_for_updates()
+
+    assert ok is False and "Update check failed" in reason
+    assert not any(u.endswith("manifest.json") for u in session.urls)
+
+
+def test_check_url_probe_resolves_to_real_manifest_at_download(tmp_path):
+    """download_update() turns the files-less version probe into the real
+    manifest (fetched from server_url) and downloads its files."""
+    m = UpdateManifest(version="2.0.0", description="test")
+    body = b"print('hi')\n"
+    m.add_file("src/main.py", content=body)
+    session = _VersionedSession(
+        "2.0.0\n", routes={"manifest.json": json.dumps(m.to_dict()).encode(),
+                           "src/main.py": body})
+    client = _check_url_client(tmp_path, session)
+
+    ok, probe = client.check_for_updates()
+    assert ok is True and not probe.files
+    assert not any(u.endswith("manifest.json") for u in session.urls)
+
+    ok, err = client.download_update(probe)
+
+    assert ok is True, err
+    assert any(u.endswith("manifest.json") for u in session.urls)
+    assert (tmp_path / "updates" / "src" / "main.py").read_bytes() == body

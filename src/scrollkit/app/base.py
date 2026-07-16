@@ -823,12 +823,16 @@ class SLDKApp:
         self._hardware_reset()
 
     def _hardware_reset(self) -> None:
-        """Reset the board on CircuitPython; no-op elsewhere (test/sim seam)."""
+        """Reset the board on CircuitPython; no-op elsewhere (test/sim seam).
+
+        Cold reset (radio off first) — a warm-radio reset reproduces the very
+        outbound-connect degradation this auto-reboot exists to clear.
+        """
         if not self._is_circuitpython():
             return
         try:
-            import microcontroller
-            microcontroller.reset()
+            from ..utils.system_utils import cold_reset
+            cold_reset()
         except Exception as e:
             print("auto-reboot reset failed:", e)
 

@@ -40,6 +40,29 @@ except Exception:
     HAS_NTP = False
 
 
+def cold_reset():
+    """Reset the board with the WiFi radio DISABLED first.
+
+    A bare ``microcontroller.reset()`` from a running, associated station
+    carries warm radio state across the reset; on CircuitPython 10.2.1 /
+    ESP32-S3 the next session then degrades until NEW outbound TCP connects
+    fail ``OSError: 16`` (EBUSY) while pooled/keep-alive flows keep working —
+    reproduced 3-for-3 on hardware 2026-07-15 (ThemeParkWaits OTA ledger,
+    attempt #5 aftermath); a cold-radio boot was healthy 3-for-3. Every
+    DELIBERATE reboot (OTA apply, watchdog, web-requested) should go through
+    here. Never returns on CircuitPython. On desktop the ``microcontroller``
+    import (or its ``reset()``) raises — callers keep their platform guards.
+    """
+    try:
+        import wifi
+        wifi.radio.enabled = False
+        time.sleep(0.5)          # let the driver settle before the reset
+    except Exception:
+        pass                     # no radio (or already off) — reset anyway
+    import microcontroller
+    microcontroller.reset()
+
+
 # NTP servers tried in order. A single query to pool.ntp.org is unreliable in the
 # field: it resolves to a RANDOM pool member, many of which are dead, slow
 # (10-20s), or rate-limiting ("aggressive denial"). So we lead with single-operator
