@@ -30,6 +30,7 @@ cd scrollkit && pip install -e ".[simulator]"
 
 # CircuitPython — deploy a tested copy (or matching .mpy build) of scrollkit/
 # inside your app payload; a device should not track Git master directly.
+# Physical setup and deployment: https://scrollkit.dev/guide/device-setup/
 ```
 
 The `release-*` branches and the optional `live` OTA branch are deployment

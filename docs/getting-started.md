@@ -94,10 +94,19 @@ asyncio.run(MyApp().run())
 
 ## Deploying to hardware
 
-1. Connect a supported board such as the MatrixPortal S3 over USB (it mounts
-   as `CIRCUITPY`).
-2. Copy `src/` to the device, or run `make copy-to-circuitpy`.
-3. Configure WiFi — two ways:
+For assembly, CircuitPython installation, host/device flash-write modes, serial
+access, and the real-device acceptance checklist, start with
+[Physical Device Setup](guide/device-setup.md). The software deployment is:
+
+1. Connect a supported board such as the MatrixPortal S3 over USB (it mounts as
+   `CIRCUITPY`).
+2. Copy the app's own `code.py`, optional `boot.py`, and package tree according to
+   that app's imports.
+3. Install ScrollKit at `CIRCUITPY/lib/scrollkit/`. From this repository,
+   `make copy-to-circuitpy` performs **only this library copy**; it does not deploy
+   an app's root files or `src/` tree.
+4. Install the matching Adafruit bundle dependencies described below.
+5. Configure WiFi — two ways:
     - **On the device itself, no file editing** (the end-user path): wire the
       onboarding portal into your app's `setup()` and the panel walks the user
       through joining the device's own access point and picking a network from
@@ -110,7 +119,7 @@ asyncio.run(MyApp().run())
 
 The same app code runs unchanged: `UnifiedDisplay` auto-selects the hardware
 backend on CircuitPython and auto-detects which board it's on (pass `board="..."`
-to force one). See [Adding New Hardware](guide/hardware.md).
+to force one). See [Adding New Hardware](guide/hardware.md) for board ports.
 
 ### CircuitPython dependencies (circup)
 

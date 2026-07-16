@@ -1,5 +1,10 @@
 # Adding New Hardware
 
+!!! tip "Setting up the supported MatrixPortal S3?"
+    This page is for porting ScrollKit to another controller. For panel assembly,
+    CircuitPython flashing, USB deployment modes, first boot, and the physical
+    verification checklist, see [Physical Device Setup](device-setup.md).
+
 ScrollKit runs the same app on more than one HUB75 driver board. One board is
 supported today:
 

@@ -22,13 +22,21 @@ try:
     import microcontroller  # noqa: F401
     HAS_HARDWARE = True
 except ModuleNotFoundError:
-    # Mocking the unavailable modules in non-embedded environments
-    from adafruit_datetime import datetime
+    # Mocking the unavailable modules in non-embedded environments.
+    # adafruit_datetime is itself optional: a bare pip install doesn't carry
+    # it, and importing THIS module must never crash on desktop (0.9.2's
+    # changelog points app code at cold_reset() below — a module-level
+    # `from scrollkit.utils.system_utils import cold_reset` in an app that
+    # runs unchanged on device and desktop must import cleanly on both).
+    try:
+        from adafruit_datetime import datetime
+    except ModuleNotFoundError:
+        datetime = None
 
     class rtc:
         class RTC:
             def __init__(self):
-                self.datetime = datetime()
+                self.datetime = datetime() if datetime is not None else None
 
     HAS_HARDWARE = False
 

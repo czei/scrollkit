@@ -48,6 +48,7 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Physical Device Setup: guide/device-setup.md
   - Demo Gallery: demos.md
   - Visual Reference: guide/visual-reference.md
   - Tutorials:

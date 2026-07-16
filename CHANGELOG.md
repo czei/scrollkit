@@ -3,6 +3,15 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.3] - 2026-07-16
+
+### Fixed
+- `scrollkit.utils.system_utils` imports cleanly on a bare desktop install:
+  its module-level fallback imported `adafruit_datetime`, which pip does not
+  carry — so the `cold_reset()` import 0.9.2's changelog advertises crashed
+  any run-unchanged-on-both app at desktop import time. Caught by the
+  clean-room wheel check minutes after 0.9.2 shipped.
+
 ## [0.9.2] - 2026-07-16
 
 Field-resilience APIs from two days of on-hardware incident work (ESP32-S3,
