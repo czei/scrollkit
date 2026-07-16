@@ -105,3 +105,44 @@ class TestHardwareReset:
         with patch("scrollkit.utils.diagnostics.open") as diag_open:
             app._auto_reboot("test reason")
         assert diag_open.return_value.record_crash.called
+
+
+class TestRenderErrorStarvesWatchdog:
+    """A permanently-broken render path must STOP feeding the watchdog (the
+    2026-07-16 'bricked morning': catch-log-refeed kept a frozen panel alive
+    indefinitely). One successful frame resumes feeding."""
+
+    def test_feeding_stops_after_consecutive_errors_and_resumes_on_recovery(
+            self, mock_circuitpython_imports):
+        import asyncio
+
+        app = SLDKApp(enable_web=False)
+        app.MAX_CONSECUTIVE_RENDER_ERRORS = 3
+        app.running = True
+
+        feeds = {"n": 0}
+        app._feed_watchdog = lambda: feeds.__setitem__("n", feeds["n"] + 1)
+
+        calls = {"n": 0}
+        async def _step():
+            calls["n"] += 1
+            if calls["n"] <= 5:                 # 5 consecutive failures...
+                raise RuntimeError("render broken")
+            if calls["n"] == 8:                 # then recover briefly, then stop
+                app.running = False
+            return True
+        app.step_frame = _step
+
+        async def _fast_sleep(_):
+            return None
+
+        with patch("scrollkit.app.base.sleep", _fast_sleep):
+            asyncio.run(app._display_process())
+
+        # Feeds happen BEFORE step_frame (a long frame gets the full budget),
+        # so: laps 1-3 feed (errors 1-3), laps 4-6 starve (counter still >= MAX
+        # when lap 6's feed decision is made; its SUCCESS resets the counter),
+        # laps 7-8 feed again.
+        assert calls["n"] == 8
+        assert feeds["n"] == 3 + 2              # 3 pre-starvation + 2 post-recovery
+        assert app.frames_rendered == 3         # only successful frames count

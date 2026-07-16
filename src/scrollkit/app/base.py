@@ -128,6 +128,15 @@ class SLDKApp:
         self.enable_watchdog = enable_watchdog
         self.watchdog_timeout = watchdog_timeout
         self._watchdog = None  # set by _arm_watchdog() on hardware when enabled
+        # Human-readable arming outcome for diagnostics surfaces: a DISARMED
+        # watchdog must be visible, not silent (a box can otherwise run
+        # unprotected for months and nobody knows until it freezes).
+        self.watchdog_state = "not armed"
+        # Total frames the display loop has rendered this boot — the liveness
+        # signal that distinguishes "panel dark/frozen" from "loop dead" from
+        # a diagnostics page (frozen number = loop dead; advancing number with
+        # a dark panel = output path died below Python).
+        self.frames_rendered = 0
 
         # --- data-refresh resilience (last-resort auto-reboot) --------------
         self.enable_auto_reboot = enable_auto_reboot
@@ -355,28 +364,48 @@ class SLDKApp:
         self._frame_prev_content = content
         return True
 
+    # After this many CONSECUTIVE display-loop errors the loop stops feeding the
+    # hardware watchdog: a render path that cannot recover gets a hardware reset
+    # (~watchdog timeout after feeding stops) instead of a frozen panel the
+    # watchdog thinks is healthy. The old behavior — catch, log, RE-FEED — kept
+    # a permanently-broken renderer alive-and-dark indefinitely (the 2026-07-16
+    # "bricked morning": backend answering, panel frozen, owner power-cycled).
+    # 10 errors ≈ 10 s of continuous failure (the error path sleeps 1 s) — far
+    # beyond any transient; one successful frame resets the count and resumes
+    # feeding.
+    MAX_CONSECUTIVE_RENDER_ERRORS = 10
+
     async def _display_process(self) -> None:
         """Process 1: Handle display updates."""
         print("Display process started")
         self._reset_frame_state()
+        render_errors = 0
 
         while self.running:
             try:
                 # The display loop is the device's liveness heartbeat: feeding the
                 # watchdog here means a wedged loop (e.g. a hung synchronous fetch
                 # that froze the whole event loop) stops feeding and triggers a
-                # self-healing reset. A caught render error just continues + refeeds.
-                self._feed_watchdog()
+                # self-healing reset. Persistent render errors stop feeding too
+                # (see MAX_CONSECUTIVE_RENDER_ERRORS above).
+                if render_errors < self.MAX_CONSECUTIVE_RENDER_ERRORS:
+                    self._feed_watchdog()
 
                 if await self.step_frame() is False:
                     self._request_shutdown()
                     return
+                render_errors = 0
+                self.frames_rendered += 1
 
                 await sleep(0.05)  # 20 FPS
                 await self._report_memory()
 
             except Exception as e:
+                render_errors += 1
                 print(f"Display error: {e}")
+                if render_errors == self.MAX_CONSECUTIVE_RENDER_ERRORS:
+                    print("Display loop failing persistently - watchdog feeding "
+                          "stopped; hardware reset within the watchdog timeout")
                 await sleep(1)
 
     def _request_shutdown(self) -> None:
@@ -687,22 +716,37 @@ class SLDKApp:
         Fed from the display loop (the device's liveness heartbeat): if anything
         wedges that loop — most importantly a hung synchronous HTTP call — feeding
         stops and the board resets, self-recovering instead of sitting frozen/black
-        until someone power-cycles it. No-op on desktop, when disabled, or while a
-        USB serial console is attached (so the watchdog doesn't reboot during
-        interactive debugging)."""
+        until someone power-cycles it. No-op on desktop, when disabled, or when
+        the explicit ``/no_watchdog`` dev marker file exists on the device."""
         if not self.enable_watchdog or self._watchdog is not None:
+            if not self.enable_watchdog:
+                self.watchdog_state = "disabled (enable_watchdog=False)"
             return
         try:
             import sys
             if not (hasattr(sys, "implementation")
                     and sys.implementation.name == "circuitpython"):
+                self.watchdog_state = "n/a (desktop)"
                 return
+            # Field boxes are ALWAYS protected. The old guard skipped arming
+            # whenever supervisor.runtime.serial_connected was true — but that
+            # means "some host has the CDC port open", and any box living next
+            # to a computer (or a browser Web-Serial tab left open) ran with NO
+            # watchdog at all, indefinitely (2026-07-16: overnight freeze, box
+            # sat dark until a human power-cycled it). Interactive debugging
+            # now opts out EXPLICITLY instead:
+            #     touch a file named  /no_watchdog   on the device
+            #     (REPL: open('/no_watchdog','w').close(); delete to re-arm)
+            # Once armed in RESET mode the watchdog cannot be stopped from the
+            # REPL on all ports — create the marker BEFORE rebooting into a
+            # debug session.
             try:
-                import supervisor
-                if getattr(supervisor.runtime, "serial_connected", False):
-                    print("Watchdog NOT armed: USB serial connected (debugging)")
-                    return
-            except Exception:
+                import os
+                os.stat("/no_watchdog")
+                self.watchdog_state = "DISARMED: /no_watchdog dev marker"
+                print("Watchdog NOT armed: /no_watchdog dev marker present")
+                return
+            except OSError:
                 pass
             import microcontroller
             from watchdog import WatchDogMode
@@ -715,8 +759,10 @@ class SLDKApp:
             wdt.timeout = self.watchdog_timeout
             wdt.mode = WatchDogMode.RESET
             self._watchdog = wdt
+            self.watchdog_state = "armed: %ss (RESET)" % self.watchdog_timeout
             print(f"Watchdog armed: {self.watchdog_timeout}s (RESET)")
         except Exception as e:
+            self.watchdog_state = "unavailable: %s" % e
             print(f"Watchdog unavailable: {e}")
 
     def _feed_watchdog(self) -> None:
