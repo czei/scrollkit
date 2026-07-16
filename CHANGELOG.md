@@ -3,6 +3,59 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.2] - 2026-07-16
+
+Field-resilience APIs from two days of on-hardware incident work (ESP32-S3,
+CircuitPython 10.2.1, a two-node mesh network; the full falsification trail
+lives in the ThemeParkWaits repo's docs/ota-check-failure-ledger.md).
+
+### Changed
+- **The hardware watchdog now arms even when a USB serial console is
+  attached.** The old guard silently skipped arming whenever a host held the
+  CDC port open, so a board living next to a computer ran with NO watchdog at
+  all. Boards that were silently unprotected become protected on upgrade:
+  size `watchdog_timeout` ABOVE your longest legitimate event-loop block
+  (e.g. a synchronous HTTP call inside a web handler) or the board will
+  reset-loop. Opt out for interactive debugging by creating a `/no_watchdog`
+  file on the device (do it BEFORE rebooting into the debug session).
+  `ScrollKitApp.watchdog_state` reports the arming outcome.
+- The display loop stops feeding the watchdog after
+  `MAX_CONSECUTIVE_RENDER_ERRORS` (10) consecutive render errors, so a
+  permanently-broken render path hardware-resets instead of sitting frozen
+  behind a fed watchdog; one successful frame resumes feeding.
+- Every deliberate reboot in the library — OTA apply, the auto-reboot
+  watchdog, `WiFiManager.reset()` — is now a COLD reset (radio disabled
+  first): a reset issued while the station is associated degrades the next
+  session until new outbound connects fail `OSError: 16` while pooled
+  keep-alive flows still work.
+
+### Added
+- `OTAClient(check_url=...)` (also on `for_github`): point the frequent
+  update CHECK at a ~6-byte `version.txt` on a host you control. With it set
+  a check never handshakes with `server_url` — useful when the download host
+  serves an RSA-2048 chain whose mbedTLS verification needs more internal
+  SRAM than a running app has free (`-0x3F80 PK_ALLOC_FAILED`); the manifest
+  fetch defers to download time, which can run at early boot with maximal
+  headroom.
+- `WiFiManager.bounce()` / `bounce_sync()`: forced radio restart + fresh
+  association that acts even while the link LOOKS up. Complete every bounce
+  with `HttpClient.rebuild_session()` (below) — reassociation alone leaves
+  the session's stale socket plumbing failing.
+- `HttpClient.rebuild_session()`: public full session rebuild (fresh
+  SocketPool + ssl context + Session).
+- `scrollkit.utils.system_utils.cold_reset()`: radio-off-then-reset, for app
+  code that reboots deliberately.
+- `ScrollKitApp.watchdog_state` and `ScrollKitApp.frames_rendered`
+  diagnostics attributes (surface them in your status page: a frozen frame
+  counter means the display loop died; an advancing counter with a dark
+  panel means the output path died below Python).
+
+### Fixed
+- OTA: installing `X.mpy` now removes a stale `X.py` sibling (a device
+  USB-deployed as source then OTA-updated to compiled accumulated both
+  generations interleaved).
+- `bounce_sync()` keeps `WiFiManager.is_connected` truthful.
+
 ## [0.9.1] - 2026-07-15
 
 First-run developer experience, from a clean-room audit of what
