@@ -936,14 +936,20 @@ class OTAClient:
         return total
 
     def _remove_mpy_sibling(self, file_path):
-        """Delete a same-basename ``.mpy`` before writing a ``.py`` under /lib.
+        """Delete the OTHER-extension sibling before installing a module file.
 
-        CircuitPython prefers ``.mpy`` over ``.py``; a stale ``.mpy`` left by a
-        manual copy would silently shadow the freshly installed source. Cheap
-        insurance (scrollkit ships as ``.py`` today, so normally a no-op).
+        Installing ``X.py`` removes ``X.mpy``: CircuitPython prefers ``.mpy``,
+        so a stale compiled copy would silently shadow the fresh source.
+        Installing ``X.mpy`` removes ``X.py``: the stale source is inert while
+        the ``.mpy`` exists, but it wastes flash, confuses debugging (a device
+        USB-deployed as ``.py`` then OTA-updated to ``.mpy`` accumulates BOTH
+        generations interleaved — observed 2026-07-16), and turns live again
+        the moment the ``.mpy`` is deleted.
         """
         if file_path.endswith('.py'):
             self._remove(file_path[:-3] + '.mpy')
+        elif file_path.endswith('.mpy'):
+            self._remove(file_path[:-4] + '.py')
 
     def _read_created(self):
         try:

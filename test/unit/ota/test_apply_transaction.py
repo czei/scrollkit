@@ -418,3 +418,26 @@ def test_key_allowed_rejects_out_of_root_and_traversal():
     assert not _key_allowed("/src/../secrets.py")
     assert not _key_allowed("src/app.py")          # must be absolute
     assert not _key_allowed("")
+
+
+def test_installing_mpy_removes_stale_py_sibling(tmp_path):
+    """A device USB-deployed with .py source then OTA-updated to .mpy must not
+    accumulate both generations interleaved (observed 2026-07-16): installing
+    X.mpy deletes X.py, and (existing behavior) installing X.py deletes X.mpy."""
+    from scrollkit.ota.client import OTAClient
+
+    client = OTAClient("https://example.invalid/releases",
+                       update_dir=str(tmp_path / "updates"),
+                       backup_dir=str(tmp_path / "backup"))
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    stale_py = lib / "mod.py"
+    stale_py.write_text("OLD = 1")
+
+    client._remove_mpy_sibling(str(lib / "mod.mpy"))
+    assert not stale_py.exists()
+
+    stale_mpy = lib / "mod2.mpy"
+    stale_mpy.write_bytes(b"MPY")
+    client._remove_mpy_sibling(str(lib / "mod2.py"))
+    assert not stale_mpy.exists()
