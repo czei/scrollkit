@@ -50,6 +50,7 @@ nav:
   - Getting Started: getting-started.md
   - Physical Device Setup: guide/device-setup.md
   - Demo Gallery: demos.md
+  - "Sample Project: The Forge Sign": sample-project.md
   - Visual Reference: guide/visual-reference.md
   - Tutorials:
       - "Easy: Hello World": tutorials/easy.md
