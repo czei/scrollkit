@@ -75,7 +75,12 @@ def _key_allowed(key):
     """
     if not key or ".." in key.split("/"):
         return False
-    if key in ("/code.py", "/boot.py"):
+    # /safemode.py is the CircuitPython-safe-mode escape hatch (turns a
+    # watchdog bite back into a reboot) — it MUST be OTA-deliverable or the
+    # fleet keeps the dark-until-power-cycle failure it exists to fix. NOTE:
+    # already-fielded clients run this function's OLD version and reject a
+    # manifest containing it — ship the client update first, the file second.
+    if key in ("/code.py", "/boot.py", "/safemode.py"):
         return True
     return key.startswith("/src/") or key.startswith("/lib/scrollkit/")
 
@@ -101,6 +106,65 @@ def _hexdigest(hash_obj):
     except AttributeError:
         import binascii
         return binascii.hexlify(hash_obj.digest()).decode()
+
+
+class _Crc32Digest:
+    """``binascii.crc32`` behind the hash-object interface (update/hexdigest)."""
+
+    def __init__(self):
+        self._crc = 0
+
+    def update(self, data):
+        import binascii
+        self._crc = binascii.crc32(data, self._crc) & 0xFFFFFFFF
+
+    def hexdigest(self):
+        return "%08x" % self._crc
+
+
+_SHA256_OK = None      # tri-state probe cache: None unknown, then True/False
+
+
+def _sha256_available():
+    """Whether THIS runtime can actually compute sha256 (probed once)."""
+    global _SHA256_OK
+    if _SHA256_OK is None:
+        try:
+            _sha256()
+            _SHA256_OK = True
+        except Exception:
+            _SHA256_OK = False
+    return _SHA256_OK
+
+
+def _new_digest():
+    """Return ``(digest_object, manifest_key)`` for the strongest checksum this
+    build can compute.
+
+    CircuitPython 9.2.x ships a ``hashlib`` with NO sha256 —
+    ``hashlib.new("sha256")`` raises ``ValueError: Unsupported hash algorithm``
+    (verified on a MatrixPortal S3, CP 9.2.8, 2026-07-19), so every OTA
+    download failed its checksum and rolled back: 3.x OTA was 10.x-only in
+    practice. ``binascii.crc32`` IS native there, and detecting a corrupt or
+    truncated download is precisely what CRC is for. This does NOT weaken the
+    trust model: payloads are unsigned on both paths, so authenticity rests on
+    TLS-to-GitHub either way — this only picks a checksum the runtime can
+    compute. Callers MUST fail when the manifest carries no value for the
+    returned key; verification is never skipped.
+    """
+    if _sha256_available():
+        return _sha256(), 'checksum'
+    return _Crc32Digest(), 'crc32'
+
+
+def _expected(file_info, key, path):
+    """The manifest's expected digest for ``key``, or raise (never skip)."""
+    want = file_info.get(key)
+    if not want:
+        raise OTAError(
+            "manifest has no '%s' for %s — this device cannot verify downloads "
+            "(publisher predates the dual-checksum manifest)" % (key, path))
+    return want
 
 class OTAClient:
     """OTA update client for CircuitPython devices.
@@ -494,8 +558,12 @@ class OTAClient:
 
             manifest_path = f"{self.update_dir}/manifest.json"
             try:
+                # json.dump streams the dict to the file — manifest.to_json()
+                # built the WHOLE serialized manifest as one contiguous string,
+                # the same hot-heap allocation class the body streaming exists
+                # to avoid (review 2026-07-19).
                 with open(manifest_path, 'w') as f:
-                    f.write(manifest.to_json())
+                    json.dump(manifest.to_dict(), f)
             except OSError as e:
                 # OSError only: CircuitPython has no IOError name (it's an
                 # OSError alias in CPython 3 anyway) — naming it here raised
@@ -542,7 +610,8 @@ class OTAClient:
             # MemoryError class as the manifest fetch above). Verify AFTER the
             # write and delete the staged file on any mismatch, so a bad body
             # never survives in the staging area.
-            digest = _sha256()
+            digest, key = _new_digest()
+            want = _expected(file_info, key, file_path)
             local_path = f"{self.update_dir}/{file_path.lstrip('/')}"
             total = self._stream_body_to_file(response, local_path, digest)
 
@@ -551,7 +620,7 @@ class OTAClient:
                 raise OTAError("Size mismatch for %s: %d != %d"
                                % (file_path, total, file_info['size']))
 
-            if _hexdigest(digest) != file_info['checksum']:
+            if _hexdigest(digest) != want:
                 self._remove(local_path)
                 raise OTAError("Checksum mismatch for %s" % file_path)
         finally:
@@ -816,7 +885,8 @@ class OTAClient:
                 if file_path == skip:
                     continue
                 info = manifest.files[file_path]
-                digest = _sha256()
+                digest, key = _new_digest()
+                want = _expected(info, key, file_path)
                 size = 0
                 try:
                     with open(file_path, 'rb') as f:
@@ -831,7 +901,7 @@ class OTAClient:
                 if size != info['size']:
                     return False, (f"Size mismatch after install: {file_path}: "
                                    f"{size} != {info['size']}")
-                if _hexdigest(digest) != info['checksum']:
+                if _hexdigest(digest) != want:
                     return False, f"Checksum mismatch after install: {file_path}"
             return True, ""
         except Exception as e:
@@ -865,14 +935,16 @@ class OTAClient:
     # CREATED_PATHS record.
 
     def _live_checksum(self, path):
-        """Streaming sha256 of a live file, or None if it doesn't exist.
+        """Streaming digest of a live file, or None if it doesn't exist.
 
-        Reads in ``chunk_size`` blocks and collects afterwards, so hashing the
-        whole tree at check time stays O(1) heap and yields to the VM's
-        USB/WiFi background task between files on CircuitPython.
+        Uses the same algorithm the verification paths use (``_new_digest``:
+        sha256, or crc32 where the runtime has no sha256), so the delta compares
+        like with like. Reads in ``chunk_size`` blocks and collects afterwards,
+        so hashing the whole tree at check time stays O(1) heap and yields to
+        the VM's USB/WiFi background task between files on CircuitPython.
         """
         try:
-            digest = _sha256()
+            digest, _key = _new_digest()
             with open(path, 'rb') as f:
                 while True:
                     chunk = f.read(self.chunk_size)
@@ -892,8 +964,9 @@ class OTAClient:
         whose live file (respectively) differs, is absent, or already matches.
         """
         overwritten, created, unchanged = [], [], []
+        _probe, key_name = _new_digest()      # which manifest field to compare
         for key in sorted(manifest.files.keys()):
-            want = manifest.files[key].get('checksum')
+            want = manifest.files[key].get(key_name)
             have = self._live_checksum(key)
             if have is None:
                 created.append(key)
@@ -933,7 +1006,24 @@ class OTAClient:
                     total += len(chunk)
                     if digest is not None:
                         digest.update(chunk)
+                    # Boot-time staging now runs under an armed (boot-sized)
+                    # watchdog; a large release on slow WiFi can outlast it,
+                    # so feed per chunk when the app wired a hook.
+                    self._feed_watchdog()
         return total
+
+    def _feed_watchdog(self):
+        """Call the optional app-wired watchdog-feed hook. Never raises.
+
+        Set ``client.watchdog_feed = app._feed_watchdog`` when downloads run
+        under an armed watchdog (boot-time staging). Absent/broken hooks are
+        ignored — OTA must keep working without one."""
+        cb = getattr(self, "watchdog_feed", None)
+        if cb is not None:
+            try:
+                cb()
+            except Exception:
+                pass
 
     def _remove_mpy_sibling(self, file_path):
         """Delete the OTHER-extension sibling before installing a module file.

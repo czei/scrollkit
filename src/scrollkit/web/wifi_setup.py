@@ -294,9 +294,26 @@ class WiFiSetupPortal:
                 except Exception:
                     status = None
 
+            # The portal legitimately waits for a human (indefinitely, on a
+            # first boot with no credentials) — but boot now runs under an
+            # armed watchdog, so the wait must feed it. Resolve the global
+            # watchdog once; the first failed feed (not armed / desktop)
+            # stops further attempts.
+            _wdt = None
+            try:
+                import microcontroller
+                _wdt = microcontroller.watchdog
+            except Exception:
+                pass
+
             start = time.monotonic()
             linger_until = None
             while True:
+                if _wdt is not None:
+                    try:
+                        _wdt.feed()
+                    except Exception:
+                        _wdt = None
                 try:
                     self._server.poll()
                 except OSError as e:

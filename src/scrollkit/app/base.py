@@ -88,6 +88,31 @@ class SLDKApp:
     # acts when enable_auto_reboot is set. See note_refresh_result()/_auto_reboot().
     MAX_REFRESH_FAILURES = 12
 
+    # Rate limit for failure-driven reboots. The FIRST reboot of a failure run
+    # fires as soon as the streak allows; while the NVM failure-reboot-epoch
+    # flag is set (a failure reboot happened and no fetch has succeeded since),
+    # each subsequent one waits until this much uptime — a sustained outage
+    # settles to ~one reboot/hour instead of one every ~13 minutes, and (with
+    # uptime-based clean runs) never walks the box into safe mode.
+    FAILURE_REBOOT_COOLDOWN_S = 3600
+
+    # Watchdog timeout used from arming (before setup()) until setup returns,
+    # after which it tightens to watchdog_timeout. Boot makes long blocking
+    # network calls (join, NTP, catalog, OTA staging) that must feed it at
+    # stage boundaries; before 2026-07-19 boot ran with NO watchdog at all, so
+    # a boot-time hang parked the box forever.
+    BOOT_WATCHDOG_TIMEOUT = 120
+
+    # Supervision deadlines (see _supervise_progress). ATTEMPT_STALL_S bounds a
+    # single update_data() call that never returns (a native call ignoring its
+    # socket timeout); it must comfortably exceed the longest legitimate
+    # refresh (a multi-park sequential fetch: a few minutes worst case).
+    # DATA_LOOP_STALL_FLOOR_S bounds "the data loop stopped iterating"; the
+    # effective window is max(floor, 3 * update_interval) so slow cadences and
+    # low-memory skip cycles never false-trip.
+    ATTEMPT_STALL_S = 600
+    DATA_LOOP_STALL_FLOOR_S = 1800
+
     def __init__(self, enable_web: bool = True, update_interval: int = 300,
                  enable_watchdog: bool = False, watchdog_timeout: int = 8,
                  enable_auto_reboot: bool = False,
@@ -146,6 +171,31 @@ class SLDKApp:
         self._consecutive_refresh_failures = 0
         self._last_refresh_error = None
         self._last_refresh_success_time = None
+
+        # --- data-progress supervision (the alive-and-stale deadman) --------
+        # A dead or hung data task otherwise hides behind a happily-fed
+        # watchdog forever (review 2026-07-19): the display loop keeps feeding
+        # while no refresh ever runs again. The display loop polls
+        # _supervise_progress(), which watches ATTEMPT COMPLETION (success or
+        # failure both count — an offline box actively retrying is healthy),
+        # never fetch success.
+        self._data_task = None              # the data-update asyncio task
+        self._attempt_started = None        # monotonic: update_data() entered
+        self._attempt_finished = None       # monotonic: update_data() returned
+        self._data_loop_beat = None         # monotonic: data loop iterated
+        self._data_process_started = None   # monotonic: data process began
+        self._supervisor_fired = False      # fire once (reset is a no-op on desktop)
+        self._last_supervisor_check = 0
+        # Uptime anchor for cooldown/rate-limit checks (_uptime_s): on
+        # CircuitPython raw monotonic ≈ board uptime, but on desktop it is
+        # time since OS boot — huge — which would instantly satisfy every
+        # cooldown in the simulator/tests.
+        try:
+            import time
+            self._created_monotonic = (time.monotonic()
+                                       if hasattr(time, "monotonic") else None)
+        except Exception:
+            self._created_monotonic = None
 
         self.running: bool = False
         # When True, the display loop skips rendering queue content (the queue
@@ -391,6 +441,11 @@ class SLDKApp:
                 if render_errors < self.MAX_CONSECUTIVE_RENDER_ERRORS:
                     self._feed_watchdog()
 
+                # The data-side deadman rides the display loop (internally
+                # throttled): a dead/hung data task must not hide behind this
+                # loop's watchdog feeding (alive-and-stale forever).
+                self._supervise_progress()
+
                 if await self.step_frame() is False:
                     self._request_shutdown()
                     return
@@ -421,14 +476,48 @@ class SLDKApp:
             if task is not current:
                 task.cancel()
 
-    async def _data_update_process(self) -> None:
-        """Process 2: Handle data updates."""
-        print("Data update process started")
-        
-        # Initial update
+    def _monotonic(self):
+        """time.monotonic() or None (progress stamps degrade to no-ops)."""
+        import time
+        return time.monotonic() if hasattr(time, "monotonic") else None
+
+    def _uptime_s(self):
+        """Seconds since this app started (run() start, else construction).
+
+        The anchor for every cooldown/rate-limit decision. On CircuitPython
+        this closely tracks board uptime (boot reaches us within seconds of
+        power-up); on desktop it is process-relative — raw monotonic there is
+        time since OS boot and would instantly satisfy any cooldown."""
+        now = self._monotonic()
+        if now is None:
+            return 0
+        anchor = (self._run_start if self._run_start is not None
+                  else self._created_monotonic)
+        if anchor is None:
+            return 0
+        return now - anchor
+
+    async def _attempted_update(self) -> None:
+        """One supervised update_data() attempt: stamp start/finish around it
+        so _supervise_progress can spot an attempt that never returns. The
+        finish stamp lands in ``finally`` — an attempt that RAISES still
+        completed (the task is alive and will try again); only one that hangs
+        forever is a fault."""
+        self._attempt_started = self._monotonic()
         try:
             await self._render_loading()
             await self.update_data()
+        finally:
+            self._attempt_finished = self._monotonic()
+
+    async def _data_update_process(self) -> None:
+        """Process 2: Handle data updates."""
+        print("Data update process started")
+        self._data_process_started = self._data_loop_beat = self._monotonic()
+
+        # Initial update
+        try:
+            await self._attempted_update()
         except Exception as e:
             print(f"Initial data update error: {e}")
 
@@ -437,6 +526,9 @@ class SLDKApp:
             try:
                 # Wait for update interval
                 await sleep(self.update_interval)
+                # The loop iterated — the supervisor's "data loop wedged" check
+                # keys off this beat (skipped cycles still beat).
+                self._data_loop_beat = self._monotonic()
 
                 # Check if we have enough memory
                 gc.collect()
@@ -450,15 +542,13 @@ class SLDKApp:
                     if force:
                         print(f"Forcing data update after {low_mem_skips} low-memory skips: {free_mem}")
                     low_mem_skips = 0
-                    # Show a loading frame before the (possibly blocking) fetch.
-                    await self._render_loading()
-                    await self.update_data()
+                    await self._attempted_update()
                 else:
                     # Too little headroom for the parse: skip this cycle and keep
                     # last-good data rather than risk an OOM crash to black.
                     low_mem_skips += 1
                     print(f"Skipping data update - low memory: {free_mem}")
-                    
+
             except Exception as e:
                 print(f"Data update error: {e}")
                 await sleep(30)  # Back off on error
@@ -635,36 +725,56 @@ class SLDKApp:
             import time
             self._run_start = time.monotonic() if hasattr(time, "monotonic") else None
 
+            # Arm the watchdog BEFORE the (possibly long, blocking) boot
+            # sequence, at a boot-sized timeout: a hang inside setup() (join,
+            # NTP, catalog fetch, OTA staging) previously had NO backstop at
+            # all and parked the box until a human power-cycled it (review
+            # 2026-07-19). Boot code feeds it at stage boundaries (status
+            # frames, per-park fetches, OTA chunks, portal polls).
+            self._arm_watchdog(
+                timeout=max(self.watchdog_timeout, self.BOOT_WATCHDOG_TIMEOUT))
+
             # Run setup
             await self.setup()
 
-            # Arm the watchdog AFTER the (possibly long, blocking) boot sequence so
-            # boot's network calls can't trip it; the display loop feeds it from here on.
-            self._arm_watchdog()
+            # One timeout for boot AND runtime — deliberately NOT retightened
+            # after setup: on CP 9.2.8/ESP32-S3 assigning .timeout to a running
+            # watchdog raises EINVAL and leaves the true window ambiguous
+            # (hardware-observed 2026-07-19: state read back 60.0 while the
+            # assignment failed). A single 120 s window is an acceptable
+            # backstop: the data-progress deadman catches data-side stalls
+            # deliberately, and a totally frozen box self-heals in ≤2 min.
 
-            # Create tasks based on available memory
             tasks = []
-            
+
             # Display process always runs
             tasks.append(create_task(self._display_process()))
-            
-            # Data update process if memory allows
+
+            # Data process ALWAYS runs too: a transient low-memory reading here
+            # used to omit it permanently — no refresh, failure counter, or
+            # recovery path ever ran again (alive-and-stale forever). The loop
+            # itself skips individual cycles when memory is low, which is the
+            # right place to degrade.
             gc.collect()
             free_mem = free_memory()
-
-            if free_mem > 30000:  # 30KB free
-                tasks.append(create_task(self._data_update_process()))
-            else:
-                print(f"Data updates disabled - low memory: {free_mem}")
+            self._data_task = create_task(self._data_update_process())
+            tasks.append(self._data_task)
 
             # Web server if enabled and memory allows
             if self.enable_web and free_mem > 50000:
                 tasks.append(create_task(self._web_server_process()))
-            
+
             self._tasks = tasks
-            
-            # Run until stopped
-            await gather(*tasks, return_exceptions=True)
+
+            # Run until stopped. return_exceptions keeps one task's death from
+            # tearing down its siblings; _supervise_progress (display loop) is
+            # what turns a dead DATA task into a recorded cold reset. Surface
+            # anything captured here so a swallowed crash is at least visible.
+            results = await gather(*tasks, return_exceptions=True)
+            _cancelled = getattr(asyncio, "CancelledError", ())
+            for r in results:
+                if isinstance(r, BaseException) and not isinstance(r, _cancelled):
+                    print("task ended with exception:", r)
             
         finally:
             self.running = False
@@ -710,14 +820,19 @@ class SLDKApp:
         except OSError as e:
             print(f"Display initialization failed: {e}")
 
-    def _arm_watchdog(self) -> None:
+    def _arm_watchdog(self, timeout=None) -> None:
         """Arm the hardware watchdog (CircuitPython only) if enabled.
 
-        Fed from the display loop (the device's liveness heartbeat): if anything
-        wedges that loop — most importantly a hung synchronous HTTP call — feeding
-        stops and the board resets, self-recovering instead of sitting frozen/black
-        until someone power-cycles it. No-op on desktop, when disabled, or when
-        the explicit ``/no_watchdog`` dev marker file exists on the device."""
+        Armed BEFORE setup() at a boot-sized ``timeout`` (boot code feeds it at
+        stage boundaries), then tightened to ``watchdog_timeout`` once setup
+        returns — from there the display loop (the device's liveness heartbeat)
+        feeds it every frame: if anything wedges the loop — most importantly a
+        hung synchronous HTTP call — feeding stops and the board resets,
+        self-recovering instead of sitting frozen/black until someone
+        power-cycles it. No-op on desktop, when disabled, or when the explicit
+        ``/no_watchdog`` dev marker file exists on the device."""
+        if timeout is None:
+            timeout = self.watchdog_timeout
         if not self.enable_watchdog or self._watchdog is not None:
             if not self.enable_watchdog:
                 self.watchdog_state = "disabled (enable_watchdog=False)"
@@ -756,11 +871,11 @@ class SLDKApp:
             # ValueError cap does not exist (see test/claude/RELIABILITY_TESTING.md).
             # So set it directly. If some future board/version did reject the value,
             # the broad `except` below logs it and leaves the watchdog disarmed.
-            wdt.timeout = self.watchdog_timeout
+            wdt.timeout = timeout
             wdt.mode = WatchDogMode.RESET
             self._watchdog = wdt
-            self.watchdog_state = "armed: %ss (RESET)" % self.watchdog_timeout
-            print(f"Watchdog armed: {self.watchdog_timeout}s (RESET)")
+            self.watchdog_state = "armed: %ss (RESET)" % timeout
+            print(f"Watchdog armed: {timeout}s (RESET)")
         except Exception as e:
             self.watchdog_state = "unavailable: %s" % e
             print(f"Watchdog unavailable: {e}")
@@ -814,11 +929,86 @@ class SLDKApp:
         if reason is not None:
             self._last_refresh_error = reason
         if (self.enable_auto_reboot
-                and self._consecutive_refresh_failures >= self.max_refresh_failures):
+                and self._consecutive_refresh_failures >= self.max_refresh_failures
+                and self._failure_reboot_allowed()):
             self._auto_reboot(
                 "%d consecutive refresh failures; last_error=%s"
                 % (self._consecutive_refresh_failures, self._last_refresh_error))
         return self._consecutive_refresh_failures
+
+    def _failure_reboot_allowed(self) -> bool:
+        """Rate-limit failure-driven reboots (review 2026-07-19).
+
+        The FIRST reboot of a failure run fires as soon as the streak allows
+        (~13 min at a 60 s stale cadence). But during a sustained failure
+        EPOCH — the NVM deliberate-reboot flag says a failure reboot already
+        happened and no fetch has succeeded since — each subsequent reboot
+        waits for FAILURE_REBOOT_COOLDOWN_S of uptime. A reboot genuinely
+        cures a wedged radio/session on the first try; rebooting every 13
+        minutes all night for an outage it cannot fix is pure churn."""
+        try:
+            from ..utils import diagnostics
+            if not diagnostics.open().was_deliberate_reboot():
+                return True
+        except Exception:
+            return True
+        return self._uptime_s() >= self.FAILURE_REBOOT_COOLDOWN_S
+
+    def _supervise_progress(self) -> None:
+        """Deadman for the DATA side, polled from the display loop.
+
+        Progress means refresh ATTEMPTS COMPLETING — success or failure alike;
+        an offline box actively retrying is healthy and must never be reset for
+        being offline (review consensus 2026-07-19, rejecting a success-based
+        deadman). What does fire it: the data task exiting, an attempt that
+        never returns (a native call ignoring its socket timeout), or the loop
+        no longer iterating at all. The response is a deliberate cold reset
+        with a RECORDED reason — strictly better than starving the watchdog,
+        whose bite transits CircuitPython safe mode and records nothing.
+        Fires at most once (the reset is a no-op on desktop/sim)."""
+        if self._supervisor_fired or not self.running:
+            return
+        now = self._monotonic()
+        if now is None:
+            return
+        if now - self._last_supervisor_check < 5:
+            return
+        self._last_supervisor_check = now
+        fault = self._progress_fault(now)
+        if fault is None:
+            return
+        self._supervisor_fired = True
+        full = "data-progress deadman: %s" % fault
+        print(full)
+        try:
+            from ..utils import diagnostics
+            d = diagnostics.open()
+            d.record_crash(full)
+            d.note_deliberate_reboot()
+        except Exception as e:
+            print("deadman diag record failed:", e)
+        self._hardware_reset()
+
+    def _progress_fault(self, now):
+        """Return a fault description, or None while the data side is healthy."""
+        task = self._data_task
+        if task is not None:
+            try:
+                if task.done():
+                    return "data task exited"
+            except Exception:
+                pass
+        started, finished = self._attempt_started, self._attempt_finished
+        if started is not None and (finished is None or finished < started):
+            if now - started > self.ATTEMPT_STALL_S:
+                return ("refresh attempt started %ds ago and never finished"
+                        % int(now - started))
+        beat = self._data_loop_beat or self._data_process_started
+        if beat is not None:
+            window = max(self.DATA_LOOP_STALL_FLOOR_S, 3 * self.update_interval)
+            if now - beat > window:
+                return "data loop made no progress in %ds" % int(now - beat)
+        return None
 
     @property
     def consecutive_refresh_failures(self) -> int:
@@ -858,12 +1048,17 @@ class SLDKApp:
         wifi_state = self._wifi_connected()
         full_reason = "auto-reboot: %s (wifi_connected=%s)" % (reason, wifi_state)
         print(full_reason)
-        # Best-effort: persist the cause so the next outage is diagnosable. A
-        # reboot fixes the wedge; if the link is genuinely down it won't — but an
-        # ~hourly retry-reboot is acceptable, and wifi_state records which it was.
+        # Best-effort: persist the cause so the next outage is diagnosable, and
+        # mark the failure-reboot epoch so the NEXT failure-driven reboot waits
+        # out the cooldown (cleared by the first successful fetch). A reboot
+        # fixes the wedge; if the link is genuinely down it won't — but a
+        # rate-limited retry-reboot is acceptable, and wifi_state records which
+        # it was.
         try:
             from ..utils import diagnostics
-            diagnostics.open().record_crash(full_reason)
+            d = diagnostics.open()
+            d.record_crash(full_reason)
+            d.note_deliberate_reboot()
         except Exception as e:
             print("auto-reboot diag record failed:", e)
         self._hardware_reset()
@@ -871,14 +1066,16 @@ class SLDKApp:
     def _hardware_reset(self) -> None:
         """Reset the board on CircuitPython; no-op elsewhere (test/sim seam).
 
-        Cold reset (radio off first) — a warm-radio reset reproduces the very
-        outbound-connect degradation this auto-reboot exists to clear.
+        hard_reset() is the full ladder: radio-off cold reset (a warm-radio
+        reset reproduces the very outbound-connect degradation this auto-reboot
+        exists to clear), falling through to a raw reset, then
+        supervisor.reload() — a decided reset must never silently no-op.
         """
         if not self._is_circuitpython():
             return
         try:
-            from ..utils.system_utils import cold_reset
-            cold_reset()
+            from ..utils.system_utils import hard_reset
+            hard_reset()
         except Exception as e:
             print("auto-reboot reset failed:", e)
 

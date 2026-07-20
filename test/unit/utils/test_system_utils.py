@@ -267,3 +267,33 @@ for attr_name in dir(TestSystemUtils):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# --------------------------------------------------------------------------- #
+# us_eastern_offset: DST-aware default (2026-07-17 — the fixed -5 left the
+# device clock an hour behind all summer, polluting the WHEN diagnostics).
+# --------------------------------------------------------------------------- #
+from scrollkit.utils.system_utils import us_eastern_offset
+
+
+def test_eastern_offset_midwinter_and_midsummer():
+    assert us_eastern_offset((2026, 1, 15, 12, 0, 0)) == -5    # EST
+    assert us_eastern_offset((2026, 7, 17, 12, 0, 0)) == -4    # EDT (the live bug)
+    assert us_eastern_offset((2026, 12, 25, 0, 0, 0)) == -5
+
+
+def test_eastern_offset_spring_forward_boundary():
+    # 2026: March 1 is a Sunday, so the second Sunday is March 8.
+    # DST begins 02:00 EST = 07:00 UTC.
+    assert us_eastern_offset((2026, 3, 8, 6, 59, 0)) == -5
+    assert us_eastern_offset((2026, 3, 8, 7, 0, 0)) == -4
+    assert us_eastern_offset((2026, 3, 7, 12, 0, 0)) == -5
+    assert us_eastern_offset((2026, 3, 9, 12, 0, 0)) == -4
+
+
+def test_eastern_offset_fall_back_boundary():
+    # 2026: November 1 is a Sunday (the first). DST ends 02:00 EDT = 06:00 UTC.
+    assert us_eastern_offset((2026, 11, 1, 5, 59, 0)) == -4
+    assert us_eastern_offset((2026, 11, 1, 6, 0, 0)) == -5
+    assert us_eastern_offset((2026, 10, 31, 12, 0, 0)) == -4
+    assert us_eastern_offset((2026, 11, 2, 12, 0, 0)) == -5

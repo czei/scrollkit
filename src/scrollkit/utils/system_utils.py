@@ -36,7 +36,12 @@ except ModuleNotFoundError:
     class rtc:
         class RTC:
             def __init__(self):
-                self.datetime = datetime() if datetime is not None else None
+                # Placeholder only — callers ASSIGN .datetime. Eagerly
+                # constructing adafruit_datetime.datetime() here raised
+                # TypeError (it requires year/month/day), which made every
+                # desktop RTC write fail inside set_system_clock's except
+                # and turned the NTP success path into a silent failure.
+                self.datetime = None
 
     HAS_HARDWARE = False
 
@@ -71,6 +76,36 @@ def cold_reset():
     microcontroller.reset()
 
 
+def hard_reset():
+    """Best-effort reset LADDER — a reset decision must never silently no-op.
+
+    Tries the proven radio-off ``cold_reset()`` first; if that path itself
+    raises before the reset fires, falls through to a raw
+    ``microcontroller.reset()``, then ``supervisor.reload()`` as the last
+    availability-over-correctness resort (a warm reload can carry the radio
+    wedge forward, but a degraded next session still beats a device that
+    decided to reset and then didn't — review 2026-07-19). Never returns on
+    CircuitPython; on desktop every rung fails harmlessly and it returns, so
+    callers can invoke it without platform guards.
+    """
+    try:
+        cold_reset()
+    except Exception as e:
+        print("hard_reset: cold reset failed:", e)
+    try:
+        import microcontroller
+        print("hard_reset: falling back to raw microcontroller.reset()")
+        microcontroller.reset()
+    except Exception:
+        pass
+    try:
+        import supervisor
+        print("hard_reset: falling back to supervisor.reload()")
+        supervisor.reload()
+    except Exception:
+        pass
+
+
 # NTP servers tried in order. A single query to pool.ntp.org is unreliable in the
 # field: it resolves to a RANDOM pool member, many of which are dead, slow
 # (10-20s), or rate-limiting ("aggressive denial"). So we lead with single-operator
@@ -88,7 +123,8 @@ _MONTHS = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
            "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
 
 
-__all__ = ['set_system_clock', 'set_system_clock_ntp', 'DEFAULT_NTP_SERVERS', 'DEFAULT_HTTP_DATE_HOSTS']
+__all__ = ['set_system_clock', 'set_system_clock_ntp', 'cold_reset', 'hard_reset',
+           'DEFAULT_NTP_SERVERS', 'DEFAULT_HTTP_DATE_HOSTS']
 
 async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
                                socket_timeout=5):
@@ -102,7 +138,7 @@ async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
 
     Args:
         socket_pool: SocketPool instance for NTP (must have getaddrinfo).
-        tz_offset: Timezone offset in hours (defaults to US Eastern, -5).
+        tz_offset: Timezone offset in hours (default None = US Eastern with DST, -5/-4).
         servers: Iterable of NTP server hostnames to try in order
             (defaults to DEFAULT_NTP_SERVERS).
         socket_timeout: Per-server timeout in seconds (default 5).
@@ -122,29 +158,20 @@ async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
         logger.error(None, "Invalid socket pool provided for NTP, socket pool must have getaddrinfo")
         return False
 
-    # Timezone offset: default to EST (-5 hours)
-    if tz_offset is None:
-        tz_offset = -5
-
+    # tz_offset None = US Eastern with DST, resolved from the UTC time below
+    # (a fixed -5 was an hour wrong all summer). Fetch UTC (tz_offset=0), THEN
+    # compute the offset and shift — DST can't be decided before knowing the date.
     for server in (servers if servers is not None else DEFAULT_NTP_SERVERS):
         try:
             logger.info(f"Getting time from NTP server {server} (tz_offset {tz_offset})")
-            ntp = adafruit_ntp.NTP(socket_pool, server=server, tz_offset=tz_offset,
+            ntp = adafruit_ntp.NTP(socket_pool, server=server, tz_offset=0,
                                    socket_timeout=socket_timeout)
-            current_time = ntp.datetime
-
-            # Convert to a tuple for the RTC module
-            datetime_tuple = (
-                current_time.tm_year,    # Year
-                current_time.tm_mon,     # Month
-                current_time.tm_mday,    # Day
-                current_time.tm_hour,    # Hour
-                current_time.tm_min,     # Minute
-                current_time.tm_sec,     # Second
-                current_time.tm_wday,    # Day of week (0-6)
-                -1,                      # Day of year (not necessary)
-                -1                       # DST flag (not necessary)
-            )
+            t = ntp.datetime
+            utc = (t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+            off = tz_offset if tz_offset is not None else us_eastern_offset(utc)
+            datetime_tuple = _utc_to_local_tuple(utc, off)
+            if datetime_tuple is None:
+                continue
 
             rtc.RTC().datetime = datetime_tuple
             logger.info(f"System clock set to {datetime_tuple} via NTP ({server})")
@@ -162,6 +189,42 @@ async def set_system_clock_ntp(socket_pool, tz_offset=None, servers=None,
 
     logger.error(None, "All NTP servers failed to respond")
     return False
+
+
+def _first_sunday(year, month):
+    """Day-of-month of the first Sunday. Noon avoids any DST-edge ambiguity."""
+    for day in range(1, 8):
+        wd = time.localtime(time.mktime(
+            (year, month, day, 12, 0, 0, 0, -1, -1))).tm_wday
+        if wd == 6:
+            return day
+    return 1
+
+
+def us_eastern_offset(utc):
+    """UTC-hours offset for US Eastern at the given UTC (Y,M,D,h,m,s) tuple.
+
+    -4 (EDT) from the second Sunday of March 07:00 UTC to the first Sunday of
+    November 06:00 UTC, else -5 (EST). The device has no timezone database;
+    this hardcodes the post-2007 US rule so the default clock stops being an
+    hour wrong all summer (seen live 2026-07-17: device 16:32, wall 17:33)."""
+    try:
+        year, month, day, hour = utc[0], utc[1], utc[2], utc[3]
+        if month < 3 or month > 11:
+            return -5
+        if 3 < month < 11:
+            return -4
+        if month == 3:
+            start = _first_sunday(year, 3) + 7        # second Sunday
+            if day > start or (day == start and hour >= 7):
+                return -4
+            return -5
+        end = _first_sunday(year, 11)
+        if day < end or (day == end and hour < 6):
+            return -4
+        return -5
+    except Exception:
+        return -5
 
 
 def _parse_http_date(date_header):
@@ -217,7 +280,8 @@ async def _set_clock_from_http_date(http_client, tz_offset, hosts, logger):
             if utc is None:
                 logger.error(None, f"Could not parse Date header from {url}: {date_hdr}")
                 continue
-            dt = _utc_to_local_tuple(utc, tz_offset)
+            off = tz_offset if tz_offset is not None else us_eastern_offset(utc)
+            dt = _utc_to_local_tuple(utc, off)
             if dt is None:
                 continue
             if HAS_HARDWARE:
@@ -242,7 +306,7 @@ async def set_system_clock(http_client, socket_pool=None, tz_offset=None,
     Args:
         http_client: HTTP client used for the Date-header fallback.
         socket_pool: Optional socket pool for NTP.
-        tz_offset: Timezone offset in hours (defaults to US Eastern, -5).
+        tz_offset: Timezone offset in hours (default None = US Eastern with DST, -5/-4).
         http_date_hosts: Optional list of HTTPS hosts for the Date-header
             fallback (defaults to DEFAULT_HTTP_DATE_HOSTS). Prefer a host you
             already fetch from.
@@ -253,8 +317,8 @@ async def set_system_clock(http_client, socket_pool=None, tz_offset=None,
     from scrollkit.utils.error_handler import ErrorHandler
     logger = ErrorHandler("error_log")
 
-    if tz_offset is None:
-        tz_offset = -5
+    # tz_offset None = US Eastern with DST, resolved once the UTC date is known
+    # (see us_eastern_offset). An explicit tz_offset is honored unchanged.
 
     # 1. NTP (multi-server failover) — accurate, but needs UDP/123 open.
     if HAS_NTP and socket_pool is not None:

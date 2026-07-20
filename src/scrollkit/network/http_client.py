@@ -24,13 +24,25 @@ class BaseResponse:
     def __init__(self, status_code=200, text="", content=None, headers=None):
         self.status_code = status_code
         self.text = text
-        self.content = content if content is not None else text.encode('utf-8')
+        # LAZY bytes view: the old eager `text.encode('utf-8')` here silently
+        # DOUBLED every payload's contiguous footprint (~180 KB resident for a
+        # 90 KB park body) and the hot paths only ever read `.text` — a prime
+        # driver of the CP9 fragmentation MemoryErrors (2026-07-19). Encode on
+        # first access only; `read()` and other byte callers still work.
+        self._content = content
         # Response headers (e.g. for reading the 'Date' header as a time source).
         # The native adafruit_requests response already exposes .headers; these
         # wrappers carry it through so the same code works on desktop and device.
         self.headers = headers if headers is not None else {}
         self._json_cache = None
         self._read_position = 0
+
+    @property
+    def content(self):
+        """Body as bytes, encoded lazily on first access (see __init__)."""
+        if self._content is None:
+            self._content = self.text.encode('utf-8')
+        return self._content
 
     def json(self):
         """Parse the response as JSON"""
@@ -83,6 +95,66 @@ class UrllibResponse(BaseResponse):
 
 class MockResponse(BaseResponse):
     """Mock response for development mode testing"""
+
+
+class StreamingResponse:
+    """Socket-OWNING streaming response for large bodies (``get(stream=True)``).
+
+    Unlike the detached ``BaseResponse``, this wraps the LIVE inner response so
+    the body can be consumed in small chunks (``iter_content``) instead of one
+    contiguous ``.text`` string — the point is that a ~90 KB park payload never
+    needs a single 90 KB allocation on a fragmented, non-compacting heap.
+    BECAUSE it owns the socket, the caller MUST close it — use it as a context
+    manager or in try/finally; the socket-hygiene rule that killed the EBUSY
+    wedge applies doubly here.
+
+    Uniform over three backends: a native ``adafruit_requests`` response (true
+    streaming via its ``iter_content``), and desktop/mock responses that only
+    carry ``.text`` (fallback: the whole body as ONE chunk — same API, no
+    streaming benefit, keeps tests and the simulator on the same code path).
+    Body-read errors surface from the caller's iteration, OUTSIDE ``get()``'s
+    retry loop — the caller's own retry policy handles them.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.status_code = getattr(inner, "status_code", 200)
+        try:
+            self.headers = dict(inner.headers)
+        except Exception:
+            self.headers = {}
+
+    def iter_content(self, chunk_size=512):
+        """Iterate the body as bytes chunks (single whole-body chunk on
+        backends without native streaming)."""
+        inner = self._inner
+        if inner is None:
+            return iter(())
+        it = getattr(inner, "iter_content", None)
+        if it is not None:
+            return it(chunk_size)
+        # Desktop/mock fallback ONLY: allocates the whole body as one bytes
+        # chunk — fine off-device, but it would defeat streaming's purpose on
+        # the ESP32-S3. Every device backend has native iter_content; do not
+        # "optimize" a device path onto this branch.
+        text = getattr(inner, "text", "") or ""
+        return iter((text.encode("utf-8"),))
+
+    def close(self):
+        """Release the inner response (and its socket). Safe to call twice."""
+        inner, self._inner = self._inner, None
+        if inner is not None:
+            try:
+                inner.close()
+            except Exception:
+                pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
 
 
 class HttpClient:
@@ -169,9 +241,16 @@ class HttpClient:
             self.urllib = None
             self.URLError = None
 
-    async def get(self, url, headers=None, max_retries=3):
+    async def get(self, url, headers=None, max_retries=3, stream=False):
         """
         Make a GET request with retries.
+
+        ``stream=True`` returns a ``StreamingResponse`` that OWNS the socket:
+        consume the body via ``iter_content(chunk)`` and ALWAYS close it (context
+        manager / try-finally). Retries here cover connect/headers only; a body
+        that dies mid-stream raises from the caller's iteration and is the
+        caller's retry to make. Default (``stream=False``) keeps the historical
+        contract: a detached, socket-free response needing no close.
 
         Blocking note (CircuitPython): the underlying ``adafruit_requests`` is
         synchronous, so despite the ``await`` this call blocks the asyncio event
@@ -205,7 +284,7 @@ class HttpClient:
         if not self.session and not self.use_live_data and self.mock_provider:
             mock_resp = self.mock_provider(url)
             if mock_resp is not None:
-                return mock_resp
+                return StreamingResponse(mock_resp) if stream else mock_resp
 
         # No HTTP client at all (no adafruit session, no urllib) is a permanent
         # configuration state, not a transient blip — fail fast instead of
@@ -216,9 +295,14 @@ class HttpClient:
         while retry_count < max_retries:
             try:
                 if self.using_adafruit and self.session:
-                    resp = await self._get_adafruit(url, headers, retry_count)
+                    if stream:
+                        resp = await self._get_adafruit_stream(url, headers)
+                    else:
+                        resp = await self._get_adafruit(url, headers, retry_count)
                 else:
                     resp = self._get_urllib(url, headers)
+                    if stream:
+                        resp = StreamingResponse(resp)
                 self._note_success()
                 return resp
             except Exception as outer_error:
@@ -273,6 +357,23 @@ class HttpClient:
             except Exception:
                 text = ""
         return BaseResponse(status_code=status, text=text, headers=hdrs)
+
+    async def _get_adafruit_stream(self, url, headers):
+        """Issue one ``adafruit_requests`` GET and hand the LIVE response to a
+        ``StreamingResponse`` — ownership (and the close obligation) transfers
+        to the caller. On any exception before the handoff, the native response
+        is closed here so the socket cannot leak."""
+        resp = None
+        try:
+            resp = self.session.get(url, headers=headers, timeout=self.timeout)
+            return StreamingResponse(resp)
+        except BaseException:
+            if resp is not None:
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+            raise
 
     async def _get_adafruit(self, url, headers, retry_count):
         """Issue one ``adafruit_requests`` GET and return a DETACHED response,

@@ -48,17 +48,22 @@ class TestAutoReboot:
                       max_refresh_failures=3)
         with patch.object(app, "_hardware_reset") as reset:
             with patch("scrollkit.utils.diagnostics.open") as diag_open:
+                # No failure-reboot epoch pending (a bare MagicMock would read
+                # as truthy and defer the reboot).
+                diag_open.return_value.was_deliberate_reboot.return_value = False
                 app.note_refresh_result(False, reason="oserror")  # 1
                 assert not reset.called
                 app.note_refresh_result(False, reason="oserror")  # 2
                 assert not reset.called
                 app.note_refresh_result(False, reason="oserror")  # 3 -> reboot
         assert reset.call_count == 1
-        # The cause is persisted to NVM before resetting (diagnosable post-reboot).
+        # The cause is persisted to NVM before resetting (diagnosable post-reboot),
+        # and the failure-reboot epoch is opened for the next boot's rate limit.
         assert diag_open.return_value.record_crash.called
         recorded = diag_open.return_value.record_crash.call_args[0][0]
         assert "oserror" in recorded
         assert "consecutive refresh failures" in recorded
+        assert diag_open.return_value.note_deliberate_reboot.called
 
     def test_no_reboot_when_disabled_by_default(self, mock_circuitpython_imports):
         app = SLDKApp(enable_web=False, max_refresh_failures=2)
@@ -105,6 +110,134 @@ class TestHardwareReset:
         with patch("scrollkit.utils.diagnostics.open") as diag_open:
             app._auto_reboot("test reason")
         assert diag_open.return_value.record_crash.called
+
+
+class TestFailureRebootRateLimit:
+    """2026-07-19: during a sustained failure epoch (a failure-driven reboot
+    happened and no fetch has succeeded since — the NVM flag), further
+    failure reboots wait out FAILURE_REBOOT_COOLDOWN_S of uptime, so an
+    ordinary long outage settles to ~one reboot/hour, not one every ~13 min."""
+
+    def test_epoch_defers_reboot_until_cooldown(self, mock_circuitpython_imports):
+        app = SLDKApp(enable_web=False, enable_auto_reboot=True,
+                      max_refresh_failures=3)
+        with patch.object(app, "_hardware_reset") as reset:
+            with patch("scrollkit.utils.diagnostics.open") as diag_open:
+                diag_open.return_value.was_deliberate_reboot.return_value = True
+                for _ in range(6):
+                    app.note_refresh_result(False, reason="outage")
+                assert not reset.called          # young uptime: deferred
+                app._uptime_s = lambda: app.FAILURE_REBOOT_COOLDOWN_S + 1
+                app.note_refresh_result(False, reason="outage")
+        assert reset.call_count == 1             # cooled down: one reboot
+
+    def test_no_epoch_means_first_reboot_fires_normally(
+            self, mock_circuitpython_imports):
+        app = SLDKApp(enable_web=False, enable_auto_reboot=True,
+                      max_refresh_failures=2)
+        with patch.object(app, "_hardware_reset") as reset:
+            with patch("scrollkit.utils.diagnostics.open") as diag_open:
+                diag_open.return_value.was_deliberate_reboot.return_value = False
+                app.note_refresh_result(False, reason="outage")
+                app.note_refresh_result(False, reason="outage")
+        assert reset.call_count == 1
+
+
+class TestProgressSupervision:
+    """The alive-and-stale deadman (2026-07-19): a dead/hung data task must
+    not hide behind a happily-fed watchdog. Progress = attempts COMPLETING,
+    success or failure alike — an offline box actively retrying is healthy."""
+
+    def _app(self):
+        app = SLDKApp(enable_web=False)
+        app.running = True
+        return app
+
+    def test_offline_but_retrying_is_not_a_fault(self, mock_circuitpython_imports):
+        app = self._app()
+        now = 10_000.0
+        app._data_process_started = 0.0
+        app._data_loop_beat = now - 60           # loop iterating
+        app._attempt_started = now - 120
+        app._attempt_finished = now - 119        # attempts complete (and FAIL)
+        task = MagicMock()
+        task.done.return_value = False
+        app._data_task = task
+        assert app._progress_fault(now) is None
+
+    def test_dead_data_task_is_a_fault(self, mock_circuitpython_imports):
+        app = self._app()
+        task = MagicMock()
+        task.done.return_value = True
+        app._data_task = task
+        assert app._progress_fault(10_000.0) == "data task exited"
+
+    def test_hung_attempt_is_a_fault(self, mock_circuitpython_imports):
+        app = self._app()
+        now = 10_000.0
+        app._data_loop_beat = now - 30
+        app._attempt_started = now - app.ATTEMPT_STALL_S - 1
+        app._attempt_finished = None             # never returned
+        assert "never finished" in app._progress_fault(now)
+
+    def test_stalled_loop_is_a_fault(self, mock_circuitpython_imports):
+        app = self._app()
+        now = 100_000.0
+        window = max(app.DATA_LOOP_STALL_FLOOR_S, 3 * app.update_interval)
+        app._data_loop_beat = now - window - 1
+        assert "no progress" in app._progress_fault(now)
+
+    def test_supervisor_records_reason_and_fires_once(
+            self, mock_circuitpython_imports):
+        app = self._app()
+        task = MagicMock()
+        task.done.return_value = True
+        app._data_task = task
+        with patch.object(app, "_hardware_reset") as reset:
+            with patch("scrollkit.utils.diagnostics.open") as diag_open:
+                app._supervise_progress()
+                app._last_supervisor_check = 0   # force a re-check
+                app._supervise_progress()        # _supervisor_fired: no repeat
+        assert reset.call_count == 1
+        recorded = diag_open.return_value.record_crash.call_args[0][0]
+        assert "deadman" in recorded and "data task exited" in recorded
+
+
+class TestDataTaskAlwaysCreated:
+    def test_low_memory_does_not_omit_the_data_task(
+            self, mock_circuitpython_imports):
+        """A transient low free-memory reading at startup used to skip creating
+        the data task entirely — no refresh, counter, or recovery ever ran
+        again. It is ALWAYS created now; the loop degrades per-cycle instead."""
+        import asyncio
+
+        app = SLDKApp(enable_web=True)
+
+        async def _noop():
+            return None
+        app.setup = _noop
+        app._initialize_display = _noop
+
+        created = []
+
+        def _fake_create_task(coro):
+            created.append(getattr(coro, "__qualname__", str(coro)))
+            coro.close()
+            t = MagicMock()
+            t.done.return_value = True
+            return t
+
+        async def _fake_gather(*aws, return_exceptions=False):
+            return []
+
+        with patch("scrollkit.app.base.create_task", _fake_create_task), \
+             patch("scrollkit.app.base.gather", _fake_gather), \
+             patch("scrollkit.app.base.free_memory", return_value=1000):
+            asyncio.run(app.run())
+
+        assert any("_data_update_process" in n for n in created), created
+        assert not any("_web_server_process" in n for n in created), \
+            "web stays memory-gated (optional); data is not (required)"
 
 
 class TestRenderErrorStarvesWatchdog:
