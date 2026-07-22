@@ -38,15 +38,24 @@ your phone, and you pick your network from a list.
 networking is not part of it. So every time the board fetched fresh data, the whole
 thing froze, display included.
 
+I did not fix that. It is a low-level limitation of CircuitPython's HTTP library, and
+fixing it properly would mean redesigning that library. What I fixed was the part that
+actually hurt. The first version I shipped went black during a refresh, so a customer on
+a slow connection pulling a lot of data would watch a dead panel for five minutes and
+reasonably conclude the thing had broken. ScrollKit now paints a static frame before it
+blocks. The board still freezes. It just freezes with a message on it, which is the
+difference between a pause and a panic.
+
 **Settings need a place to live.** Almost every app has settings a user should be
 able to change without plugging the device into a computer. The obvious answer is to
 host a small settings website on the board. That locks up during data updates too.
 
-It took me, a professional, months to work out what this board could and couldn't
+It took me, a professional, months just to work out what this board could and couldn't
 do. That is the entire reason this library exists. You write the part that's actually
 yours, a routine that fetches your values and hands them to the display, and ScrollKit
-runs the WiFi onboarding, the settings web UI, the data refresh, and the display loop
-while keeping them from blocking each other. Once the board is sitting on somebody
+handles the WiFi onboarding, the settings web UI, the update scheduling, and the display
+loop, including the unglamorous work of making the unavoidable pauses look deliberate.
+Once the board is sitting on somebody
 else's desk, it pulls its own updates over the air from a GitHub release, so a bug fix
 doesn't require asking a customer to find a USB cable.
 
@@ -114,8 +123,10 @@ has saved me weeks over animating by hand.
 - **Board-agnostic.** It auto-detects the board on CircuitPython, starting with the
   MatrixPortal S3, and adding another is a short recipe. See
   [Adding New Hardware](guide/hardware.md).
-- **Async-first.** A cooperative event loop keeps the display scrolling while data
-  refreshes and the web server run as background tasks.
+- **Async-first, honestly.** A cooperative event loop runs the display, the data
+  refresh, and the web server as separate tasks. A synchronous HTTP fetch still stalls
+  all three, because that is how CircuitPython's HTTP library works, so the framework
+  renders a loading frame first (`show_loading()`) instead of pretending otherwise.
 - **Memory-aware.** The S3 measures about 2 MB of usable RAM, which sounds roomy
   until you're holding a frame buffer, a web server, and a JSON payload at once.
   Importing `scrollkit` pulls in nothing but a version number; every module costs RAM
