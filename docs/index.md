@@ -9,19 +9,46 @@
 
 # ScrollKit
 
-Most LED-matrix libraries get you a scrolling "Hello, World" and call it a day. I
-built ScrollKit for everything after that, whether you're making a clock for your
-desk or a product you'll ship to people who never open a code editor. It pushes
-over-the-air updates to boards already in the field, refreshes live data on a
-fault-tolerant loop that keeps scrolling when the network hiccups, and gives
-users a built-in web server to change settings from their phone, all while
-running transitions and effects that look deliberate. None of those features is the hard part. The hard part is running
-every one of them at once, on a microcontroller with a couple hundred kilobytes of
-RAM, without the display stuttering. And because none of that is fun to debug on
-real hardware, I made it run unchanged in a desktop simulator that matches the
-panel pixel for pixel and exports its own GIFs and videos, like the one above.
+*by [Michael Czeiszperger](http://czei.org)*
 
-*Built by [Michael Czeiszperger](http://czei.org)*
+Two years ago I set out to learn Python by programming a MatrixPortal S3 driving a
+64×32 LED panel. I'm a product engineer, so for me, the best way of learning Python was to
+ship a product: [ThemeParkWaits](https://www.themeparkwaits.com), a scrolling LED display showing ride wait times for up
+to four theme parks at once.
+
+Learning Python went fine. Shipping a CircuitPython product took a year, and almost none of that time went
+where I expected it to.
+
+CircuitPython has no real application libraries. Getting a simple demo onto the
+panel meant pages of constants and setup before anything scrolled. My degree is in
+Electrical and Computer Engineering, which is the discipline specifically about
+programming these things, and I still found it tedious. Mostly I kept thinking about
+the hobbyist who just wants a clock on their desk and has to wade through all of
+that first.
+
+The setup was the easy part. The real time went into three things every finished
+product needs, and that CircuitPython gives you nothing for.
+
+**Nobody wants to edit a text file to join WiFi.** Customers do not mount a drive on
+their computer and edit a config file to set a WiFi password. The standard answer is
+onboarding: the board raises its own private WiFi network, you connect to it from
+your phone, and you pick your network from a list.
+
+**CircuitPython is not multithreaded.** It has crude cooperative multitasking, and
+networking is not part of it. So every time the board fetched fresh data, the whole
+thing froze, display included.
+
+**Settings need a place to live.** Almost every app has settings a user should be
+able to change without plugging the device into a computer. The obvious answer is to
+host a small settings website on the board. That locks up during data updates too.
+
+It took me, a professional, months to work out what this board could and couldn't
+do. That is the entire reason this library exists. You write the part that's actually
+yours, a routine that fetches your values and hands them to the display, and ScrollKit
+runs the WiFi onboarding, the settings web UI, the data refresh, and the display loop
+while keeping them from blocking each other. Once the board is sitting on somebody
+else's desk, it pulls its own updates over the air from a GitHub release, so a bug fix
+doesn't require asking a customer to find a USB cable.
 
 ```python
 import asyncio
@@ -32,7 +59,7 @@ from scrollkit.display.simulator import SimulatorDisplay   # desktop-only import
 class HelloWorldApp(ScrollKitApp):
     async def create_display(self):
         # Open the desktop simulator window. On CircuitPython hardware, delete
-        # this override (and its import) — the default display drives the panel.
+        # this override (and its import); the default display drives the panel.
         return SimulatorDisplay(width=64, height=32)
 
     async def setup(self):
@@ -42,29 +69,67 @@ class HelloWorldApp(ScrollKitApp):
 asyncio.run(HelloWorldApp().run())
 ```
 
-## Why ScrollKit
+## You cannot debug code that's already on the board
 
-- **One codebase, two targets.** A platform-detecting display layer picks the
-  real `displayio` hardware backend on CircuitPython and the simulator on
-  desktop. Your application code never branches on platform.
-- **Board-agnostic.** On CircuitPython it auto-detects the board, starting with
-  MatrixPortal S3, and falls back cleanly; adding a board is a small recipe.
-  See [Adding New Hardware](guide/hardware.md).
-- **Async-first.** A cooperative event loop keeps the display scrolling while
-  data refreshes and the web server run as background tasks.
-- **Memory-aware.** Built for the tight RAM budgets of embedded boards such as
-  the MatrixPortal S3: a lightweight import surface and graduated feature
-  degradation when memory is low.
-- **Batteries included.** A content queue, an effects/transitions engine, a
-  configuration web UI, manifest-based OTA updates from GitHub, WiFi and HTTP
-  helpers, and JSON settings persistence.
+At least when I started, no debugger would help you with code running on the device,
+and CircuitPython does not run on your desktop. So ScrollKit ships a simulator. Your
+app runs on your computer, pixel for pixel, with all the hardware details that took
+me months to work out swapped in behind the same API.
+
+The simulator also records its own GIFs and MP4s. If you have ever tried to film an
+LED panel you know why that matters: the color range fools even a DSLR, and the
+footage never looks like the thing sitting in front of you. The video at the top of
+this page came out of the simulator, not a camera.
+
+## Fast on your laptop means nothing
+
+I wanted transitions, animations, playful fonts. The available libraries sat low
+enough that a crude animation was a weekend project, and worse, nothing told you
+which calls ran in C and which ran in Python. That distinction decides whether an
+effect runs at all.
+
+Here is the gap, measured on a real MatrixPortal S3. Filling all 2,048 pixels of the
+panel with one C call takes 9 microseconds. Setting those same 2,048 pixels one at a
+time from Python takes 14 milliseconds. Identical result, 1,600 times slower, and
+nothing in the documentation tells you which one you just wrote.
+
+So I wrote a program that measures 31 operations on real hardware, from integer math
+to bulk bitmap fills to a full panel refresh, and folded the numbers into the
+simulator. Now the desktop tells you what the panel will do. An effect that busts the
+20 fps budget fails on your laptop in about a second, instead of after you flash it
+and squint at a stuttering sign.
+
+## For people who don't want to learn any of this
+
+All of it works the same whether you're an experienced programmer, a beginner, or
+someone who doesn't code at all and is pointing an AI at the problem. Blocking out a
+sprite animation with AI and watching it run at true device speed a few seconds later
+has saved me weeks over animating by hand.
+
+## What's in the box
+
+- **One codebase, two targets.** The display layer picks the real `displayio`
+  backend on CircuitPython and the simulator on desktop. Your application code never
+  branches on platform.
+- **Board-agnostic.** It auto-detects the board on CircuitPython, starting with the
+  MatrixPortal S3, and adding another is a short recipe. See
+  [Adding New Hardware](guide/hardware.md).
+- **Async-first.** A cooperative event loop keeps the display scrolling while data
+  refreshes and the web server run as background tasks.
+- **Memory-aware.** The S3 measures about 2 MB of usable RAM, which sounds roomy
+  until you're holding a frame buffer, a web server, and a JSON payload at once.
+  Importing `scrollkit` pulls in nothing but a version number; every module costs RAM
+  on a microcontroller, so you import only what you use.
+- **Batteries included.** A content queue, transitions and effects, a configuration
+  web UI, manifest-based OTA updates from GitHub, WiFi and HTTP helpers, and JSON
+  settings persistence.
 
 ## What you can build
 
-ScrollKit is the engine behind DIY scrolling-LED projects: clocks, weather
-boards, crypto/stock tickers, status displays, and bigger apps like
-**ThemeParkWaits** (a live theme-park wait-time board). The library ships with
-graded demos so you can see each capability in isolation:
+ScrollKit is the engine behind DIY scrolling-LED projects: clocks, weather boards,
+crypto and stock tickers, status displays, and bigger apps like **ThemeParkWaits**,
+the live wait-time board that started all of this. The library ships with graded
+demos so you can see each capability on its own:
 
 | Demo | Shows |
 |------|-------|
@@ -72,8 +137,8 @@ graded demos so you can see each capability in isolation:
 | [`demos/medium/`](tutorials/medium.md) | Live temperature from a public API, periodic refresh |
 | [`demos/hard/`](tutorials/hard.md) | Web config, priority queue, effects, multiple data sources, OTA, chunked fetch |
 
-See them all running in the **[Demo Gallery](demos.md)**, animated previews of
-every demo, recorded from the simulator.
+See them all running in the **[Demo Gallery](demos.md)**, animated previews of every
+demo, recorded from the simulator.
 
 ## Architecture at a glance
 
@@ -104,4 +169,4 @@ backlog. So I used Claude Code and spec-driven development to handle the
 refactoring and the first drafts, then went back through all of it in my own
 voice, with my own screenshots. Yes, AI has touched a lot of this code. It was
 also directed by an engineer who has shipped production software for a living,
-including time on one of Sun Microsystems' API teams. Both are true.
+including time on one of Sun Microsystems' API teams.
