@@ -218,6 +218,10 @@ IMAGE_ANIMATORS = {
                              dict(period=6, bob=0), 104,
                              "the ostrich strides across (authored multi-pose cel walk; "
                              "frames in the sibling ostrich_walk.bmp)"),
+    "GravityDripAnimator":  ("light_bulb.bmp", "gravity_drip",
+                             dict(edge="right", fall_speed=1), 96,
+                             "the image collapses toward whichever panel edge is "
+                             "down — here the right one, so it drains sideways"),
     "ComboAnimator":        ("rocket.bmp", "combo",
                              (("motion", dict(path="rise", delay=40)),
                               ("emitter", dict(box=(29, 27, 37, 29), vx=0, vy=0.5,
@@ -905,6 +909,7 @@ def _build_animator(kind, kwargs):
         "blink": ia.BlinkAnimator, "lift": ia.SpriteLiftAnimator,
         "cover": ia.CoverAnimator, "vanish": ia.VanishAnimator,
         "frames": ia.FrameCycleAnimator, "cel_walk": ia.CelWalkAnimator,
+        "gravity_drip": ia.GravityDripAnimator,
     }
     if kind == "combo":
         return ia.ComboAnimator([_build_animator(k, kw) for k, kw in kwargs])

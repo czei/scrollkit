@@ -24,9 +24,14 @@ Three motion substrates, composable via ``ComboAnimator``:
   * transparent overlay bitmaps ABOVE the image (Twinkle / Emitter / Orbiter / Blink /
     Cover) — sparse per-pixel writes cleared with one C ``fill``;
   * moving the image's own TileGrid (Motion) or a lifted copy of its subject
-    (SpriteLift — the scene stays fixed, the hole row-inpaints);
+    (SpriteLift — the scene stays fixed, the hole row-inpaints; GravityDrip — the
+    lifted pixels fall and stack against a panel edge);
   * rewriting image pixels in place (RegionShift / Vanish / FrameCycle) or palette
     entries (PalettePulse) — these need the host's writable copy.
+
+``GravityDripAnimator`` is the one animator with a real-world input: hand it
+``scrollkit.sensors.tilt.TiltSensor.orientation`` and the picture pours toward
+whichever edge of the panel is actually pointing at the floor.
 
 Not to be confused with: ``effects.overlay.OverlayMask`` (opaque cover for transitions,
 C bulk-ops); ``effects.particles.ParticleEngine`` (renders via ``display.set_pixel``,
@@ -1024,6 +1029,247 @@ class FrameCycleAnimator(IntroAnimator):
         self._pix = None
 
 
+class GravityDripAnimator(IntroAnimator):
+    """The image on screen collapses toward whichever panel edge is DOWN.
+
+    Pair it with :class:`scrollkit.sensors.tilt.TiltSensor` and a MatrixPortal S3
+    and the sign responds to being physically turned: hanging normally the pixels
+    rain to the bottom and pile up; stand the box on its side and the same pixels
+    slide sideways instead. Call :meth:`set_gravity` whenever the reported
+    orientation changes and the pile re-aims mid-fall.
+
+    Mechanically this is :class:`~scrollkit.effects.drip_splash.DripReveal` run
+    backwards. The lit pixels are lifted onto a full-panel overlay (the base image
+    is blanked, so they can fall past the source bitmap's own bounds — a
+    ``BitmapText`` strip is only 7 rows tall but its pixels still reach the panel
+    floor), then each falls along the gravity axis to a precomputed resting slot.
+    Slots come from the same invariant ``DripReveal`` uses: within one line across
+    the fall axis, the pixel nearest the floor settles first and the next stacks on
+    top of it, so a moving pixel can never overtake a settled one and no collision
+    check is ever needed.
+
+    Per frame it touches only pixels that actually moved, writing each new position
+    BEFORE erasing the old one (the ordering matters on device: the panel refreshes
+    continuously from the bitmap, so an erase-everything-then-redraw pass shows a
+    visible flicker window that the desktop simulator never reveals — the same trap
+    ``RegionRotateAnimator`` documents). Once the pile settles, ``step`` is free.
+    """
+
+    HOLD_FRAMES = 96
+    wants_writable_bitmap = True          # lifted pixels are blanked from the base
+
+    # Which panel edge is down -> how a coordinate maps onto the fall axis. Names
+    # match scrollkit.sensors.tilt.ORIENTATIONS exactly, so an app can hand the
+    # sensor's reading straight through with no translation table in between.
+    _EDGES = ("bottom", "right", "top", "left")
+
+    # Record layout for one lifted pixel (a mutable list, updated in place — the
+    # whole point is that a frame allocates nothing).
+    _ALONG, _ACROSS, _CI, _TARGET, _LX, _LY = 0, 1, 2, 3, 4, 5
+
+    def __init__(self, edge="bottom", fall_speed=1, max_pixels=400):
+        """Create a gravity drip.
+
+        Args:
+            edge: Which panel edge is down — ``"bottom"`` (default, a normally
+                hung sign), ``"right"``, ``"top"``, or ``"left"``. Feed it
+                ``TiltSensor.orientation``; ``"flat"`` is treated as ``"bottom"``.
+            fall_speed: Cells a pixel travels per frame (>=1). Drive it from
+                ``TiltSensor.magnitude`` for a fall that slows as the box comes
+                level.
+            max_pixels: Lit-pixel budget. ``start`` raises ``ValueError`` past
+                this so an over-dense image falls back to the still frame rather
+                than blowing the per-frame budget (the guard
+                ``RegionShiftAnimator`` uses). 400 px costs ~800 writes/frame.
+        """
+        self._edge = edge if edge in self._EDGES else "bottom"
+        # Coerce to int: positions index a Bitmap, and a float speed (the natural
+        # thing to pass when scaling by TiltSensor.magnitude) would make them
+        # floats and raise on the first write.
+        self._fall_speed = int(fall_speed) if fall_speed > 1 else 1
+        self._max_pixels = max_pixels
+        self._pix = None
+        self._overlay = None
+        self._overlay_tile = None
+        self._w = 0
+        self._h = 0
+
+    # --- coordinate mapping ---------------------------------------------------
+    def _to_axis(self, x, y):
+        """Panel ``(x, y)`` -> ``(along, across)``; ``along`` grows toward the floor."""
+        edge = self._edge
+        if edge == "bottom":
+            return y, x
+        if edge == "top":
+            return self._h - 1 - y, x
+        if edge == "right":
+            return x, y
+        return self._w - 1 - x, y                     # "left"
+
+    def _to_xy(self, along, across):
+        """The inverse of :meth:`_to_axis`."""
+        edge = self._edge
+        if edge == "bottom":
+            return across, along
+        if edge == "top":
+            return across, self._h - 1 - along
+        if edge == "right":
+            return along, across
+        return self._w - 1 - along, across            # "left"
+
+    def _span(self):
+        """Panel extent along the current fall axis."""
+        return self._h if self._edge in ("bottom", "top") else self._w
+
+    # --- lifecycle ------------------------------------------------------------
+    def start(self, display, tile, bitmap, palette, base_colors):
+        super().start(display, tile, bitmap, palette, base_colors)
+        w, h = display.width, display.height
+        self._w, self._h = w, h
+        # The source bitmap may be smaller than the panel and offset by its tile
+        # (BitmapText renders a 7-row strip and scrolls it via tile.x), so lift
+        # into PANEL coordinates or the pile lands in the wrong place.
+        ox = getattr(tile, "x", 0) or 0
+        oy = getattr(tile, "y", 0) or 0
+        lifted = []
+        for by in range(bitmap.height):
+            for bx in range(bitmap.width):
+                ci = bitmap[bx, by]
+                if ci == 0:
+                    continue
+                px, py = bx + ox, by + oy
+                if 0 <= px < w and 0 <= py < h:
+                    lifted.append((px, py, ci))
+        if not lifted:
+            raise ValueError("gravity_drip: nothing lit to drip")
+        if len(lifted) > self._max_pixels:
+            raise ValueError("gravity_drip: %d lit px (max %d)"
+                             % (len(lifted), self._max_pixels))
+
+        # Subject copy on its own full-panel layer (cloned palette, index 0
+        # transparent) — the same lift SpriteLiftAnimator performs.
+        gfx = display.gfx
+        ncolors = len(base_colors)
+        opal = gfx.Palette(ncolors)
+        for i, c in enumerate(base_colors):
+            opal[i] = c
+        opal.make_transparent(0)
+        obmp = gfx.Bitmap(w, h, ncolors)
+        for px, py, ci in lifted:
+            obmp[px, py] = ci
+        otile = gfx.TileGrid(obmp, pixel_shader=opal)
+        display.add_layer(otile)
+        self._overlay = obmp
+        self._overlay_tile = otile
+        bitmap.fill(0)                     # one C call; the pixels live on the overlay now
+
+        pix = []
+        for px, py, ci in lifted:
+            a, c = self._to_axis(px, py)
+            pix.append([a, c, ci, 0, px, py])
+        self._pix = pix
+        self._assign_targets()
+
+    def _assign_targets(self):
+        """Compute each pixel's resting slot and order the list for safe stamping.
+
+        Within one line across the fall axis the pixel nearest the floor takes the
+        floor slot, the next stacks on it, and so on — so targets are strictly
+        ordered the same way the pixels already are and nothing can overtake
+        anything. Sorting the whole list by ``along`` DESCENDING also fixes the
+        per-frame stamp order: moving the frontmost pixel first means the cell a
+        pixel vacates is only cleared after whoever is moving into it has claimed
+        it, so no pixel ever blinks out.
+        """
+        pix = self._pix
+        along, across, target = self._ALONG, self._ACROSS, self._TARGET
+        pix.sort(key=lambda r: r[along], reverse=True)
+        floor = self._span() - 1
+        used = {}
+        for rec in pix:
+            line = rec[across]
+            slot = used.get(line, floor)
+            rec[target] = slot
+            used[line] = slot - 1
+
+    def set_gravity(self, edge=None, angle=None, speed=None):
+        """Re-aim the fall (and optionally its speed) while the drip is running.
+
+        Args:
+            edge: A panel-edge name — pass ``TiltSensor.orientation`` straight
+                through. ``"flat"`` and unknown names are ignored, so a sign laid
+                face down keeps its current pile instead of scrambling.
+            angle: Degrees clockwise from "bottom edge down"
+                (``TiltSensor.gravity_angle``), snapped to the nearest edge.
+                Ignored when ``edge`` is given.
+            speed: New ``fall_speed`` in cells per frame (>=1).
+        """
+        if speed is not None:
+            self._fall_speed = int(speed) if speed > 1 else 1
+        if edge is None and angle is not None:
+            edge = self._EDGES[int((angle + 45.0) % 360.0 // 90.0)]
+        if edge is None or edge == self._edge or edge not in self._EDGES:
+            return
+        if self._pix is None:
+            self._edge = edge
+            return
+        # Re-derive the axis from where every pixel actually IS right now, so a
+        # half-fallen pile keeps its shape and simply changes which way it drains.
+        self._edge = edge
+        for rec in self._pix:
+            rec[self._ALONG], rec[self._ACROSS] = self._to_axis(rec[self._LX],
+                                                                rec[self._LY])
+        self._assign_targets()
+
+    @property
+    def is_complete(self):
+        """True once every pixel has reached its resting slot."""
+        if not self._pix:
+            return True
+        along, target = self._ALONG, self._TARGET
+        for rec in self._pix:
+            if rec[along] < rec[target]:
+                return False
+        return True
+
+    def step(self, frame):
+        pix = self._pix
+        if not pix or self._overlay is None:
+            return
+        overlay = self._overlay
+        along, across, ci_i, target = self._ALONG, self._ACROSS, self._CI, self._TARGET
+        lx, ly = self._LX, self._LY
+        speed = self._fall_speed
+        for rec in pix:                    # frontmost first (see _assign_targets)
+            pos = rec[along]
+            goal = rec[target]
+            if pos >= goal:
+                continue                   # settled: costs nothing for the rest of the run
+            pos += speed
+            if pos > goal:
+                pos = goal
+            rec[along] = pos
+            nx, ny = self._to_xy(pos, rec[across])
+            # Write the new cell BEFORE clearing the old one — never leave the
+            # pixel absent, because the panel may refresh mid-update.
+            overlay[nx, ny] = rec[ci_i]
+            ox, oy = rec[lx], rec[ly]
+            if ox != nx or oy != ny:
+                overlay[ox, oy] = 0
+            rec[lx], rec[ly] = nx, ny
+
+    def detach(self):
+        tile = self._overlay_tile
+        if tile is not None and getattr(self, "display", None) is not None:
+            try:
+                self.display.remove_layer(tile)
+            except Exception:
+                pass
+        self._overlay_tile = None
+        self._overlay = None
+        self._pix = None
+
+
 class ComboAnimator(IntroAnimator):
     """Compose two primitives (e.g. rocket = rise + exhaust emitter)."""
 
@@ -1329,6 +1575,15 @@ FrameCycleAnimator.FEASIBILITY = {
     "hardware_safe": True, "allocates_per_frame": False,
     "max_pixel_writes_per_frame": 0, "modeled_frame_ms": 0.2,
 }
+GravityDripAnimator.FEASIBILITY = {
+    # Lifts once at start (bounded by max_pixels, guarded), then touches ONLY the
+    # pixels that moved this frame: one write for the new cell plus one erase for
+    # the vacated one. 400 lit px == 800 writes ~= 5.6 ms at the device-measured
+    # ~7 us/write, and it drops to zero as the pile settles. The pixel records are
+    # mutated in place, so no frame allocates.
+    "hardware_safe": True, "allocates_per_frame": False,
+    "max_pixel_writes_per_frame": 800, "modeled_frame_ms": 6.0,
+}
 ComboAnimator.FEASIBILITY = {
     "hardware_safe": True, "allocates_per_frame": True,
     "max_pixel_writes_per_frame": 648, "modeled_frame_ms": 8.0,
@@ -1359,5 +1614,6 @@ ANIMATOR_CLASSES = (
     VanishAnimator,
     FrameCycleAnimator,
     CelWalkAnimator,
+    GravityDripAnimator,
     ComboAnimator,
 )

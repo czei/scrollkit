@@ -314,6 +314,40 @@ def _hardware():
     }
 
 
+def _sensors(board=None):
+    """What the resolved board can sense, queried live from the board registry.
+
+    A LIVE query, not a static table an app copies out once: ask
+    ``capabilities()["sensors"]`` for the board you are actually targeting and a
+    later library release that adds a sensor (or a board that lacks one) flows
+    through automatically.
+    """
+    from ..display.boards import BOARDS, resolve_board
+    spec = resolve_board(board)
+    return {
+        "board": spec.board_id,
+        "tilt": {
+            "available": spec.has_accelerometer,
+            "part": "LIS3DH triple-axis accelerometer" if spec.has_accelerometer
+                    else None,
+            "i2c_address": spec.accel_i2c_address,
+            "api": ("scrollkit.sensors.tilt.TiltSensor(display) -> .available, "
+                    ".read(), .gravity_angle (degrees clockwise from 'bottom edge "
+                    "down'), .orientation ('bottom'|'right'|'top'|'left'|'flat'), "
+                    ".magnitude, .is_flat"),
+            "simulator": ("no accelerometer to emulate on a desktop — the display "
+                          "carries a virtual gravity vector steered with the arrow "
+                          "keys, or set exactly via display.set_virtual_tilt(angle=, "
+                          "flat=) for deterministic tests"),
+            "effects": ["GravityDripAnimator"],
+            "note": ("degrades to available=False / orientation='flat' rather than "
+                     "raising, so the same app runs on a board without the part"),
+        },
+        "by_board": {bid: {"tilt": s.has_accelerometer}
+                     for bid, s in BOARDS.items()},
+    }
+
+
 def _performance():
     from .performance import performance_guide
     return performance_guide()
@@ -358,7 +392,7 @@ def capabilities():
                     ("text_fills", _text_fills), ("color_utilities", _color_utilities),
                     ("named_colors", _named_colors),
                     ("display_api", _display_api), ("hardware", _hardware),
-                    ("performance", _performance)):
+                    ("sensors", _sensors), ("performance", _performance)):
         try:
             cat[key] = fn()
         except Exception as e:  # one bad section shouldn't sink the catalog
@@ -432,6 +466,16 @@ def as_text(cat=None):
     nc = cat.get("named_colors")
     if isinstance(nc, dict) and nc:
         lines.append("Named colors: " + ", ".join(sorted(nc)))
+    sn = cat.get("sensors")
+    if isinstance(sn, dict) and isinstance(sn.get("tilt"), dict):
+        tilt = sn["tilt"]
+        if tilt.get("available"):
+            lines.append("Sensors (%s): tilt via %s at I2C 0x%02X — %s"
+                         % (sn.get("board"), tilt.get("part"),
+                            tilt.get("i2c_address") or 0, tilt.get("api")))
+        else:
+            lines.append("Sensors (%s): no tilt sensor on this board"
+                         % sn.get("board"))
     hw = cat.get("hardware")
     if isinstance(hw, dict) and "guidance" in hw:
         lines.append("Hardware: %s" % hw["guidance"])

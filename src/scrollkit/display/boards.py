@@ -84,10 +84,17 @@ class BoardSpec:
         addr_pin_count: HUB75 address lines (4 for 64-row panels, 5 for 64-tall).
         matrix_builder: callable ``(spec, width, height, bit_depth)`` returning
             ``(hardware, display, matrix)`` — runs only on CircuitPython.
+        has_accelerometer: True if the board carries an onboard accelerometer
+            (``sensors/tilt.py`` skips the I2C probe entirely when False, so a
+            board without one degrades to "flat" instead of scanning the bus).
+        accel_i2c_address: 7-bit I2C address of that accelerometer. The
+            MatrixPortal S3's LIS3DH answers at **0x19**, NOT the 0x18 that
+            Adafruit's own libraries default to — see docs/guide/sensors.md.
     """
 
     def __init__(self, board_id, name, default_width, default_height, pitch,
-                 addr_pin_count, matrix_builder):
+                 addr_pin_count, matrix_builder, has_accelerometer=False,
+                 accel_i2c_address=None):
         self.board_id = board_id
         self.name = name
         self.default_width = default_width
@@ -95,6 +102,8 @@ class BoardSpec:
         self.pitch = pitch
         self.addr_pin_count = addr_pin_count
         self._matrix_builder = matrix_builder
+        self.has_accelerometer = has_accelerometer
+        self.accel_i2c_address = accel_i2c_address
 
     def make_matrix(self, width, height, bit_depth):
         """Construct the RGB matrix on hardware (CircuitPython only)."""
@@ -105,11 +114,13 @@ BOARDS = {
     MATRIXPORTAL_S3: BoardSpec(
         MATRIXPORTAL_S3, "Adafruit MatrixPortal S3 (ESP32-S3)",
         default_width=64, default_height=32, pitch=3.0, addr_pin_count=4,
-        matrix_builder=_make_matrix_s3),
+        matrix_builder=_make_matrix_s3,
+        has_accelerometer=True, accel_i2c_address=0x19),
     INTERSTATE75_W: BoardSpec(
         INTERSTATE75_W, "Pimoroni Interstate 75 W (RP2350)",
         default_width=64, default_height=32, pitch=3.0, addr_pin_count=4,
-        matrix_builder=_make_matrix_interstate75),
+        matrix_builder=_make_matrix_interstate75,
+        has_accelerometer=False),
 }
 
 

@@ -157,11 +157,22 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
         self._window_created: bool = False
         self._recording = None
 
+        # Virtual accelerometer (desktop only — you cannot tilt a laptop). Steered
+        # with the arrow keys in the simulator window, or set programmatically for
+        # deterministic tests/headless runs. See set_virtual_tilt().
+        self._tilt_angle: float = 0.0     # degrees clockwise from "bottom edge down"
+        self._tilt_flat: bool = False     # True = lying face up, no in-plane gravity
+
+    @property
+    def board_id(self) -> str:
+        """Canonical id of the board this display resolved to (see ``boards.py``)."""
+        return self._board_id
+
     @property
     def width(self) -> int:
         """Display width in pixels."""
         return self._width
-        
+
     @property
     def height(self) -> int:
         """Display height in pixels."""
@@ -241,6 +252,67 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                 "enable with hardware_timing=True or SCROLLKIT_HW_SIM=1")
         return self._perf.report()
 
+    # ------------------------------------------------------------------
+    # Virtual accelerometer (desktop only). scrollkit.sensors.tilt.TiltSensor
+    # reads this when it can't find a real chip, so an app that responds to
+    # tilt runs unchanged against the simulator and the MatrixPortal S3.
+    # ------------------------------------------------------------------
+
+    # Degrees the left/right arrow keys swing virtual gravity per press.
+    _TILT_KEY_STEP = 15.0
+
+    @property
+    def virtual_tilt(self):
+        """Simulated gravity as panel-space ``(gx, gy, gz)`` in g.
+
+        +X points at the panel's right edge and +Y at its bottom edge, so a
+        normally-hung sign reads ``(0, 1, 0)`` and lying face up reads
+        ``(0, 0, 1)``. Returns ``None`` on CircuitPython, where the real
+        accelerometer is the source and this would be a lie.
+        """
+        if IS_CIRCUITPYTHON:
+            return None
+        if self._tilt_flat:
+            return (0.0, 0.0, 1.0)
+        import math
+        rad = math.radians(self._tilt_angle)
+        return (math.sin(rad), math.cos(rad), 0.0)
+
+    def set_virtual_tilt(self, angle=None, flat=None) -> None:
+        """Aim the simulator's virtual gravity (no-op on hardware).
+
+        The arrow keys drive this interactively, but tests and ``run_headless``
+        need exact, reproducible angles — that's what this is for.
+
+        Args:
+            angle: Degrees clockwise from "bottom edge down". 0 is upright, 90
+                puts the panel's right edge on the floor. Wrapped to [0, 360).
+            flat: True to lie the panel face up (gravity along Z, no in-plane
+                direction — ``TiltSensor.orientation`` reports ``"flat"``).
+        """
+        if IS_CIRCUITPYTHON:
+            return
+        if angle is not None:
+            self._tilt_angle = float(angle) % 360.0
+        if flat is not None:
+            self._tilt_flat = bool(flat)
+
+    def _handle_tilt_key(self, key, pygame) -> bool:
+        """Apply an arrow-key tilt. Returns True if the key was a tilt control."""
+        if key == pygame.K_LEFT:
+            self.set_virtual_tilt(angle=self._tilt_angle - self._TILT_KEY_STEP,
+                                  flat=False)
+        elif key == pygame.K_RIGHT:
+            self.set_virtual_tilt(angle=self._tilt_angle + self._TILT_KEY_STEP,
+                                  flat=False)
+        elif key == pygame.K_DOWN:
+            self.set_virtual_tilt(angle=0.0, flat=False)     # back upright
+        elif key == pygame.K_UP:
+            self.set_virtual_tilt(flat=not self._tilt_flat)  # lay it face up
+        else:
+            return False
+        return True
+
     # clear() / set_pixel() / fill() / _hide_unused_labels() come from
     # GraphicsMixin — ONE per-frame surface for hardware and simulator.
 
@@ -281,6 +353,10 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             return False
+                        # Arrow keys steer the virtual accelerometer: you cannot
+                        # tilt a laptop, so this is how tilt-driven effects are
+                        # developed before they ever reach the panel.
+                        self._handle_tilt_key(event.key, pygame)
 
             # display.refresh() already renders the matrix to its surface exactly
             # once (== one modeled hardware frame). Do NOT call matrix.render()

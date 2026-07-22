@@ -5,18 +5,20 @@
     CircuitPython flashing, USB deployment modes, first boot, and the physical
     verification checklist, see [Physical Device Setup](device-setup.md).
 
-ScrollKit runs the same app on more than one HUB75 driver board. One board is
-supported today:
+ScrollKit runs the same app on more than one HUB75 driver board. Two boards are
+registered today:
 
-| Board | Chip | Notes |
-|-------|------|-------|
-| **Adafruit MatrixPortal S3** | ESP32-S3 | The default. Calibrated from a real device. |
+| Board | Chip | Tilt sensor | Notes |
+|-------|------|-------------|-------|
+| **Adafruit MatrixPortal S3** | ESP32-S3 | LIS3DH @ I2C `0x19` | The default. Calibrated from a real device. |
+| **Pimoroni Interstate 75 W** | RP2350 | — | Registered; profile not yet calibrated. |
 
-A board differs from the others in only three places: how the RGB matrix is
-constructed on CircuitPython, the default panel geometry, and the calibrated
-performance profile the feasibility model uses. Everything else (the content
-types, effects, transitions, the web/OTA stack) is board-agnostic. This page
-covers how the abstraction works and how to add a board.
+A board differs from the others in only a few places: how the RGB matrix is
+constructed on CircuitPython, the default panel geometry, the calibrated
+performance profile the feasibility model uses, and which onboard sensors it
+carries. Everything else (the content types, effects, transitions, the web/OTA
+stack) is board-agnostic. This page covers how the abstraction works and how to
+add a board.
 
 ## How board selection works
 
@@ -71,6 +73,14 @@ or test import.
 
 2. **Map its on-device id** by adding the board's `board.board_id` string(s) to
    `_ONDEVICE_ID_MAP` so auto-detection resolves it to your canonical id.
+
+    Declare its onboard sensors on the same `BoardSpec` while you're there. A
+    board with an accelerometer sets `has_accelerometer=True` and the *actual*
+    `accel_i2c_address` — read the vendor's pinout rather than trusting a driver
+    default, which is exactly the trap the MatrixPortal S3 sets (`0x19`, not the
+    `0x18` Adafruit's own libraries assume). Boards left at the default are simply
+    reported as having no tilt sensor, and
+    [`TiltSensor`](sensors.md) degrades instead of probing a bus for nothing.
 
 3. **Add an estimate profile** in
    `src/scrollkit/simulator/core/hardware_profile.py` (an `*_estimate()` function

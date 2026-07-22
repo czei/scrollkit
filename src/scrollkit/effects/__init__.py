@@ -21,7 +21,9 @@ into RAM. Import each submodule directly instead:
 - **Image animators** (per-frame motion layered onto a static image already on
   screen — start/step/detach, not the ``Transition`` contract) —
   ``from scrollkit.effects.image_animators import TwinkleAnimator, MotionAnimator,
-  ComboAnimator``
+  GravityDripAnimator, ComboAnimator``. ``GravityDripAnimator`` pairs with
+  ``scrollkit.sensors.tilt.TiltSensor``: the image collapses toward whichever
+  panel edge is physically pointing at the floor.
 - **Palette partitions** (indexed layers animated purely by palette writes) —
   ``from scrollkit.effects.palette_partition import PalettePartition,
   map_diagonal, map_radial, map_route``

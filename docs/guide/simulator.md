@@ -12,6 +12,7 @@ It is what lets you develop, test, and demo ScrollKit apps with no hardware.
   hardware uses).
 - **`terminalio`** — the built-in terminal font.
 - **Devices** — `MatrixPortalS3`.
+- **A virtual accelerometer** — see [Tilt](#tilting-a-laptop) below.
 
 A pygame window renders the virtual LED matrix pixel-for-pixel, so what you see
 on screen matches what the panel shows.
@@ -113,6 +114,29 @@ what the hardware would actually do, reach for one of the model-driven modes:
     *faster* than the device and read the verdict off a gauge, not sit through a
     6-FPS crawl on every preview. So the default computes the estimate and reports
     it; `throttle` makes you feel it.
+
+## Tilting a laptop
+
+You can't — but the MatrixPortal S3 has an accelerometer, so apps that respond to
+being physically turned need *some* way to be developed. The display carries a
+virtual gravity vector that [`TiltSensor`](sensors.md) reads whenever there's no
+real chip, driven from the simulator window:
+
+| Key | Effect |
+|-----|--------|
+| ++left++ / ++right++ | Swing gravity 15° |
+| ++down++ | Snap back upright |
+| ++up++ | Lay the panel flat on its back |
+
+Arrow keys are for humans; tests and headless runs set the angle exactly:
+
+```python
+display.set_virtual_tilt(angle=90)     # right edge down
+display.set_virtual_tilt(flat=True)    # lying face up
+```
+
+Both are no-ops on hardware, where the real accelerometer is the source. Try it
+with `PYTHONPATH=src python demos/medium/tilt_drip.py`.
 
 ## Screenshots
 

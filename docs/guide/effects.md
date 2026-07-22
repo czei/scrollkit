@@ -119,8 +119,15 @@ ThemeParkWaits ride-intro engine.
 <figure markdown="span">![VanishAnimator](../assets/reference/animators/vanish-animator.gif){ width="240" }<figcaption>`VanishAnimator` — a bite is taken out, and stays bitten</figcaption></figure>
 <figure markdown="span">![FrameCycleAnimator](../assets/reference/animators/frame-cycle-animator.gif){ width="240" }<figcaption>`FrameCycleAnimator` — the whole flag waves (pre-baked frames)</figcaption></figure>
 <figure markdown="span">![CelWalkAnimator](../assets/reference/animators/cel-walk-animator.gif){ width="240" }<figcaption>`CelWalkAnimator` — the ostrich strides across, legs stepping (authored multi-pose cel walk)</figcaption></figure>
+<figure markdown="span">![GravityDripAnimator](../assets/reference/animators/gravity-drip-animator.gif){ width="240" }<figcaption>`GravityDripAnimator` — the image collapses toward whichever panel edge is down (here the right one)</figcaption></figure>
 <figure markdown="span">![ComboAnimator](../assets/reference/animators/combo-animator.gif){ width="240" }<figcaption>`ComboAnimator` — rise + exhaust emitter, composed</figcaption></figure>
 </div>
+
+!!! tip "`GravityDripAnimator` can be driven by the real world"
+    It takes a panel-edge name, and the MatrixPortal S3 knows which edge that is.
+    Feed it [`TiltSensor.orientation`](sensors.md) and the sign responds to being
+    physically turned — see `demos/medium/tilt_drip.py`. It works perfectly well
+    with a hard-coded edge too.
 
 Every animator follows the same standalone **start / step / detach** convention. Any
 exception out of `start()`/`step()` is the host's cue to fall back to the still image,

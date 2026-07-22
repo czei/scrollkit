@@ -24,7 +24,13 @@ class MatrixPortalS3(BaseDevice):
         
         # Board-specific attributes
         self.NEOPIXEL = None  # Status NeoPixel (not simulated)
-        self.ACCELEROMETER = None  # LIS3DH accelerometer (not simulated)
+        # The real S3 carries an LIS3DH at I2C 0x19 (NOT the 0x18 Adafruit's
+        # libraries default to). The simulator has no I2C bus to emulate, so the
+        # virtual gravity vector lives on the display (arrow keys /
+        # set_virtual_tilt) and scrollkit.sensors.tilt.TiltSensor reads it there;
+        # this attribute just records that the board HAS the part.
+        self.ACCELEROMETER = "lis3dh"
+        self.ACCELEROMETER_I2C_ADDRESS = 0x19
         
     def initialize(self):
         """Initialize MatrixPortal S3 specific features."""

@@ -75,7 +75,13 @@ ALL_ANIMATORS = [
     lambda: ia.CoverAnimator(box=(28, 14, 34, 18), dy=-2, until=10),
     lambda: ia.VanishAnimator(boxes=((22, 10, 26, 14),), start=5),
     lambda: ia.FrameCycleAnimator(box=(20, 10, 44, 21), nframes=3, amp=1),
+    lambda: ia.GravityDripAnimator(),
+    lambda: ia.GravityDripAnimator(edge="left", fall_speed=2),
 ]
+
+# The synthetic scene's lit-pixel count: a 24x12 block plus the 12-px wing. The
+# band/feature recolour existing block pixels, so they add nothing.
+SCENE_LIT = 24 * 12 + 12
 
 
 @pytest.mark.asyncio
@@ -347,12 +353,201 @@ async def test_copy_to_writable_exact_and_writable():
     assert dup[0, 0] == 1
 
 
+# --- GravityDripAnimator (tilt-driven collapse) ------------------------------
+
+def _overlay_pixels(anim):
+    """Every lit pixel on the drip's overlay as ``(x, y, color_index)``."""
+    o = anim._overlay
+    return [(x, y, o[x, y])
+            for y in range(o.height) for x in range(o.width) if o[x, y] != 0]
+
+
+async def _run_drip(anim, frames=96):
+    d = await _make_display()
+    tile, bmp, pal = _attach(d, anim)
+    for f in range(frames):
+        anim.step(f)
+    return d, tile, bmp
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_lifts_and_blanks_the_base():
+    """The pixels move onto the overlay; the source image is left empty."""
+    d = await _make_display()
+    anim = ia.GravityDripAnimator()
+    tile, bmp, pal = _attach(d, anim)
+    assert all(bmp[x, y] == 0 for y in range(32) for x in range(64))
+    assert len(_overlay_pixels(anim)) == SCENE_LIT
+    anim.detach()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("edge,axis,limit,cmp", [
+    ("bottom", 1, 32, "ge"),      # every pixel ends in the low rows
+    ("top", 1, 0, "le"),
+    ("right", 0, 64, "ge"),
+    ("left", 0, 0, "le"),
+])
+async def test_gravity_drip_piles_against_the_named_edge(edge, axis, limit, cmp):
+    """Whichever edge is 'down' is the one the pixels end up stacked against."""
+    anim = ia.GravityDripAnimator(edge=edge)
+    d, tile, bmp = await _run_drip(anim)
+    assert anim.is_complete
+    pixels = _overlay_pixels(anim)
+    assert len(pixels) == SCENE_LIT               # nothing lost or duplicated
+    # The scene's densest line holds 24 px, so the pile is at most 24 deep.
+    coords = [p[axis] for p in pixels]
+    if cmp == "ge":
+        assert min(coords) >= limit - 24
+    else:
+        assert max(coords) <= limit + 24
+    anim.detach()
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_never_stacks_two_pixels_in_one_cell():
+    """The settle-slot invariant: distinct pixels never collapse onto each other."""
+    anim = ia.GravityDripAnimator()
+    d, tile, bmp = await _run_drip(anim)
+    pixels = _overlay_pixels(anim)
+    assert len({(x, y) for x, y, _ci in pixels}) == SCENE_LIT
+    anim.detach()
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_conserves_pixels_every_frame():
+    """No frame may drop a pixel — the write-new-before-erase-old ordering."""
+    d = await _make_display()
+    anim = ia.GravityDripAnimator()
+    tile, bmp, pal = _attach(d, anim)
+    for f in range(40):
+        anim.step(f)
+        assert len(_overlay_pixels(anim)) == SCENE_LIT, "pixel vanished on frame %d" % f
+    anim.detach()
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_reaims_mid_fall():
+    """set_gravity() re-drains a half-fallen pile toward the new edge."""
+    d = await _make_display()
+    anim = ia.GravityDripAnimator()
+    tile, bmp, pal = _attach(d, anim)
+    for f in range(6):
+        anim.step(f)
+    assert not anim.is_complete
+    anim.set_gravity(edge="right")
+    for f in range(6, 200):
+        anim.step(f)
+    assert anim.is_complete
+    pixels = _overlay_pixels(anim)
+    assert len(pixels) == SCENE_LIT
+    assert min(p[0] for p in pixels) >= 64 - 24     # stacked on the right edge
+    anim.detach()
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_accepts_a_continuous_angle():
+    """An angle (TiltSensor.gravity_angle) snaps to the nearest edge."""
+    anim = ia.GravityDripAnimator()
+    anim.set_gravity(angle=80.0)
+    assert anim._edge == "right"
+    anim.set_gravity(angle=185.0)
+    assert anim._edge == "top"
+    anim.set_gravity(angle=350.0)
+    assert anim._edge == "bottom"
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_coerces_a_fractional_speed():
+    """Scaling speed by TiltSensor.magnitude yields a float — it must not index a
+    Bitmap with one."""
+    anim = ia.GravityDripAnimator(fall_speed=2.7)
+    assert anim._fall_speed == 2
+    anim.set_gravity(speed=3.9)
+    assert anim._fall_speed == 3
+    d, tile, bmp = await _run_drip(anim, frames=60)
+    assert anim.is_complete                        # ran without a TypeError
+    assert len(_overlay_pixels(anim)) == SCENE_LIT
+    anim.detach()
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_ignores_flat_and_unknown_edges():
+    """A sign laid face down keeps its pile instead of scrambling."""
+    anim = ia.GravityDripAnimator(edge="right")
+    anim.set_gravity(edge="flat")
+    assert anim._edge == "right"
+    anim.set_gravity(edge="sideways-ish")
+    assert anim._edge == "right"
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_maps_a_tile_offset_into_panel_space():
+    """A BitmapText-style strip is lifted at its ON-PANEL position, not (0, 0)."""
+    d = await _make_display()
+    gfx = d.gfx
+    bmp = gfx.Bitmap(10, 7, 2)                     # a small strip, like BitmapText
+    for x in range(10):
+        bmp[x, 0] = 1
+    pal = gfx.Palette(2)
+    pal[1] = 0xFFFFFF
+    pal.make_transparent(0)
+    tile = gfx.TileGrid(bmp, pixel_shader=pal)
+    tile.x, tile.y = 12, 9
+    d.add_layer(tile)
+    anim = ia.GravityDripAnimator()
+    anim.start(d, tile, bmp, pal, [0x000000, 0xFFFFFF])
+    # Lifted where it was actually drawn...
+    assert sorted(_overlay_pixels(anim)) == [(12 + i, 9, 1) for i in range(10)]
+    for f in range(96):
+        anim.step(f)
+    # ...and it falls to the PANEL floor, not to row 6 of its 7-row strip.
+    assert all(y == 31 for _x, y, _ci in _overlay_pixels(anim))
+    anim.detach()
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_over_cap_raises_without_leaking_a_layer():
+    """Too dense to animate: refuse in start() so the host keeps the still image."""
+    d = await _make_display()
+    gfx = d.gfx
+    bmp = gfx.Bitmap(64, 32, 2)
+    for y in range(32):
+        for x in range(64):
+            bmp[x, y] = 1                          # 2048 lit px >> the 400 cap
+    pal = gfx.Palette(2)
+    pal[1] = 0xFFFFFF
+    tile = gfx.TileGrid(bmp, pixel_shader=pal)
+    d.add_layer(tile)
+    layers = len(d._layer_group)
+    anim = ia.GravityDripAnimator()
+    with pytest.raises(ValueError):
+        anim.start(d, tile, bmp, pal, [0, 0xFFFFFF])
+    assert len(d._layer_group) == layers           # no overlay left behind
+    assert bmp[0, 0] == 1                          # base untouched -> fall back to it
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_gravity_drip_empty_image_raises():
+    d = await _make_display()
+    gfx = d.gfx
+    bmp = gfx.Bitmap(64, 32, 2)
+    pal = gfx.Palette(2)
+    tile = gfx.TileGrid(bmp, pixel_shader=pal)
+    anim = ia.GravityDripAnimator()
+    with pytest.raises(ValueError):
+        anim.start(d, tile, bmp, pal, [0, 0xFFFFFF])
+
+
 def test_feasibility_on_classes_only():
     """CircuitPython crashes importing modules that set attrs on functions."""
     for cls in (ia.TwinkleAnimator, ia.MotionAnimator, ia.EmitterAnimator,
                 ia.PalettePulseAnimator, ia.RegionShiftAnimator, ia.OrbiterAnimator,
                 ia.BlinkAnimator, ia.SpriteLiftAnimator, ia.CoverAnimator,
-                ia.VanishAnimator, ia.FrameCycleAnimator, ia.ComboAnimator):
+                ia.VanishAnimator, ia.FrameCycleAnimator, ia.GravityDripAnimator,
+                ia.ComboAnimator):
         assert isinstance(cls.FEASIBILITY, dict)
         assert "hardware_safe" in cls.FEASIBILITY
     assert not hasattr(ia.copy_to_writable, "FEASIBILITY")
