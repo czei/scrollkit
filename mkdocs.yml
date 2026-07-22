@@ -9,15 +9,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: teal
-      accent: cyan
+      primary: deep purple
+      accent: pink
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: cyan
+      primary: deep purple
+      accent: pink
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -43,12 +43,13 @@ markdown_extensions:
       permalink: true
 
 extra_css:
+  - stylesheets/theme.css
   - stylesheets/landing.css
 
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Physical Device Setup: guide/device-setup.md
+  - Hardware Assembly: guide/device-setup.md
   - Demo Gallery: demos.md
   - "Sample Project: The Forge Sign": sample-project.md
   - Visual Reference: guide/visual-reference.md

@@ -1,0 +1,146 @@
+/* Site palette sampled from the hero animation: indigo -> violet -> magenta,
+   with rose and amber as supporting colors. */
+
+:root {
+  --sk-indigo: #4653c7;
+  --sk-violet: #7137b7;
+  --sk-magenta: #a91e78;
+  --sk-rose: #d84d75;
+  --sk-amber: #e59143;
+}
+
+[data-md-color-scheme="default"] {
+  --md-hue: 272deg;
+  --md-primary-fg-color: #7137b7;
+  --md-primary-fg-color--light: #8f52d2;
+  --md-primary-fg-color--dark: #55228f;
+  --md-accent-fg-color: #bd176f;
+  --md-accent-fg-color--transparent: rgba(189, 23, 111, 0.12);
+  --md-typeset-a-color: #6635b5;
+  --md-default-bg-color: #fdfaff;
+  --md-code-fg-color: #34253f;
+  --md-code-bg-color: #f5effa;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 276deg;
+  --md-primary-fg-color: #7137b7;
+  --md-primary-fg-color--light: #a45de8;
+  --md-primary-fg-color--dark: #4d237d;
+  --md-accent-fg-color: #ff65c8;
+  --md-accent-fg-color--transparent: rgba(255, 101, 200, 0.12);
+  --md-typeset-a-color: #bc7cff;
+  --md-default-bg-color: #0e0b14;
+  --md-code-fg-color: #eee9f4;
+  --md-code-bg-color: #171020;
+  --md-footer-bg-color: rgba(10, 7, 15, 0.92);
+  --md-footer-bg-color--dark: #09070d;
+}
+
+.md-header {
+  background: linear-gradient(
+    100deg,
+    var(--sk-indigo) 0%,
+    var(--sk-violet) 52%,
+    var(--sk-magenta) 100%
+  );
+}
+
+.md-header[data-md-state="shadow"] {
+  box-shadow: 0 0.15rem 0.6rem rgba(50, 20, 78, 0.34);
+}
+
+.md-header .md-search__form {
+  background-color: rgba(15, 9, 25, 0.2);
+}
+
+.md-header .md-search__form:hover {
+  background-color: rgba(15, 9, 25, 0.34);
+}
+
+::selection {
+  background: rgba(216, 77, 117, 0.28);
+}
+
+/* Hardware assembly guide: keep each instruction beside the photograph that
+   demonstrates it, while allowing a clean single-column flow on phones. */
+.setup-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
+  gap: 1.5rem;
+  align-items: center;
+  margin: 1.75rem 0 2.5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(113, 55, 183, 0.2);
+  border-radius: 0.8rem;
+  background: linear-gradient(
+    145deg,
+    rgba(70, 83, 199, 0.06),
+    rgba(169, 30, 120, 0.035)
+  );
+}
+
+.setup-step__copy > :first-child {
+  margin-top: 0;
+}
+
+.setup-step__figure {
+  margin: 0;
+  text-align: center;
+}
+
+.setup-step__figure img {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  max-height: 25rem;
+  margin: 0 auto;
+  object-fit: contain;
+  border: 1px solid rgba(113, 55, 183, 0.22);
+  border-radius: 0.7rem;
+  box-shadow: 0 0.75rem 2rem rgba(50, 20, 78, 0.18);
+}
+
+.setup-step__figure--phone img {
+  width: auto;
+}
+
+.setup-step__figure--wide img {
+  max-width: 22rem;
+}
+
+.setup-step__figure figcaption {
+  margin-top: 0.6rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.setup-hero-figure {
+  margin: 1.5rem 0 2rem;
+  text-align: center;
+}
+
+.setup-hero-figure img {
+  display: block;
+  width: 100%;
+  border-radius: 0.8rem;
+  box-shadow: 0 0.75rem 2rem rgba(50, 20, 78, 0.18);
+}
+
+.setup-hero-figure figcaption {
+  margin-top: 0.6rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+}
+
+@media screen and (max-width: 44rem) {
+  .setup-step {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-step {
+    gap: 1rem;
+    padding: 1rem;
+  }
+}

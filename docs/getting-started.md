@@ -98,9 +98,9 @@ asyncio.run(MyApp().run())
 
 ## Deploying to hardware
 
-For assembly, CircuitPython installation, host/device flash-write modes, serial
-access, and the real-device acceptance checklist, start with
-[Physical Device Setup](guide/device-setup.md). The software deployment is:
+Before installing software, connect the MatrixPortal S3, HUB75 ribbon, power
+leads, and LED panel by following the photographed
+[hardware assembly guide](guide/device-setup.md). Then deploy the software:
 
 1. Connect a supported board such as the MatrixPortal S3 over USB (it mounts as
    `CIRCUITPY`).
