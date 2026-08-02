@@ -3,6 +3,90 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.10.0] - 2026-08-02
+
+A sensor layer, and the network work from three field failures on a fielded
+MatrixPortal S3 (CircuitPython 9.2.x).
+
+### Added
+- **`scrollkit.sensors` — the first sensor package.** `sensors.tilt.TiltSensor`
+  reads the MatrixPortal S3's onboard LIS3DH through a minimal built-in
+  register driver, so there is no `adafruit_lis3dh` to copy into `/lib`.
+  Everything it reports is in PANEL space, not chip space: `gravity_angle`
+  (continuous degrees clockwise from "bottom edge down") and `orientation`
+  (which edge faces the floor, hysteretic so a sign resting near a diagonal
+  does not chatter between two names every frame). Reads throttle to 10 Hz, so
+  calling it every frame in a 20 fps loop costs nothing, and it never raises —
+  no accelerometer, a busy bus, or no display all give `available == False`
+  and `orientation == "flat"`. Note the address gotcha: on the S3 the part
+  answers at I2C **0x19**, not the 0x18 Adafruit's own libraries default to.
+  Like `scrollkit.effects`, the package imports nothing at package level —
+  import `scrollkit.sensors.tilt` directly so a board that never tilts pays no
+  RAM.
+- `BoardSpec.has_accelerometer` / `accel_i2c_address`, so a board that differs
+  is corrected in the registry rather than in the driver (the Interstate 75 W
+  has no accelerometer and is never probed). `capabilities()` gains a live
+  `sensors` section queried from that registry.
+- `GravityDripAnimator` (`effects/image_animators.py`): whatever is on screen
+  lets go and pours toward whichever edge is now the floor; `set_gravity()`
+  re-aims the pile mid-fall. Pixels lift onto a full-panel overlay, so a
+  7-row text strip falls to the panel floor instead of piling up inside its
+  own bitmap. It is an image animator, not a `Transition` — it decorates a
+  layer already on screen rather than covering, swapping and revealing.
+- **Virtual tilt in the simulator**: `display.virtual_tilt` /
+  `set_virtual_tilt(angle=, flat=)` carry a gravity vector that `TiltSensor`
+  reads when there is no real chip (you cannot tilt a laptop). Arrow keys
+  steer it in the pygame window; the setter gives tests and headless runs
+  exact, reproducible angles. Same class both places. Plus
+  `demos/medium/tilt_drip.py` and `docs/guide/sensors.md`.
+- **`HttpClient.get(stream=True)`** returns a socket-owning
+  `StreamingResponse`: `iter_content` chunks on the device, a whole-body
+  fallback for desktop and mocks, `close()` in `__exit__`. A stream that dies
+  mid-iteration raises from the caller's loop and is the caller's retry to
+  make.
+- **`StreamingResponse.readinto(buf)`** — the drain primitive for a
+  drain-then-parse fetch: drain the whole body into your own reusable buffer,
+  close, then parse. The response stays open for network time only instead of
+  across a multi-second parse, and the loop allocates nothing per iteration.
+  It uses adafruit_requests 4.1.17's native `Response._readinto` when present
+  (chunked encoding and content-length handled), otherwise drives
+  `iter_content` carrying an oversized chunk's tail into the next call. EOF
+  returns 0 repeatably, including after `close()`. It is *not* a cure for the
+  `-12288` TLS-SRAM exhaustion — that leak scales with bytes read, sits below
+  the CircuitPython heap, and is cured only by a reset.
+- `note_fetch_result(rearm=)` separates "stamp the success time" from "re-arm
+  recovery state", so a PARTIAL refresh can never read as full health.
+
+### Changed
+- `BaseResponse.content` is lazy. The eager `text.encode()` kept every payload
+  resident TWICE (~180 KB for a 90 KB body) although the hot paths only read
+  `.text`; on a non-compacting heap that shattered the largest free block
+  until 54 KB requests failed with 1.37 MB free.
+- The watchdog now arms BEFORE `setup()` at a boot-sized timeout — boot was
+  previously unprotected. CircuitPython 9.2.8 rejects retightening a running
+  watchdog, so one window covers boot and runtime.
+- A data-progress deadman on the display loop cold-resets on a dead task, an
+  attempt that never returns, or a loop that stops iterating. Progress means
+  attempts COMPLETING, success or failure alike, so a box that is offline and
+  actively retrying reads as healthy. The data task is always created; a
+  transient low-memory reading used to omit it permanently.
+- `hard_reset()` ladders cold reset → raw reset → `supervisor.reload`, so a
+  decided reset never silently no-ops. A failure-reboot epoch flag in NVM
+  rate-limits failure-driven reboots, cleared only by a real fetch success.
+
+### Fixed
+- **OTA on CircuitPython 9.x.** 9.2.x ships a `hashlib` with no sha256, so
+  every OTA download failed verification and rolled back. `_new_digest()` now
+  picks the strongest checksum the runtime can actually compute (sha256, else
+  native `binascii.crc32`) at all four verification sites, including the delta
+  comparison. Verification is never skipped — no usable digest raises a named
+  error. Payloads are unsigned either way, so authenticity still rests on TLS;
+  the checksum's job is catching corrupt downloads. Staged manifests are
+  `json.dump`-streamed rather than built as one string, and the allowlist
+  accepts `/safemode.py`.
+- A desktop `rtc` mock constructed `adafruit_datetime.datetime()` eagerly and
+  raised `TypeError`, silently failing every desktop RTC write.
+
 ## [0.9.3] - 2026-07-16
 
 ### Fixed
