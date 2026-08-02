@@ -36,7 +36,7 @@ The one detail that shapes everything else: **HTTP is synchronous**
 (`adafruit_requests`), so a data fetch blocks the whole cooperative event loop —
 including rendering. The library paints a loading frame and suspends rendering
 around the blocking call, and — when the app opts in (`enable_watchdog=True`) —
-the hardware watchdog resets the board if a fetch truly wedges. See
+the hardware watchdog resets the board if a fetch truly hangs. See
 [Performance](performance.md) and the [run loop](app.md#the-run-loop) for how
 that plays out frame-by-frame.
 

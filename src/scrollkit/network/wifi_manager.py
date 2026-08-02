@@ -251,14 +251,14 @@ class WiFiManager:
     async def bounce(self):
         """FORCE a radio restart + fresh association, even when the link looks up.
 
-        ``reconnect()`` is useless against the long-uptime field wedge this
+        ``reconnect()`` is useless against the long-uptime field failure this
         exists for: after ~26 h the ESP32's WiFi/lwIP session can degrade so
         INBOUND traffic still works (the radio reports connected, the device's
         web server answers) while every OUTBOUND ``connect()`` fails EBUSY —
         session rebuilds and pooled-socket eviction cannot clear it, but a
         radio disconnect + reassociation does (verified live on hardware,
         2026-07-15: a bare ``wifi.radio.connect()`` at the REPL restored
-        outbound TCP AND TLS with the wedged app state still in RAM).
+        outbound TCP AND TLS with the broken app state still in RAM).
 
         After a successful bounce the caller should drop pooled sockets
         (``HttpClient.close_pooled_sockets()``) — they belonged to the dead

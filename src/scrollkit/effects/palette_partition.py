@@ -137,7 +137,7 @@ def map_radial(pixel_slots, cx, cy, n=10, y_scale=2):
 
 
 def map_angle(pixel_slots, cx, cy, n=14):
-    """Angular wedges around a point (a radar sweep axis)."""
+    """Angular sectors around a point (a radar sweep axis)."""
     body = _body_pixels(pixel_slots)
     groups = {}
     for (x, y) in body:

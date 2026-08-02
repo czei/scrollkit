@@ -284,7 +284,7 @@ def phase_a(port):
 
 
 def phase_b(port):
-    print("\n[B] watchdog resets a wedged loop (REBOOTS)")
+    print("\n[B] watchdog resets a frozen loop (REBOOTS)")
     reset, out = run_until_reset(_PHASE_B, port)
     if "B_SURVIVED_ERROR" in out:
         return _v("B", False, "loop survived 15s unfed — watchdog never reset")

@@ -569,7 +569,7 @@ class ContentQueue:
         # so it releases its overlay layer (see clear()). Drain the whole list (a
         # rapid double-rebuild can leave more than one), popping each first so a
         # concurrent clear() during stop() isn't lost; guarded so a misbehaving
-        # stop() can't wedge the loop. Runs even when the queue is now empty (a
+        # stop() can't hang the loop. Runs even when the queue is now empty (a
         # rebuild to no items must still detach the old overlay).
         while self._pending_stops:
             pending = self._pending_stops.pop(0)

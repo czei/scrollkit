@@ -264,7 +264,7 @@ class HaloPulse(_Treatment):
 
 
 class SonarSweep(_Treatment):
-    """A wedge sweeps around the anchor, leaving a fading afterglow."""
+    """A sector sweeps around the anchor, leaving a fading afterglow."""
 
     PARTITION = "angle"
 
@@ -282,7 +282,7 @@ class SonarSweep(_Treatment):
         for f in range(total):
             pos = (f * 0.4) % n
             for i in range(n):
-                d = (pos - i) % n     # how long ago the wedge passed
+                d = (pos - i) % n     # how long ago the sweep passed
                 if d < 1.0:
                     colors[i] = hot
                 elif d < 2.5:

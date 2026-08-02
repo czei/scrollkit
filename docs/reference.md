@@ -23,7 +23,7 @@ from scrollkit.app.base import ScrollKitApp     # alias: SLDKApp
   `render_suspended` — pause queue rendering (queue preserved) while painting an
   off-queue status frame and blocking on a fetch. `enable_auto_reboot` opts into
   rebooting after `max_refresh_failures` (default 12) consecutive
-  `note_refresh_result(ok=False)` calls, to recover a wedged radio/session.
+  `note_refresh_result(ok=False)` calls, to recover a broken radio/session.
 
 ## Display
 

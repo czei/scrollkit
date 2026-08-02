@@ -114,7 +114,7 @@ zero per-frame pixel work. Documented in
 <figure markdown="span">![velvet-sweep](../assets/reference/treatments/velvet-sweep.gif){ width="240" }<figcaption>VelvetSweep — a hot sheen crosses diagonally</figcaption></figure>
 <figure markdown="span">![anchor-wake](../assets/reference/treatments/anchor-wake.gif){ width="240" }<figcaption>AnchorWake — warmth flows out and echoes back</figcaption></figure>
 <figure markdown="span">![halo-pulse](../assets/reference/treatments/halo-pulse.gif){ width="240" }<figcaption>HaloPulse — pressure waves expand radially</figcaption></figure>
-<figure markdown="span">![sonar-sweep](../assets/reference/treatments/sonar-sweep.gif){ width="240" }<figcaption>SonarSweep — a wedge sweeps with afterglow</figcaption></figure>
+<figure markdown="span">![sonar-sweep](../assets/reference/treatments/sonar-sweep.gif){ width="240" }<figcaption>SonarSweep — a sector sweeps with afterglow</figcaption></figure>
 <figure markdown="span">![cipher-rain](../assets/reference/treatments/cipher-rain.gif){ width="240" }<figcaption>CipherRain — staggered highlights descend</figcaption></figure>
 <figure markdown="span">![ink-shimmer](../assets/reference/treatments/ink-shimmer.gif){ width="240" }<figcaption>InkShimmer — interleaved satin shimmer</figcaption></figure>
 <figure markdown="span">![rim-light](../assets/reference/treatments/rim-light.gif){ width="240" }<figcaption>RimLight — a passing light catches stroke edges</figcaption></figure>

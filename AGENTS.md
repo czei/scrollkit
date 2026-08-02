@@ -420,7 +420,7 @@ The simulator can't exercise these — they only do something on hardware — bu
 shipping app wants them. All are opt-in and degrade to no-ops on desktop.
 
 - **Watchdog + crash diagnostics.** Construct with `ScrollKitApp(enable_watchdog=True)`
-  so a wedged display loop self-resets, and pair it with NVM diagnostics to survive
+  so a frozen display loop self-resets, and pair it with NVM diagnostics to survive
   and explain a crash:
 
   ```python

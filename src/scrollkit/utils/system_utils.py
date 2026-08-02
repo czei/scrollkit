@@ -82,8 +82,8 @@ def hard_reset():
     Tries the proven radio-off ``cold_reset()`` first; if that path itself
     raises before the reset fires, falls through to a raw
     ``microcontroller.reset()``, then ``supervisor.reload()`` as the last
-    availability-over-correctness resort (a warm reload can carry the radio
-    wedge forward, but a degraded next session still beats a device that
+    availability-over-correctness resort (a warm reload can carry the broken
+    radio state forward, but a degraded next session still beats a device that
     decided to reset and then didn't — review 2026-07-19). Never returns on
     CircuitPython; on desktop every rung fails harmlessly and it returns, so
     callers can invoke it without platform guards.

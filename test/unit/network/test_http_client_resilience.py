@@ -1,6 +1,6 @@
 """Resilience tests for HttpClient — the silent persistent-fetch-failure fix.
 
-Reproduces the field outage (a wedged adafruit_requests session whose every
+Reproduces the field outage (a broken adafruit_requests session whose every
 fetch fails identically until reboot, with an empty "Last error") and asserts the
 library now (1) rebuilds the session on any repeated failure, (2) surfaces the
 real cause, and (3) self-recovers once the session works again.
@@ -25,7 +25,7 @@ def _adafruit_client(session, **kw):
 class TestSessionRebuild:
     @pytest.mark.asyncio
     async def test_session_rebuilt_after_repeated_failures(self):
-        """A wedged session (every get fails) is rebuilt once the consecutive
+        """A broken session (every get fails) is rebuilt once the consecutive
         failure count crosses the threshold — the in-place root-cause repair."""
         session = MagicMock()
         session.get.side_effect = OSError("read timeout")  # NOT OutOfRetries
@@ -60,7 +60,7 @@ class TestSessionRebuild:
 
     def test_rebuild_session_creates_fresh_session(self):
         """_rebuild_session swaps in a brand-new Session from a fresh
-        SocketPool(wifi.radio) + ssl context (the wedge-clearing mechanism),
+        SocketPool(wifi.radio) + ssl context (the failure-clearing mechanism),
         exercised on desktop via injected fake device modules."""
         old_session = MagicMock(name="old_session")
         client = _adafruit_client(old_session)
@@ -143,7 +143,7 @@ class TestErrorSurfaced:
 class TestSocketRelease:
     """The success path must close the native response so its socket returns to
     the ~4-socket pool. Leaking it on every successful fetch exhausts the pool and
-    wedges the device with permanent OSError 16 (EBUSY) — the original field bug
+    breaks the device with permanent OSError 16 (EBUSY) — the original field bug
     that no caller (not even the demos) guarded against, because they never
     ``.close()`` the response."""
 
@@ -230,18 +230,18 @@ class TestSocketRelease:
         assert client._failures_since_rebuild == 1
 
 
-class TestWedgeRecovery:
+class TestSessionRecovery:
     @pytest.mark.asyncio
-    async def test_wedged_session_recovers_after_rebuild(self):
-        """End-to-end repro: the session is wedged (fails) until a rebuild swaps
+    async def test_broken_session_recovers_after_rebuild(self):
+        """End-to-end repro: the session is broken (fails) until a rebuild swaps
         in a working one, after which the next get() succeeds — self-recovery
         without a reboot."""
-        wedged = MagicMock(name="wedged")
-        wedged.get.side_effect = OSError("connection reset")
+        broken = MagicMock(name="broken")
+        broken.get.side_effect = OSError("connection reset")
         working = MagicMock(name="working")
         working.get.return_value = MagicMock(status_code=200, text="{}")
 
-        client = _adafruit_client(wedged, session_rebuild_threshold=2)
+        client = _adafruit_client(broken, session_rebuild_threshold=2)
 
         def fake_rebuild():
             client.session = working
@@ -250,7 +250,7 @@ class TestWedgeRecovery:
         with patch.object(client, "_rebuild_session", side_effect=fake_rebuild):
             with patch("asyncio.sleep", new=AsyncMock()):
                 with patch("scrollkit.network.http_client._logger"):
-                    # First call wedged -> after 2 failures the session is rebuilt;
+                    # First call fails -> after 2 failures the session is rebuilt;
                     # the 3rd attempt in the same call uses the working session.
                     resp = await client.get("https://example.com/api", max_retries=3)
 
@@ -287,7 +287,7 @@ class TestRebuildHygiene:
         }, _FakeSession
 
     def test_rebuild_closes_old_pool_before_new_session(self):
-        """Ordering is the contract: the wedged pool's native sockets are freed
+        """Ordering is the contract: the broken pool's native sockets are freed
         BEFORE the replacement TLS context is allocated (the freed internal SRAM
         is what the new context allocates into)."""
         events = []

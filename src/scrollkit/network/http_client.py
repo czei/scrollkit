@@ -106,7 +106,7 @@ class StreamingResponse:
     needs a single 90 KB allocation on a fragmented, non-compacting heap.
     BECAUSE it owns the socket, the caller MUST close it — use it as a context
     manager or in try/finally; the socket-hygiene rule that killed the EBUSY
-    wedge applies doubly here.
+    bug applies doubly here.
 
     Uniform over three backends: a native ``adafruit_requests`` response (true
     streaming via its ``iter_content``), and desktop/mock responses that only
@@ -239,7 +239,7 @@ class HttpClient:
                      synchronous, so without a timeout a hung socket blocks the
                      whole asyncio event loop forever (the display freezes). This
                      bounds connect/read so a flaky network raises instead of
-                     wedging.
+                     hanging.
 
                      INVARIANT: HTTP timeout < watchdog timeout. A fetch that runs
                      the full timeout blocks the loop (and thus watchdog feeding)
@@ -249,7 +249,7 @@ class HttpClient:
             session_rebuild_threshold: After this many CONSECUTIVE failed requests
                      the session is torn down and recreated (fresh
                      ``SocketPool(wifi.radio)`` + ssl context). The dominant field
-                     wedge is a session whose sockets/TLS state get stuck — a
+                     failure is a session whose sockets/TLS state get stuck — a
                      read/connect timeout, mbedTLS/SSL error, ConnectionError or
                      OSError — after which EVERY fetch through that session fails
                      identically until the radio is re-initialised. None of those
@@ -265,7 +265,7 @@ class HttpClient:
         self.timeout = timeout
 
         # --- resilience / diagnostics state ---------------------------------
-        # Rebuild the wedged session after this many consecutive failures.
+        # Rebuild the broken session after this many consecutive failures.
         self.session_rebuild_threshold = session_rebuild_threshold
         # Consecutive request failures since the last success OR rebuild (gates
         # the rebuild; reset to 0 on either).
@@ -371,7 +371,7 @@ class HttpClient:
                 _logger().error(outer_error, f"HTTP GET error (attempt {retry_count+1})")
                 last_error = outer_error
                 # Count the failure and, on a repeated failure, rebuild the
-                # (likely wedged) session so the NEXT retry uses a fresh socket
+                # (likely broken) session so the NEXT retry uses a fresh socket
                 # pool instead of hammering the stuck one forever.
                 self._note_failure(outer_error)
                 retry_count += 1
@@ -403,7 +403,7 @@ class HttpClient:
         live native response and nothing ever closed it (only failures were
         closed), so a socket leaked per fetch until the pool was exhausted and
         every subsequent ``session.get`` raised ``OSError 16 (EBUSY)`` — a
-        permanent wedge a ``_rebuild_session`` could not clear, because the leaked
+        permanent failure a ``_rebuild_session`` could not clear, because the leaked
         sockets were owned by discarded, never-closed response objects.
         """
         status = getattr(resp, "status_code", 200)
@@ -444,12 +444,12 @@ class HttpClient:
         The native response is read into a socket-free ``BaseResponse``
         (``_detach_response``) and the native one is closed in ``finally`` on BOTH
         success and failure — a socket leaked out of the ESP32-S3's ~4-socket pool
-        is the dominant field wedge (it exhausts the pool, then every fetch raises
+        is the dominant field bug (it exhausts the pool, then every fetch raises
         ``OSError 16 EBUSY``). On any exception it propagates so ``get()``'s
         retry/rebuild logic runs. Session recreation is handled centrally by
         ``_note_failure()`` / ``_rebuild_session()``, NOT here, so EVERY repeated
         failure — read/connect timeout, mbedTLS/SSL error, ConnectionError,
-        OSError, OutOfRetries — clears a wedged session, not just the rare
+        OSError, OutOfRetries — clears a broken session, not just the rare
         ``OutOfRetries`` case.
         """
         resp = None
@@ -477,7 +477,7 @@ class HttpClient:
 
     def _note_failure(self, error):
         """Record a failed request and rebuild the session once the consecutive
-        failure count crosses the threshold (the in-place wedge repair)."""
+        failure count crosses the threshold (the in-place repair)."""
         self.last_error = error
         self._failures_since_rebuild += 1
         if (self.using_adafruit and self.session is not None
@@ -526,7 +526,7 @@ class HttpClient:
     def _rebuild_session(self):
         """Tear down and recreate the adafruit_requests session.
 
-        A fresh ``SocketPool(wifi.radio)`` + ssl context discards the wedged
+        A fresh ``SocketPool(wifi.radio)`` + ssl context discards the broken
         pool's stuck sockets/TLS state — the only way to clear the dominant field
         failure short of a reboot. Device-only (the imports exist on CircuitPython
         only); a no-op that returns False on desktop, where the urllib path never
@@ -543,7 +543,7 @@ class HttpClient:
         """
         if not (self.using_adafruit and self.session is not None):
             return False
-        # Release the wedged pool's native sockets/TLS contexts first — this is
+        # Release the broken pool's native sockets/TLS contexts first — this is
         # both the leak fix and what frees room for the replacement context.
         self.close_pooled_sockets()
         try:
@@ -595,11 +595,11 @@ class HttpClient:
         Mirrors ``get()``: on the device path the native ``adafruit_requests``
         response is read into a socket-free ``BaseResponse`` and CLOSED in a
         ``finally`` so its socket returns to the ~4-socket pool — a leaked POST
-        socket wedges the device with ``OSError 16 (EBUSY)`` exactly like a leaked
+        socket breaks the device with ``OSError 16 (EBUSY)`` exactly like a leaked
         GET. A per-request ``timeout`` is passed (both paths) so a hung POST can't
         block the synchronous asyncio loop and trip the watchdog. POST is
         single-shot (no retry loop), but a failure is recorded via
-        ``_note_failure`` so a wedged session still gets rebuilt on the next
+        ``_note_failure`` so a broken session still gets rebuilt on the next
         request, raises ``NetworkError``, and the cause is retained on
         ``last_error``.
         """
@@ -701,7 +701,7 @@ class HttpClient:
                 _logger().error(e, f"Sync GET error (attempt {retry_count+1})")
                 last_error = e
                 # Same repeated-failure session rebuild as the async path, so a
-                # wedged session self-recovers whichever entry point the app uses.
+                # broken session self-recovers whichever entry point the app uses.
                 self._note_failure(e)
                 retry_count += 1
                 if retry_count < max_retries:

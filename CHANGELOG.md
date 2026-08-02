@@ -543,7 +543,7 @@ Adafruit MatrixPortal S3 (CircuitPython 8.x/9.x/10.x) and a desktop pygame simul
 ### Added
 
 - Opt-in hardware watchdog on `ScrollKitApp` (`enable_watchdog`, `watchdog_timeout`,
-  default 8s) that resets the board if the display loop wedges — e.g. a hung
+  default 8s) that resets the board if the display loop freezes — e.g. a hung
   synchronous fetch — and self-recovers instead of sitting frozen until a power
   cycle. Hardware-validated on CP 9.2.7 and 10.2.1 (`test/claude/RELIABILITY_TESTING.md`).
 - Data-refresh memory floor `MIN_FREE_FOR_UPDATE` (default 25000) with a

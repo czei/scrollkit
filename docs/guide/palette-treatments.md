@@ -38,7 +38,7 @@ Partition builders (each returns `(group_map, n_groups)`):
 | `map_diagonal` | bands along x + 2y | sweeps, eclipses, gradients |
 | `map_anchor_distance` | distance from an anchor column | outward wakes |
 | `map_radial` | concentric rings around a point | halos |
-| `map_angle` | angular wedges around a point | sonar sweeps |
+| `map_angle` | angular sectors around a point | sonar sweeps |
 | `map_rain` | per-column staggered vertical cycle | descending rain |
 | `map_checker` | interleaved parity | satin shimmer |
 | `map_exposure` | which side of the stroke faces open sky | rim light |
@@ -59,7 +59,7 @@ tile swap in and out is seamless.
 | `VelvetSweep` | `diagonal` | ![](../assets/reference/treatments/velvet-sweep.gif){ width="300" }<br>A hot sheen travels diagonally across the dimmed mark, like light over velvet. |
 | `AnchorWake` | `anchor` | ![](../assets/reference/treatments/anchor-wake.gif){ width="300" }<br>Warmth flows outward from the anchor through the mark, and a dimmer echo returns. |
 | `HaloPulse` | `radial` | ![](../assets/reference/treatments/halo-pulse.gif){ width="300" }<br>Circular pressure waves expand outward through radial bands. |
-| `SonarSweep` | `angle` | ![](../assets/reference/treatments/sonar-sweep.gif){ width="300" }<br>A wedge sweeps around the anchor, leaving a fading afterglow. |
+| `SonarSweep` | `angle` | ![](../assets/reference/treatments/sonar-sweep.gif){ width="300" }<br>A sector sweeps around the anchor, leaving a fading afterglow. |
 | `CipherRain` | `rain` | ![](../assets/reference/treatments/cipher-rain.gif){ width="300" }<br>Phase-staggered highlights descend within the strokes, column by column. |
 | `InkShimmer` | `checker` | ![](../assets/reference/treatments/ink-shimmer.gif){ width="300" }<br>Interleaved groups slowly exchange two close shades — a satin shimmer, quiet enough for long dwells. |
 | `RimLight` | `exposure` | ![](../assets/reference/treatments/rim-light.gif){ width="300" }<br>A light source passes over; whichever stroke edge faces it catches a pale highlight. |

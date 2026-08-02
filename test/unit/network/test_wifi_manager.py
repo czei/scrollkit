@@ -385,7 +385,7 @@ class TestAccessPointNaming:
 
 
 class TestBounce:
-    """bounce(): the forced radio restart for the looks-up-but-outbound-dead wedge."""
+    """bounce(): the forced radio restart for the looks-up-but-outbound-dead failure."""
 
     @pytest.mark.asyncio
     async def test_bounce_is_noop_true_in_dev_mode(self):
@@ -399,7 +399,7 @@ class TestBounce:
     @pytest.mark.asyncio
     async def test_bounce_toggles_radio_and_reconnects_even_when_connected(self):
         """Unlike reconnect(), bounce() must act while the link LOOKS up — the
-        2026-07-15 wedge kept is_connected True while outbound was dead."""
+        2026-07-15 failure kept is_connected True while outbound was dead."""
         with patch('scrollkit.network.wifi_manager.is_dev_mode', return_value=False):
             mock_wifi = MagicMock()
             with patch.dict('sys.modules', {'wifi': mock_wifi}):

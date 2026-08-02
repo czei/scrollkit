@@ -82,7 +82,7 @@ class SLDKApp:
     MAX_LOW_MEM_SKIPS = 5
 
     # Last-resort auto-reboot: after this many CONSECUTIVE failed data refreshes
-    # (reported via note_refresh_result), reboot to clear a wedged radio/HTTP
+    # (reported via note_refresh_result), reboot to clear a broken radio/HTTP
     # session. Default 12 ≈ one hour at the 300 s default refresh cadence (an app
     # using a faster stale-retry cadence reaches it sooner — tune per app). Only
     # acts when enable_auto_reboot is set. See note_refresh_result()/_auto_reboot().
@@ -434,7 +434,7 @@ class SLDKApp:
         while self.running:
             try:
                 # The display loop is the device's liveness heartbeat: feeding the
-                # watchdog here means a wedged loop (e.g. a hung synchronous fetch
+                # watchdog here means a frozen loop (e.g. a hung synchronous fetch
                 # that froze the whole event loop) stops feeding and triggers a
                 # self-healing reset. Persistent render errors stop feeding too
                 # (see MAX_CONSECUTIVE_RENDER_ERRORS above).
@@ -526,7 +526,7 @@ class SLDKApp:
             try:
                 # Wait for update interval
                 await sleep(self.update_interval)
-                # The loop iterated — the supervisor's "data loop wedged" check
+                # The loop iterated — the supervisor's "data loop stopped" check
                 # keys off this beat (skipped cycles still beat).
                 self._data_loop_beat = self._monotonic()
 
@@ -826,7 +826,7 @@ class SLDKApp:
         Armed BEFORE setup() at a boot-sized ``timeout`` (boot code feeds it at
         stage boundaries), then tightened to ``watchdog_timeout`` once setup
         returns — from there the display loop (the device's liveness heartbeat)
-        feeds it every frame: if anything wedges the loop — most importantly a
+        feeds it every frame: if anything freezes the loop — most importantly a
         hung synchronous HTTP call — feeding stops and the board resets,
         self-recovering instead of sitting frozen/black until someone
         power-cycles it. No-op on desktop, when disabled, or when the explicit
@@ -905,7 +905,7 @@ class SLDKApp:
         failure streak resets and the last-success time is stamped; on failure the
         streak grows and — if ``enable_auto_reboot`` is set and the streak reaches
         ``max_refresh_failures`` — a last-resort reboot is triggered to clear a
-        wedged radio/session.
+        broken radio/session.
 
         Args:
             ok: True if the refresh succeeded.
@@ -944,7 +944,7 @@ class SLDKApp:
         EPOCH — the NVM deliberate-reboot flag says a failure reboot already
         happened and no fetch has succeeded since — each subsequent reboot
         waits for FAILURE_REBOOT_COOLDOWN_S of uptime. A reboot genuinely
-        cures a wedged radio/session on the first try; rebooting every 13
+        cures a broken radio/session on the first try; rebooting every 13
         minutes all night for an outage it cannot fix is pure churn."""
         try:
             from ..utils import diagnostics
@@ -1039,7 +1039,7 @@ class SLDKApp:
         return time.monotonic() - self._last_refresh_success_time
 
     def _auto_reboot(self, reason: str) -> None:
-        """Last-resort reboot to clear a wedged radio/session (device-only).
+        """Last-resort reboot to clear a broken radio/session (device-only).
 
         Records the cause to NVM (survives the reset; shown on the config UI after
         recovery) then resets via ``_hardware_reset()``. A no-op on desktop/sim, so
@@ -1051,7 +1051,7 @@ class SLDKApp:
         # Best-effort: persist the cause so the next outage is diagnosable, and
         # mark the failure-reboot epoch so the NEXT failure-driven reboot waits
         # out the cooldown (cleared by the first successful fetch). A reboot
-        # fixes the wedge; if the link is genuinely down it won't — but a
+        # fixes the failure; if the link is genuinely down it won't — but a
         # rate-limited retry-reboot is acceptable, and wifi_state records which
         # it was.
         try:

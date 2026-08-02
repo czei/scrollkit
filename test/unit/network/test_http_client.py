@@ -84,7 +84,7 @@ class TestHttpClient:
         )
 
         # The native response is closed so its socket returns to the pool
-        # (a leaked POST socket wedges the device with EBUSY just like a GET).
+        # (a leaked POST socket breaks the device with EBUSY just like a GET).
         mock_response.close.assert_called_once()
 
         # Verify response handling - a detached, socket-free response.

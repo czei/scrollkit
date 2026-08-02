@@ -36,7 +36,7 @@ From the field-reliability work (commit `9868167`, comment/simplification follow
 
 | # | Fix | File |
 |---|-----|------|
-| 1 | Watchdog: opt-in arm, default 8 s, recover from a wedged loop | `app/base.py` |
+| 1 | Watchdog: opt-in arm, default 8 s, recover from a frozen loop | `app/base.py` |
 | 2 | `MIN_FREE_FOR_UPDATE` 50 000 → 25 000 + force-after-N-skips | `app/base.py` |
 | 3 | HTTP per-request `timeout` 10 → 6 (below the watchdog) | `network/http_client.py` |
 | 4 | Log rotation never blind-truncates; tail-preserving trim | `utils/error_handler.py` |
