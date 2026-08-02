@@ -148,11 +148,17 @@ class StreamingResponse:
         """Fill ``buf`` (bytearray or memoryview) with body bytes; return the
         count, 0 at EOF (repeatably — safe after exhaustion and after close).
 
-        The preferred DRAIN primitive (2026-07-24): a tight readinto loop into
-        a caller-owned reusable buffer keeps the TLS socket's native mbedtls
-        context alive for network time only. The parse-while-open pattern it
-        replaces held that ~40 KB internal-SRAM context across a multi-second
-        parse per body — the -12288 X509/MPI-alloc wedge's root cause.
+        The DRAIN primitive for a drain-then-parse fetch: a tight readinto
+        loop into a caller-owned reusable buffer, then close, then parse. The
+        response is open for network time only instead of across a
+        multi-second parse, and the loop itself allocates nothing per
+        iteration — both good reasons on a RAM-constrained device.
+
+        It is NOT a fix for the -12288 TLS-SRAM exhaustion. That leak scales
+        with bytes read through device HTTPS, sits below the CircuitPython
+        heap, and is cured only by a reset; draining sooner does not reclaim
+        it. Reaching for plain HTTP, or resetting on classified evidence, is
+        what actually addresses that.
 
         Native path: the vendored adafruit_requests ``Response._readinto``
         (4.1.17) handles chunked encoding and content-length. Backends without
