@@ -169,3 +169,78 @@ class TestStreamingResponse:
 
         s = StreamingResponse(_NativeOnly())
         assert list(s.iter_content()) == [b"ab"]
+
+
+class _FakeNativeReadinto(_FakeNative):
+    """Native stand-in with the adafruit_requests 4.x private _readinto."""
+    def __init__(self, body=b"0123456789"):
+        super().__init__(body=body)
+        self._pos = 0
+
+    def _readinto(self, buf):
+        k = min(len(buf), len(self.body) - self._pos)
+        if k <= 0:
+            return 0
+        buf[:k] = self.body[self._pos:self._pos + k]
+        self._pos += k
+        return k
+
+
+class TestStreamingResponseReadinto:
+    def _drain(self, s, bufsize):
+        out = bytearray()
+        buf = bytearray(bufsize)
+        while True:
+            k = s.readinto(buf)
+            if k == 0:
+                return bytes(out)
+            out += buf[:k]
+
+    def test_native_path_uses_private_readinto(self):
+        s = StreamingResponse(_FakeNativeReadinto(b"abcdefghij"))
+        assert self._drain(s, 4) == b"abcdefghij"
+        assert s.readinto(bytearray(4)) == 0        # EOF is repeatable
+
+    def test_iter_content_fallback_with_carryover(self):
+        """No _readinto: driven via iter_content; a chunk larger than the
+        target buffer must carry its tail to the next call, losing nothing."""
+        native = _FakeNative(b"abcdefgh")            # iter_content(chunk) native
+        s = StreamingResponse(native)
+        buf = bytearray(3)                           # smaller than pull size
+        assert self._drain(s, 3) == b"abcdefgh"
+
+    def test_text_fallback_progressive(self):
+        s = StreamingResponse(MockResponse(200, "hello world"))
+        assert self._drain(s, 4) == b"hello world"
+        assert s.readinto(bytearray(4)) == 0
+
+    def test_readinto_after_close_returns_zero(self):
+        s = StreamingResponse(_FakeNativeReadinto())
+        s.close()
+        assert s.readinto(bytearray(8)) == 0
+
+    def test_readinto_native_never_touches_text(self):
+        class _NativeOnly:
+            status_code = 200
+            headers = {}
+
+            @property
+            def text(self):
+                raise AssertionError("readinto must not materialize .text")
+
+            def iter_content(self, chunk_size=4):
+                yield b"ab"
+                yield b""                            # empty chunk: skip, not EOF
+                yield b"cd"
+
+            def close(self):
+                pass
+
+        s = StreamingResponse(_NativeOnly())
+        assert self._drain(s, 8) == b"abcd"
+
+    def test_readinto_accepts_memoryview_target(self):
+        s = StreamingResponse(_FakeNativeReadinto(b"xyz"))
+        big = bytearray(16)
+        k = s.readinto(memoryview(big)[2:10])
+        assert k == 3 and bytes(big[2:5]) == b"xyz"

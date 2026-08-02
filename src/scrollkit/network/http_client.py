@@ -119,6 +119,10 @@ class StreamingResponse:
     def __init__(self, inner):
         self._inner = inner
         self.status_code = getattr(inner, "status_code", 200)
+        # readinto() fallback state: a chunk iterator for backends without a
+        # native _readinto, and the unconsumed tail of an oversized chunk.
+        self._chunks = None
+        self._pending = None
         try:
             self.headers = dict(inner.headers)
         except Exception:
@@ -140,8 +144,60 @@ class StreamingResponse:
         text = getattr(inner, "text", "") or ""
         return iter((text.encode("utf-8"),))
 
+    def readinto(self, buf):
+        """Fill ``buf`` (bytearray or memoryview) with body bytes; return the
+        count, 0 at EOF (repeatably — safe after exhaustion and after close).
+
+        The preferred DRAIN primitive (2026-07-24): a tight readinto loop into
+        a caller-owned reusable buffer keeps the TLS socket's native mbedtls
+        context alive for network time only. The parse-while-open pattern it
+        replaces held that ~40 KB internal-SRAM context across a multi-second
+        parse per body — the -12288 X509/MPI-alloc wedge's root cause.
+
+        Native path: the vendored adafruit_requests ``Response._readinto``
+        (4.1.17) handles chunked encoding and content-length. Backends without
+        it are driven through ``iter_content`` with carry-over (an oversized
+        chunk's tail is served on the next call, and ``.text`` is never
+        touched when native chunking exists); text-only backends fall back to
+        one lazy encode, copied out progressively.
+        """
+        pending = self._pending
+        if pending:
+            k = min(len(buf), len(pending))
+            buf[:k] = pending[:k]
+            self._pending = pending[k:] if k < len(pending) else None
+            return k
+        inner = self._inner
+        if inner is None:
+            return 0
+        ri = getattr(inner, "_readinto", None)
+        if ri is not None:
+            return ri(buf)
+        if self._chunks is None:
+            it = getattr(inner, "iter_content", None)
+            if it is not None:
+                self._chunks = it(max(len(buf), 1))
+            else:
+                text = getattr(inner, "text", "") or ""
+                self._chunks = iter((text.encode("utf-8"),))
+        while True:
+            try:
+                chunk = next(self._chunks)
+            except StopIteration:
+                return 0
+            if chunk:      # iter_content may yield b"" — not EOF, skip it
+                break
+        m = memoryview(chunk)
+        k = min(len(buf), len(m))
+        buf[:k] = m[:k]
+        if k < len(m):
+            self._pending = m[k:]
+        return k
+
     def close(self):
-        """Release the inner response (and its socket). Safe to call twice."""
+        """Release the inner response (and its socket). Safe to call twice.
+        A ``readinto`` carry-over tail already received off the wire is still
+        served after close; fresh reads return 0."""
         inner, self._inner = self._inner, None
         if inner is not None:
             try:
