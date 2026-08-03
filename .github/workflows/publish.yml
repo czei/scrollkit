@@ -1,7 +1,8 @@
 name: Publish to PyPI
 
-# Builds the sdist + wheel and uploads them to PyPI whenever a version tag
-# (v0.9.0, v1.0.0, ...) is pushed. Authentication is PyPI "Trusted Publishing"
+# Runs the full CI suite against the tagged commit, builds the sdist + wheel, and
+# uploads to PyPI whenever a version tag (v0.9.0, v1.0.0, ...) is pushed. A red CI
+# blocks the upload. Authentication is PyPI "Trusted Publishing"
 # (OIDC) — there is no API token or secret stored in the repo; PyPI is
 # configured (Account -> Publishing) to trust this exact workflow file in
 # czei/scrollkit, gated on the `pypi` environment.
@@ -15,6 +16,17 @@ on:
     tags: ["v*"]
 
 jobs:
+  ci:
+    # THE RELEASE GATE. The full CI suite must pass on the TAGGED commit before
+    # anything is uploaded. This is not redundant with ci.yml's own push trigger:
+    # that trigger fires on branch pushes only, so a tag pointing at an untested
+    # commit — or at a commit whose CI went red — used to publish regardless.
+    # 0.9.2 and 0.9.3 both shipped to PyPI on a failing CI run. PyPI versions are
+    # immutable, so the only fix for a bad upload is burning the next number.
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -57,7 +69,10 @@ jobs:
           path: dist/
 
   publish:
-    needs: build
+    # Both gates, not just the build: the artifact can be perfectly well-formed
+    # and still be broken code. `build` runs alongside `ci` rather than after it,
+    # so the gate costs no extra wall-clock on a green release.
+    needs: [build, ci]
     runs-on: ubuntu-latest
     environment:
       name: pypi

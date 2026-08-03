@@ -73,10 +73,13 @@ To cut a release:
    be replaced or reused, so never re-tag; bump again instead.
 2. Commit, then `git tag v<version> && git push scrollkit master --tags`
    (the remote is named `scrollkit`, not `origin`).
-3. The tag push triggers `publish.yml`: build sdist+wheel, `twine check
-   --strict`, verify the wheel carries the simulator package data, then
-   upload. It fails fast if the tag doesn't match `pyproject.toml`'s version.
-   Watch with `gh run watch`; confirm with
+3. The tag push triggers `publish.yml`: run the **whole CI suite against the
+   tagged commit** (`ci.yml` is called as a reusable workflow), build
+   sdist+wheel, `twine check --strict`, verify the wheel carries the simulator
+   package data, then upload. It fails fast if the tag doesn't match
+   `pyproject.toml`'s version, and **a red CI blocks the upload** — the two
+   workflows used to be independent, which is how 0.9.2 and 0.9.3 both shipped
+   on a failing CI run. Watch with `gh run watch`; confirm with
    `curl -s https://pypi.org/pypi/scrollkit/json`.
 
 **Packaging gotcha:** non-`.py` files inside the package (the simulator's BDF

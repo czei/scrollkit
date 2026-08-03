@@ -10,6 +10,10 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  # Called by publish.yml as the release gate. The push trigger above only fires
+  # for BRANCH pushes, so without this a tag's commit could reach PyPI having
+  # never been tested at that exact SHA.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
