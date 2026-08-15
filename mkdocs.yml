@@ -62,6 +62,7 @@ nav:
       - App Framework: guide/app.md
       - Display: guide/display.md
       - Performance: guide/performance.md
+      - Pixel Art: guide/pixel-art.md
       - Effects: guide/effects.md
       - Characterful Scrolling: guide/scrolling.md
       - Theatrical Transitions: guide/transitions.md

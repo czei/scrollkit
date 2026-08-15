@@ -138,6 +138,128 @@ on the 64×32 panel, `y≈12` vertically centers a single line; valid `y` runs
 Add content in `setup()` via `self.content_queue.add(...)`. Queue items can carry
 a `priority` (see `capabilities()["priorities"]`: IDLE=0 … SYSTEM=5).
 
+## Pixel art — draw the sign, don't just type it
+
+**The content classes above are not the whole library, and for a *sign* they are
+usually the wrong first move.** A 64×32 panel is a 2,048-pixel drawing surface.
+If the brief is an identity — a business, a school, a team, a makerspace — the
+strong answer is a **wordmark you drew** plus a **sprite of what they do**, not a
+line of scrolling text. Read **`docs/guide/pixel-art.md`** before you write the
+app; the worked example is `demos/medium/pixel_wordmark.py`, and the full
+application it generalises is `docs/sample-project.md`.
+
+The whole technique in one screenful:
+
+```python
+# 1. Art is ASCII rows; a character names a PALETTE SLOT, not a color.
+CHAR_TO_SLOT = {".": 0, " ": 0, "#": 1, "o": 2}   # 0 == transparent
+LOGO = ("####.", "#...#", "####.", "#..#.", "#...#")
+
+# 1b. REPAIR every sprite at import. The two authoring typos — a ragged row, and
+#     a character you never mapped — otherwise throw IndexError / KeyError from
+#     inside the loop below, at startup, with nothing on the panel. Do NOT
+#     hand-roll this and do NOT raise: you cannot see your own miscount, and one
+#     row a character short is the single most common way a pixel-art sign fails.
+from scrollkit.utils.pixel_art import normalize_art, normalize_all
+LOGO = normalize_art(LOGO, CHAR_TO_SLOT, name="LOGO")
+GLYPHS = normalize_all(GLYPHS, CHAR_TO_SLOT)      # a whole {name: rows} map
+
+# 2. Convert to a Bitmap ONCE (this is the only per-pixel loop you may write).
+gfx = display.gfx                                 # displayio on device, sim on desktop
+bmp = gfx.Bitmap(max(len(r) for r in LOGO), len(LOGO), 3)  # longest row, not row 0
+for y, row in enumerate(LOGO):
+    for x, ch in enumerate(row):
+        bmp[x, y] = CHAR_TO_SLOT[ch]
+pal = gfx.Palette(3); pal.make_transparent(0); pal[1] = 0xFFB020; pal[2] = 0xE86010
+tile = gfx.TileGrid(bmp, pixel_shader=pal)
+tile.x, tile.y = 10, 8
+display.add_layer(tile)        # layers survive the loop's per-frame clear()
+
+# 3. Animate with PALETTE WRITES and TILE MOVES — never by redrawing.
+pal[1] = next_color            # ~2.6 us      recolor the whole mark
+tile.x += 1                    # ~2.5 us      move it
+tile.hidden = True             # ~2.5 us      cel-swap between prebuilt poses
+```
+
+Why: an interpreted `bitmap[x, y] = v` costs **~7,000 ns** on the device, so
+repainting a full panel every frame is ~14 ms of a 50 ms budget *before* you
+compute anything. Build once and the same sign animates for ~25 µs/frame. There
+is no bulk call that fixes per-frame redrawing — `bitmaptools` calls carry a
+~12 µs dispatch cost, so a one-pixel bulk call is *worse* than the interpreted
+write. The only winning move is to convert the art once and then stop drawing.
+
+### Don't hand-roll what the library already does
+
+Three whole categories exist so you never write them yourself. Use them — a sign
+that only moves tiles around looks like a screensaver next to one that uses these.
+
+```python
+# ANIMATE THE WHOLE MARK — assign each lit pixel to a group once, then animate
+# by rewriting N palette entries a frame. Zero per-frame pixel work.
+from scrollkit.effects.palette_partition import PalettePartition, map_diagonal
+from scrollkit.effects.palette_treatments import VelvetSweep   # 13 to choose from
+group_map, n = map_diagonal(pixel_slots, 10)      # pixel_slots: {(x, y): 1}
+fx = PalettePartition(display.gfx, pixel_slots, group_map, n)
+display.add_layer(fx.tile); fx.fill(BRAND); fx.tile.hidden = False
+t = VelvetSweep(fx, (base, dim, flat, warm, hot)) # 5-stop theme, darkest first
+t.step()                                          # once per frame; t.is_complete
+
+# BUILD / EXIT IT — never write your own reveal.
+from scrollkit.effects.drip_splash import DripReveal
+d = DripReveal(list(pixel_slots), color=BRAND); d.start(display)
+if d.step(): d.detach()        # step() per frame, True when assembled
+# also: SwarmReveal, show_reveal_splash, and the 13 named transitions
+```
+
+!!! warning "A hand-rolled reveal is how a feasible sign becomes an infeasible one"
+    Writing your own build/exit animation means touching pixels per frame — the
+    one thing the cost model says never to do — during the busiest moment of the
+    act. `DripReveal`, `SwarmReveal` and the transitions walk a prebuilt
+    schedule for a handful of writes a frame, and every one is device-proven.
+    Likewise, a mark animated only by `tile.x` and `hidden` reads as a
+    screensaver: give at least one act a `PalettePartition` plus a treatment,
+    which is ten lines and costs N palette writes a frame.
+
+```python
+# ROTATE ACTS so a 24/7 sign never visibly repeats. Tag each act with a visual
+# FAMILY; the scheduler refuses the family that just played and favours whatever
+# has been seen least recently.
+from scrollkit.utils.scheduler import ActScheduler
+
+ACTS = (("forge",  "anvil",  self._act_forge),      # (name, family, callable)
+        ("laser",  "beam",   self._act_laser),
+        ("print",  "raster", self._act_print),
+        ("sheen",  "sweep",  self._act_sheen))
+sched = ActScheduler()
+name, family, run = sched.pick(ACTS, "acts", avoid={self._last_family})
+```
+
+Give the sign **one act per thing the organization actually does** — the subject
+sprite changes, the wordmark stays. That is what makes it a sign for *them*.
+
+!!! warning "`random.shuffle` does not exist on CircuitPython"
+    Neither do `random.choices`, `random.sample`, or `random.gauss`. Only
+    `random`/`uniform`/`randint`/`randrange`/`getrandbits`/`choice`/`seed` exist.
+    A hand-rolled shuffled deck is both a device crash and a reimplementation of
+    `ActScheduler` — use the scheduler.
+
+**Layouts are data** — a tuple of `(glyph, x, y)` placements plus an anchor point
+the radial effects radiate from; one wordmark then composes several ways with no
+new art.
+
+**Verify**: `run_headless(app, frames=300, strict=True)` must report
+`advanced=True` and no feasibility warnings — and cost *each act*, not just one
+run, since a scheduled sign shows a different act every few seconds.
+
+**Before you call it done**, the sign should use all four: art you drew, a
+library reveal for the build/exit, a `PalettePartition` + treatment on at least
+one act, and an `ActScheduler` over at least three family-tagged acts. A sign
+missing the middle two runs fine and looks like a screensaver.
+
+Determinism, because signs are compared frame-for-frame between sim and device:
+count frames, never read a clock; never derive an *order* from iterating a `set`
+or `dict` (sort first); never allocate inside a frame.
+
 ---
 
 ## Reading the RunResult

@@ -62,6 +62,18 @@ All LEDs light, then wink off at random until only the logo remains.
 A browser-configurable scrolling message — edit it live in the auto-generated
 settings web UI and the display updates on save. `demos/medium/configurable_message.py`
 
+### Pixel Wordmark
+
+![Pixel-wordmark demo](assets/demos/pixel_wordmark.gif){ width="480" }
+
+A shop sign drawn as **pixel art** — hand-authored letterforms instead of the
+built-in font, a cup sprite on its own material palette slots, and four acts
+(a drip build, a diagonal sheen, descending highlights, and a striped glow seen
+through the wordmark as a window) rotated by the `ActScheduler`. Every
+per-pixel loop runs once at startup; a frame costs ~9 palette writes.
+`demos/medium/pixel_wordmark.py` — the worked example for the
+[Pixel Art guide](guide/pixel-art.md).
+
 ### Gradient Text
 
 ![Gradient-text demo](assets/demos/gradient_text.gif){ width="480" }

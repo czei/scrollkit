@@ -116,6 +116,7 @@ PER_DEMO = {
     "configurable_message": {"seconds": 5.0},
     "drip_value":           {"self_driving": True, "max_frames": 200},
     "golden_transition":    {"seconds": 6.0},
+    "pixel_wordmark":       {"seconds": 9.0, "step": 3},
     "image_intro":          {"self_driving": True, "max_frames": 400, "step": 3},
     "walking_ostrich":      {"self_driving": True, "max_frames": 240, "step": 3},
     "rainbow":              {"seconds": 5.0},
