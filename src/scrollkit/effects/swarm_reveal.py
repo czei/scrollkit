@@ -216,7 +216,14 @@ class SwarmReveal:
         self._remaining = set((x, y) for (x, y) in self.pixels
                               if 0 <= x < w and 0 <= y < h)
         self._total = len(self._remaining)
-        self._queue = list(self._remaining)
+        # sorted(), not list(): a set's iteration order is stable within one Python
+        # build but is NOT guaranteed across versions, and _shuffle() permutes
+        # whatever order it is handed. Seeding the RNG therefore was not enough to
+        # make this reproducible — the same seed on CPython 3.12 and on Pyodide's
+        # 3.13 produced different swarms from frame 0 (34 of the Forge sign's 35 acts
+        # matched across the two; this was the one that did not). Sorting first makes
+        # the seeded shuffle the only source of order.
+        self._queue = sorted(self._remaining)
         _shuffle(self._queue)
         self._qi = 0
 
