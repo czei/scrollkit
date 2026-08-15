@@ -547,12 +547,17 @@ frame, and every one has run on the board for months.
 
 Feed any of them your pixel set and drive it a step per frame:
 
-| Effect | What it does |
-|---|---|
-| [`DripReveal`](effects.md#splash-reveals) | every pixel falls from an edge into place |
-| [`SwarmReveal`](effects.md#splash-reveals) | a flock delivers pixels one per bird (≤ ~20 birds on device) |
-| [`show_reveal_splash`](effects.md#splash-reveals) | the panel lights up, then everything not the mark winks off |
-| [13 transitions](transitions.md) | full-screen cover → swap → reveal, by name |
+**Their constructors do not share a color keyword — copy each signature, don't
+generalize one from another.** (A model that inferred `SwarmReveal(..., color=…)`
+from `DripReveal`'s `color=` got `TypeError: unexpected keyword argument
+'color'` at frame 1.)
+
+| Effect | What it does | Color arguments |
+|---|---|---|
+| [`DripReveal`](effects.md#splash-reveals) | every pixel falls from an edge into place | `color=`, plus `fall_speed`, `stagger`, `direction` |
+| [`SwarmReveal`](effects.md#splash-reveals) | a flock delivers pixels one per bird (≤ ~20 birds on device) | `text_color=` and `bird_color=` — **there is no `color=`** |
+| [`show_reveal_splash`](effects.md#splash-reveals) | the panel lights up, then everything not the mark winks off | see its own docs |
+| [13 transitions](transitions.md) | full-screen cover → swap → reveal, by name | by name, not by constructor |
 
 ```python
 self._drip = DripReveal(list(self._slots), color=BRAND, fall_speed=2, stagger=1)
