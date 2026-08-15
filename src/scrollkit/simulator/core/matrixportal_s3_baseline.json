@@ -1,12 +1,16 @@
 {
   "_mem_after_display": 2073536,
   "_mem_boot": 2074512,
+  "_pixel_write_empty_loop_us": 9.644,
+  "_pixel_write_loop_us": 13.0,
+  "_pixel_write_us_source": "measured on adafruit_matrixportal_s3, CircuitPython 10.2.1; every other field here is 9.1.0. The frame-time terms are stable across the two (bitmap_rebuild +0.4%, full_refresh +0.7%), which is why this one is mixed in; the RAM terms are NOT (usable_ram -24.6% on 10.2.1) and were deliberately left at 9.1.0.",
   "base_app_ram_bytes": 976,
   "bitmap_rebuild_us_per_px": 16.53,
   "bytes_per_label_px": 0.1875,
   "full_refresh_us": 4488.12,
   "gc_pause_us": 383.0,
   "name": "Adafruit MatrixPortal S3 (64x32)",
-  "source": "measured on adafruit_matrixportal_s3, CircuitPython 9.1.0",
+  "pixel_write_us": 4.333,
+  "source": "measured on adafruit_matrixportal_s3, CircuitPython 9.1.0 (pixel_write_us on 10.2.1)",
   "usable_ram_bytes": 2073536
 }

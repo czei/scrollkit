@@ -141,6 +141,40 @@ for _ in range(K):
 t1 = time.monotonic_ns()
 bitmap_rebuild_us_per_px = (t1 - t0) / 1000.0 / (K * W * H)
 
+# --- pixel_write_us ---
+# The frame model charges simulate_instruction_delay(3) for every
+# LEDMatrix.set_pixel(), i.e. 3 * pixel_write_us per pixel an app paints. That term
+# dominates the verdict for any per-pixel effect (92% of the frame for the Forge
+# sign's `molten` act) and until now it was NOT measured here — hardware_profile.py
+# carried a hardcoded 5.0 while the profile still reported CALIBRATED_FROM_DEVICE.
+#
+# The device-side equivalent of one set_pixel is one displayio Bitmap element write
+# inside the app's own Python loop. Loop overhead is included on purpose: the device
+# pays it too, and the model's job is to predict real frame time from a count of
+# pixel operations. The empty-loop figure is reported alongside so the split between
+# the write and the surrounding Python is visible rather than assumed.
+pxb = displayio.Bitmap(64, 32, 4)
+P = 12
+NPX = 64 * 32
+t0 = time.monotonic_ns()
+for _ in range(P):
+    for i in range(NPX):
+        pxb[i % 64, i // 64] = i & 3
+t1 = time.monotonic_ns()
+pixel_write_loop_us = (t1 - t0) / 1000.0 / (P * NPX)
+
+t0 = time.monotonic_ns()
+for _ in range(P):
+    for i in range(NPX):
+        bx = i % 64
+        by = i // 64
+        v = i & 3
+t1 = time.monotonic_ns()
+pixel_write_empty_us = (t1 - t0) / 1000.0 / (P * NPX)
+pixel_write_us = pixel_write_loop_us / 3.0
+del pxb
+gc.collect()
+
 # --- bytes_per_label_px ---
 gc.collect(); m0 = gc.mem_free()
 keep = displayio.Bitmap(64, 32, 2)
@@ -155,6 +189,9 @@ print("CALIB_JSON " + json.dumps({
     "full_refresh_us": round(full_refresh_us, 2),
     "bitmap_rebuild_us_per_px": round(bitmap_rebuild_us_per_px, 3),
     "gc_pause_us": round(gc_pause_us, 2),
+    "pixel_write_us": round(pixel_write_us, 3),
+    "_pixel_write_loop_us": round(pixel_write_loop_us, 3),
+    "_pixel_write_empty_loop_us": round(pixel_write_empty_us, 3),
     "_mem_boot": mem_boot,
     "_mem_after_display": mem_after_display,
 }))
@@ -174,6 +211,12 @@ def main():
                     help="CircuitPython serial device (uses cpy_repl default when omitted)")
     ap.add_argument("--baud", type=int, default=115200,
                     help="serial baud rate (default: %(default)s)")
+    ap.add_argument("--out", default=None,
+                    help="write the baseline JSON here instead of over the shipped "
+                         "one. Use this when measuring on a different CircuitPython "
+                         "version than the shipped baseline was taken on — adopting "
+                         "the new numbers should be a deliberate act, not a side "
+                         "effect of running a measurement.")
     args = ap.parse_args()
 
     device_code = DEVICE_CODE.replace("___MK_DEF___", MK_FUNCS[args.board])
@@ -189,7 +232,7 @@ def main():
     data["name"] = BOARD_NAMES[args.board]
     data["source"] = "measured on %s, CircuitPython %s" % (args.board, args.cp)
 
-    fixture = os.path.join(CORE_DIR, BASELINE_FILENAMES[args.board])
+    fixture = args.out or os.path.join(CORE_DIR, BASELINE_FILENAMES[args.board])
     os.makedirs(os.path.dirname(os.path.abspath(fixture)), exist_ok=True)
     with open(os.path.abspath(fixture), "w") as f:
         json.dump(data, f, indent=2, sort_keys=True)
