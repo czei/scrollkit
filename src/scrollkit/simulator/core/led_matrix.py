@@ -77,16 +77,22 @@ class LEDMatrix:
         self._glow_cache = {}      # posterised color -> additive glow halo sprite
         self._dot_cache = {}       # posterised color -> crisp LED dot sprite
         self._base_surface = None  # near-black bg + unlit-LED grid (rebuilt only if cleared)
+        self._vec_bufs = None      # reused scratch for the vectorised numpy composite
         
     def initialize_surface(self):
-        """Initialize the pygame surface for rendering (no-op when headless)."""
+        """Initialize the render surface (no-op when headless).
+
+        Uses pygame when it is importable and numpy when it is not (see
+        ``_surface.backend``), so the panel's appearance renders in a browser under
+        Pyodide from this same code rather than a second implementation.
+        """
         if self.headless:
             return
-        import pygame
-        if not pygame.get_init():
-            pygame.init()
-            
-        self.surface = pygame.Surface((self.surface_width, self.surface_height))
+        from ._surface import backend
+        sb = backend()
+        sb.ensure_init()
+
+        self.surface = sb.Surface((self.surface_width, self.surface_height))
         self.surface.fill(self._background_color)
         
     def set_pixel(self, x, y, color):
@@ -189,14 +195,15 @@ class LEDMatrix:
     # clean anti-aliased dots (matches the rendered hero stills).
     @staticmethod
     def _aa_scale(surface, size):
-        import pygame
-        return pygame.transform.smoothscale(surface, size)
+        from ._surface import backend
+        return backend().smoothscale(surface, size)
 
     def _build_base_surface(self):
         """Build (and cache) the static panel: near-black ground + the unlit-LED grid."""
-        import pygame
+        from ._surface import backend
+        sb = backend()
         ss = 3
-        big = pygame.Surface((self.surface_width * ss, self.surface_height * ss))
+        big = sb.Surface((self.surface_width * ss, self.surface_height * ss))
         big.fill(self._background_color)
         step = (self.led_size + self.spacing) * ss
         half = (self.led_size // 2) * ss
@@ -205,7 +212,7 @@ class LEDMatrix:
             cy = gy * step + half
             for gx in range(self.width):
                 cx = gx * step + half
-                pygame.draw.circle(big, self._off_color, (cx, cy), rad)
+                sb.draw_circle(big, self._off_color, (cx, cy), rad)
         return self._aa_scale(big, (self.surface_width, self.surface_height))
 
     def _glow_sprite(self, color):
@@ -214,13 +221,14 @@ class LEDMatrix:
         Drawn on black so an additive blit contributes only the glow; overlapping
         halos sum, giving the soft bleed of a real panel.
         """
-        import pygame
+        from ._surface import backend
+        sb = backend()
         sprite = self._glow_cache.get(color)
         if sprite is not None:
             return sprite
         ss = 2
         reach = self._glow_reach
-        big = pygame.Surface((2 * reach * ss, 2 * reach * ss))  # RGB; additive ignores black
+        big = sb.Surface((2 * reach * ss, 2 * reach * ss))  # RGB; additive ignores black
         big.fill((0, 0, 0))
         steps = 6
         for k in range(steps):
@@ -228,7 +236,7 @@ class LEDMatrix:
             rad = int(round((reach - t * (reach - self._dot_radius)) * ss))
             bright = 0.10 + 0.42 * t                      # dim at the edge, bright near the core
             col = tuple(min(255, int(ch * bright)) for ch in color)
-            pygame.draw.circle(big, col, (reach * ss, reach * ss), max(1, rad))
+            sb.draw_circle(big, col, (reach * ss, reach * ss), max(1, rad))
         sprite = self._aa_scale(big, (2 * reach, 2 * reach))
         if len(self._glow_cache) < 256:
             self._glow_cache[color] = sprite
@@ -236,17 +244,18 @@ class LEDMatrix:
 
     def _dot_sprite(self, color):
         """The crisp LED dot + bright core for an 'on' LED (cached per colour)."""
-        import pygame
+        from ._surface import backend
+        sb = backend()
         sprite = self._dot_cache.get(color)
         if sprite is not None:
             return sprite
         ss = 4
         size = self.led_size
-        big = pygame.Surface((size * ss, size * ss), pygame.SRCALPHA)
+        big = sb.Surface((size * ss, size * ss), sb.SRCALPHA)
         center = (size // 2) * ss
-        pygame.draw.circle(big, color, (center, center), self._dot_radius * ss)
+        sb.draw_circle(big, color, (center, center), self._dot_radius * ss)
         core = tuple(min(255, int(ch * 1.18) + 40) for ch in color)
-        pygame.draw.circle(big, core, (center, center), max(1, self._core_radius * ss))
+        sb.draw_circle(big, core, (center, center), max(1, self._core_radius * ss))
         sprite = self._aa_scale(big, (size, size))
         if len(self._dot_cache) < 256:
             self._dot_cache[color] = sprite
@@ -258,9 +267,18 @@ class LEDMatrix:
         Two passes so every halo blooms *under* every crisp dot (and overlapping
         halos add), matching the rendered hero stills.
         """
-        import pygame
+        from ._surface import backend
+        sb = backend()
         if self._base_surface is None:
             self._base_surface = self._build_base_surface()
+
+        # The numpy backend pays ~50 us per blit, and this loop issues one glow blit
+        # and one dot blit per lit LED — up to 4096 small array ops per frame, which
+        # is ~200 ms and the entire reason a browser preview crawls. The vectorised
+        # path below produces bit-identical output in a handful of whole-array writes.
+        if not sb.is_pygame:
+            self._render_full_vectorized()
+            return
         self.surface.blit(self._base_surface, (0, 0))
 
         pixels = self.pixel_buffer.get_buffer()
@@ -282,10 +300,144 @@ class LEDMatrix:
         for led_x, led_y, color in lit:
             self.surface.blit(self._glow_sprite(color),
                               (led_x + half - reach, led_y + half - reach),
-                              special_flags=pygame.BLEND_RGB_ADD)
+                              special_flags=sb.BLEND_RGB_ADD)
         for led_x, led_y, color in lit:
             self.surface.blit(self._dot_sprite(color), (led_x, led_y))
             
+    def _render_full_vectorized(self):
+        """The numpy backend's panel composite, without the per-LED loop.
+
+        Same three stages and same sprites as ``_render_full``, expressed as whole-array
+        writes:
+
+        * posterise + brightness for all 2048 LEDs at once instead of per pixel;
+        * dots tile exactly (a 9 px sprite on an 11 px pitch ends flush at 350x702), so
+          every dot lands in ONE strided assignment;
+        * glow sprites are 20 px on an 11 px pitch and therefore overlap — but on a
+          two-cell sub-lattice the pitch is 22, which is >= 20, so four passes cover the
+          panel with no overlap inside any pass.
+
+        Additive saturation is order-independent (all addends are non-negative, so
+        clipping progressively and clipping once give the same answer), which is why
+        this is bit-identical to the blit-per-LED version rather than merely close.
+        """
+        import numpy as np
+
+        step = self.led_size + self.spacing
+        half = self.led_size // 2
+        reach = self._glow_reach
+        size = self.led_size
+        H, W = self.height, self.width
+
+        # --- 1. colour every LED, vectorised -----------------------------------
+        q = self.pixel_buffer.get_buffer().astype(np.int64)
+        if self.brightness < 1.0:
+            q = (q * self.brightness).astype(np.int64)      # int() truncates, as before
+        if self.posterize and self.bit_depth > 0:
+            levels = (1 << self.bit_depth) - 1
+            if levels > 0:
+                q = (np.rint(q / 255.0 * levels).astype(np.int64) * 255) // levels
+        q = q.astype(np.uint8)
+
+        lit = q.sum(axis=2, dtype=np.int64) > 24            # the 'off' test, unchanged
+        idx = np.full(H * W, -1, dtype=np.int64)
+        flat, litflat = q.reshape(-1, 3), lit.reshape(-1)
+        out = self._base_surface.rgb.astype(np.uint16)
+
+        if litflat.any():
+            # Group by a packed integer key rather than np.unique(axis=0): the row-wise
+            # form sorts a structured view and costs ~10x more for the same answer.
+            key = ((flat[:, 0].astype(np.int64) << 16)
+                   | (flat[:, 1].astype(np.int64) << 8) | flat[:, 2])
+            keys, inverse = np.unique(key[litflat], return_inverse=True)
+            colors = np.stack([(keys >> 16) & 255, (keys >> 8) & 255, keys & 255], 1)
+            idx[litflat] = inverse
+            idx = idx.reshape(H, W)
+            K = len(colors)
+
+            # Sprite lookup tables, built through the existing cached sprite makers so
+            # the appearance is defined in exactly one place.
+            dot_rgb = np.zeros((K, size, size, 3), np.uint8)
+            dot_a = np.zeros((K, size, size), np.uint8)
+            glow_rgb = np.zeros((K, 2 * reach, 2 * reach, 3), np.uint8)
+            for k in range(K):
+                c = (int(colors[k][0]), int(colors[k][1]), int(colors[k][2]))
+                d, g = self._dot_sprite(c), self._glow_sprite(c)
+                dot_rgb[k] = d.rgb
+                dot_a[k] = 255 if d.alpha is None else d.alpha
+                glow_rgb[k] = g.rgb
+
+            # Zero-index trick: give every LUT a trailing all-zero row and point
+            # 'off' LEDs at it. An off LED then contributes a zero sprite with no
+            # np.where and no extra multi-megabyte temporary per frame.
+            off = K
+            glow_rgb = np.concatenate([glow_rgb, np.zeros_like(glow_rgb[:1])])
+            dot_rgb = np.concatenate([dot_rgb, np.zeros_like(dot_rgb[:1])])
+            dot_a = np.concatenate([dot_a, np.zeros_like(dot_a[:1])])
+            sel = np.where(idx >= 0, idx, off)
+
+            oh, ow = out.shape[0], out.shape[1]
+
+            # --- 2. additive glow, four non-overlapping sub-lattices -----------
+            # Scratch buffers are allocated ONCE and reused: re-zeroing ~10 MB every
+            # frame was most of this renderer's cost. The inter-tile gaps are never
+            # written, so they stay zero for the life of the buffer, and each frame
+            # only overwrites the tile regions.
+            bufs = self._vec_bufs
+            if bufs is None:
+                bufs = self._vec_bufs = {}
+            tile = 2 * step
+            for oy in (0, 1):
+                ys = np.arange(oy, H, 2)
+                if not len(ys):
+                    continue
+                for ox in (0, 1):
+                    xs = np.arange(ox, W, 2)
+                    if not len(xs):
+                        continue
+                    ny, nx = len(ys), len(xs)
+                    buf = bufs.get(("g", oy, ox))
+                    if buf is None:
+                        buf = bufs[("g", oy, ox)] = np.zeros(
+                            (ny * tile, nx * tile, 3), np.uint16)
+                    sub = sel[np.ix_(ys, xs)]
+                    buf.reshape(ny, tile, nx, tile, 3)[:, :2 * reach, :, :2 * reach, :] \
+                        = glow_rgb[sub].transpose(0, 2, 1, 3, 4)
+
+                    # Added straight into `out` — no separate accumulator. Overlap
+                    # across the four passes is exactly what additive glow means, and
+                    # a single clip at the end matches per-blit saturation because
+                    # every addend is non-negative.
+                    top = ys[0] * step + half - reach
+                    left = xs[0] * step + half - reach
+                    sy, sx = max(0, -top), max(0, -left)
+                    dy, dx = max(0, top), max(0, left)
+                    hh = min(ny * tile - sy, oh - dy)
+                    ww = min(nx * tile - sx, ow - dx)
+                    if hh > 0 and ww > 0:
+                        out[dy:dy + hh, dx:dx + ww] += buf[sy:sy + hh, sx:sx + ww]
+            np.clip(out, 0, 255, out=out)
+
+            # --- 3. dots, one strided write ------------------------------------
+            dbuf = bufs.get("d")
+            if dbuf is None:
+                dbuf = bufs["d"] = np.zeros((H * step, W * step, 3), np.uint16)
+                bufs["a"] = np.zeros((H * step, W * step), np.uint16)
+            abuf = bufs["a"]
+            dbuf.reshape(H, step, W, step, 3)[:, :size, :, :size, :] = \
+                dot_rgb[sel].transpose(0, 2, 1, 3, 4)
+            abuf.reshape(H, step, W, step)[:, :size, :, :size] = \
+                dot_a[sel].transpose(0, 2, 1, 3)
+
+            src = dbuf[:oh, :ow]
+            a = abuf[:oh, :ow][..., None]
+            out[:] = (out * (255 - a) + src * a + 127) // 255
+
+        np.clip(out, 0, 255, out=out)
+        self.surface.rgb[:] = out.astype(np.uint8)
+        if self.surface.alpha is not None:
+            self.surface.alpha[:] = 255
+
     def get_surface(self):
         """Get the pygame surface for this matrix.
         
@@ -303,5 +455,5 @@ class LEDMatrix:
             filename: Path to save the screenshot
         """
         if self.surface:
-            import pygame
-            pygame.image.save(self.surface, filename)
+            from ._surface import backend
+            backend().save_image(self.surface, filename)

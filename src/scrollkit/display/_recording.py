@@ -13,15 +13,25 @@ from __future__ import annotations
 
 def capture_frame(matrix):
     """Return the matrix's current LED-panel surface as an (H, W, 3) uint8 array,
-    or None when pygame/the surface isn't available."""
-    try:
-        import pygame
-    except ImportError:
-        return None
+    or None when the surface isn't available.
+
+    Handles both surface backends (see ``simulator.core._surface``): pygame on the
+    desktop, numpy where pygame has no build — which is what lets a browser record a
+    GIF/MP4 of the panel rather than only preview it.
+    """
     surface = (matrix.get_surface()
                if matrix is not None and hasattr(matrix, "get_surface")
                else None)
     if surface is None:
+        return None
+
+    # The numpy backend already stores frames in image order.
+    if hasattr(surface, "rgb_array"):
+        return surface.rgb_array()
+
+    try:
+        import pygame
+    except ImportError:
         return None
     # array3d gives (W, H, 3); transpose to image orientation (H, W, 3).
     return pygame.surfarray.array3d(surface).transpose(1, 0, 2).copy()
@@ -30,24 +40,36 @@ def capture_frame(matrix):
 def save_surface_png(matrix, path):
     """Save the current LED-panel surface (or the window surface) to ``path``.
 
-    Returns the path on success or None when pygame/no surface is available.
+    Returns the path on success or None when there is no surface to save.
+
+    Goes through the active surface backend, so this works without pygame — the
+    numpy backend renders the same panel. It previously opened with ``import
+    pygame`` and returned None on ImportError, which left the public
+    ``display.screenshot()`` broken in exactly the environment the numpy backend
+    exists for while ``matrix.save_screenshot()`` worked.
     """
-    try:
-        import pygame
-    except ImportError:
-        return None
     surface = None
     if matrix is not None and hasattr(matrix, "get_surface"):
         surface = matrix.get_surface()
-    if surface is None and pygame.get_init():
-        surface = pygame.display.get_surface()
+
     if surface is None:
-        return None
+        # No matrix surface: fall back to the pygame window, if there is one.
+        try:
+            import pygame
+        except ImportError:
+            return None
+        if not pygame.get_init():
+            return None
+        surface = pygame.display.get_surface()
+        if surface is None:
+            return None
+
+    from ..simulator.core._surface import backend
     try:
-        pygame.image.save(surface, path)
+        backend().save_image(surface, path)
         return path
-    except (pygame.error, OSError) as e:
-        print(f"screenshot failed: {e}")
+    except Exception as e:      # backend-specific: pygame.error, OSError, PIL
+        print("screenshot failed: %s" % e)
         return None
 
 

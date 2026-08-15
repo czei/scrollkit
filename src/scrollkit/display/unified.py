@@ -382,9 +382,21 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             await asyncio.sleep(0.001)
 
         except ImportError:
-            # Pygame not available
+            # No pygame: the browser (Pyodide), or a desktop without it. The panel
+            # still renders — the surface backend falls back to numpy — so this path
+            # has to do everything the pygame path does except the window and events.
             if self.display:
                 self.display.refresh(minimum_frames_per_second=0)
+
+            # Recording works here too, now that capture_frame handles both surface
+            # backends: a browser can save a GIF/MP4 of the panel, not just show it.
+            if self._recording is not None:
+                self._capture_recording_frame()
+
+            # Yield. Without this the frame loop never returns to the host event
+            # loop, so a browser preview locks the page for the whole run and paints
+            # nothing until it finishes. The pygame path above already yields here.
+            await asyncio.sleep(0.001)
 
         return True
 
