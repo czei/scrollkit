@@ -238,10 +238,13 @@ Give the sign **one act per thing the organization actually does** — the subje
 sprite changes, the wordmark stays. That is what makes it a sign for *them*.
 
 !!! warning "`random.shuffle` does not exist on CircuitPython"
-    Neither do `random.choices`, `random.sample`, or `random.gauss`. Only
-    `random`/`uniform`/`randint`/`randrange`/`getrandbits`/`choice`/`seed` exist.
+    Neither do `random.choices`, `random.sample`, or `random.gauss`. The functions
+    this library and the Forge sign actually call on hardware are `random()`,
+    `uniform()`, `randint()`, `randrange()` and `choice()` — treat that as the
+    working set unless you have checked the board yourself.
     A hand-rolled shuffled deck is both a device crash and a reimplementation of
-    `ActScheduler` — use the scheduler.
+    `ActScheduler` — use the scheduler, which weights acts by how long since each
+    last played rather than permuting a deck.
 
 **Layouts are data** — a tuple of `(glyph, x, y)` placements plus an anchor point
 the radial effects radiate from; one wordmark then composes several ways with no
