@@ -92,6 +92,7 @@ class PerformanceManager:
         self._frame_index = 0
         self._last_warn_frame = 0
         self._max_bitmap_px = 0           # largest live text bitmap seen (RAM proxy)
+        self._last_frame_resume = None    # wall clock when throttle last released
 
     # --- hooks called by core/led_matrix.py (existing signatures) -------------
     def simulate_instruction_delay(self, n):
@@ -149,14 +150,34 @@ class PerformanceManager:
         # so the warning path below is unchanged.
         if self.strict and self._frame_index > self.warmup_frames:
             self._enforce_strict(total_us)
-        # Visceral mode: actually sleep the modeled frame time so the live window
-        # crawls at hardware speed.
+        # Visceral mode: pace the live window to hardware speed by sleeping the
+        # part of the modeled frame time that has NOT already been spent rendering.
+        #
+        # Sleeping the full modeled cost makes a frame take ``real_work + modeled``
+        # rather than ``max(real_work, modeled)``, so a host that renders faster
+        # than the device still ends up slower than it — by the render time, every
+        # frame. Measured in a browser preview whose real work runs at 14-25% of
+        # modeled, that was a 12-25% overshoot: a window claiming to crawl at
+        # hardware speed while crawling under it.
+        #
+        # Only the sleep changes. Modeled cost is computed from operations, never
+        # from wall time, so accounting, reports and frame hashes are untouched and
+        # stay identical across runtimes.
         if self.throttle and total_us > 0:
             import time
-            try:
-                time.sleep(total_us / 1_000_000.0)
-            except (ValueError, OSError):
-                pass
+            remaining = total_us / 1_000_000.0
+            if self._last_frame_resume is not None:
+                remaining -= time.monotonic() - self._last_frame_resume
+            if remaining > 0:
+                try:
+                    time.sleep(remaining)
+                except (ValueError, OSError):
+                    pass
+            # Stamped AFTER the sleep, so the next frame measures its own render
+            # time and not this pause. A frame that overruns its budget simply
+            # does not sleep: it cannot un-spend the time, and pacing must never
+            # run backwards trying to make it up.
+            self._last_frame_resume = time.monotonic()
         if self.ambient_warnings:
             self._maybe_emit_ambient_warning(total_us)
 

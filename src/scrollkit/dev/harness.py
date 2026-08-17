@@ -105,7 +105,7 @@ class RunResult:
 
 def run_headless(app, frames=None, seconds=None, screenshot=None,
                  hardware=True, warmup_data=False, strict=False, gif=None,
-                 gif_opts=None, video=None, video_opts=None):
+                 gif_opts=None, video=None, video_opts=None, throttle=None):
     """Run ``app`` headlessly for a fixed number of frames; return a ``RunResult``.
 
     Args:
@@ -135,6 +135,13 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
             which is caught, recorded in ``result.errors`` (tagged ``feasibility:``)
             and stops the run, so ``result.ok`` is False. Implies hardware
             modeling. Off by default.
+        throttle: pace the run to modeled hardware speed. ``None`` (default) keeps
+            the historical behaviour of forcing throttle OFF, which is what a test
+            harness wants. ``True`` turns pacing ON for this run regardless of how
+            the display was built, so it really does crawl at device speed;
+            ``False`` forces it off explicitly. Only a *live preview* wants
+            ``True`` — it is the one caller for which crawling is the point rather
+            than the problem.
 
     Synchronous wrapper around :func:`run_headless_async`. Call the async form
     directly from inside an existing event loop.
@@ -143,7 +150,8 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
     return asyncio.run(run_headless_async(
         app, frames=frames, seconds=seconds, screenshot=screenshot,
         hardware=hardware, warmup_data=warmup_data, strict=strict, gif=gif,
-        gif_opts=gif_opts, video=video, video_opts=video_opts))
+        gif_opts=gif_opts, video=video, video_opts=video_opts,
+        throttle=throttle))
 
 
 def record_gif(app, path, *, seconds=4.0, hardware=False, **gif_opts):
@@ -174,7 +182,8 @@ def record_video(app, path, *, seconds=4.0, hardware=False, **video_opts):
 
 async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
                              hardware=True, warmup_data=False, strict=False,
-                             gif=None, gif_opts=None, video=None, video_opts=None):
+                             gif=None, gif_opts=None, video=None, video_opts=None,
+                             throttle=None):
     """Async core of :func:`run_headless` (use inside a running event loop)."""
     if frames is None and seconds is not None:
         frames = max(1, int(round(seconds * TARGET_FPS)))
@@ -211,14 +220,32 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
                 and hasattr(app.display, "start_recording"):
             app.display.start_recording()
 
-        # Headless runs must stay fast, deterministic, and quiet: never crawl in
-        # real time and never print ambient nags, even if the app built its
-        # display with throttle=True or SCROLLKIT_HW_THROTTLE is set.
+        # Headless runs stay fast, deterministic and quiet BY DEFAULT: never crawl
+        # in real time and never print ambient nags, even if the app built its
+        # display with throttle=True or SCROLLKIT_HW_THROTTLE is set. That is right
+        # for a test harness and wrong for the one caller that wants to crawl.
+        #
+        # throttle=None  -> historical behaviour: force it off.
+        # throttle=True  -> ENABLE pacing for this run, whatever the display was
+        #                   built with. A live preview asks for this.
+        # throttle=False -> force it off explicitly.
+        #
+        # True has to *set* the flag, not merely refrain from clearing it. The
+        # manager defaults to throttle=False, so "leave it intact" leaves it off
+        # unless the app happened to construct its display with throttle=True —
+        # and the caller that most needs pacing, a preview handed an arbitrary
+        # app, is exactly the one that cannot arrange that.
+        #
+        # Ambient nags stay off regardless: they are console output, and the
+        # callers that want pacing are UIs, not terminals.
+        #
+        # Pacing changes only wall-clock timing. Modeled cost comes from operations,
+        # so the feasibility report and every frame hash are identical either way.
         try:
             from scrollkit.simulator.core.performance_manager import get_active
             _pm = get_active()
             if _pm is not None:
-                _pm.throttle = False
+                _pm.throttle = (throttle is True)
                 _pm.ambient_warnings = False
         except Exception:
             pass
