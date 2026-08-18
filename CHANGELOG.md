@@ -3,6 +3,44 @@
 All notable changes to ScrollKit are recorded here. This project loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+Two changes for a caller nobody had before: a **live preview** that wants to run at the
+device's speed rather than as fast as it can. Both are opt-in, and neither moves a pixel —
+modeled cost is computed from operation counts, never from wall time, so feasibility
+reports and per-frame hashes are identical with them on or off.
+
+### Added
+- **`run_headless` / `run_headless_async` take `throttle=None|True|False`.** The harness
+  forced the performance manager's throttle off on every headless run, which is right for a
+  test suite and left a preview with no supported path to hardware-speed playback at all.
+  `True` *sets* the flag rather than leaving it intact: the manager defaults to off, and a
+  preview handed an arbitrary app cannot arrange otherwise. Ambient console nags stay off
+  regardless — the callers who want pacing are UIs, not terminals.
+- **`run_headless` / `run_headless_async` take `virtual_clock=True`, and
+  `scrollkit.dev.clock` is the injection point behind it.** Duration-driven content asks
+  the clock how long it has been on screen, and in a headless run wall time is the wrong
+  answer: frames step with no inter-frame sleep, 60 of them pass in ~0.2 s, a
+  `duration=2.0` item never expires, and a correct animated app reports that it never
+  animates. With the flag, content time comes from `PerformanceManager.modeled_elapsed_s` —
+  what the frames would have cost the *panel* — so a four-second act lasts four seconds of
+  device time no matter how fast the host renders. It installs after the display exists,
+  uninstalls when the run ends, and raises `VirtualClockUnavailable` rather than returning
+  0.0 if there is no timing model to read.
+- `PerformanceManager.modeled_elapsed_us` / `.modeled_elapsed_s` / `.frames_ended` — a
+  monotonic run total, kept separate from the bounded `frames` history a clock built on it
+  would run backwards on.
+
+### Fixed
+- **Throttled pacing overshot every frame.** It slept the whole modeled frame cost *after*
+  the frame had already rendered, so a frame took `real_work + modeled` rather than
+  `max(real_work, modeled)` and a host faster than the device still ran slower than it, by
+  the render time, every frame. Measured against a browser preview doing its real work in
+  14–25% of modeled, that was a 12–25% overshoot: a window claiming to crawl at hardware
+  speed while crawling under it. It now sleeps only the unspent remainder, and a frame that
+  overruns its budget does not sleep — it cannot un-spend the time, and pacing must never
+  run backwards to make it up.
+
 ## [0.10.0] - 2026-08-02
 
 A sensor layer, and the network work from three field failures on a fielded
