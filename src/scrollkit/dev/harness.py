@@ -105,7 +105,8 @@ class RunResult:
 
 def run_headless(app, frames=None, seconds=None, screenshot=None,
                  hardware=True, warmup_data=False, strict=False, gif=None,
-                 gif_opts=None, video=None, video_opts=None, throttle=None):
+                 gif_opts=None, video=None, video_opts=None, throttle=None,
+                 virtual_clock=None):
     """Run ``app`` headlessly for a fixed number of frames; return a ``RunResult``.
 
     Args:
@@ -142,6 +143,13 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
             ``False`` forces it off explicitly. Only a *live preview* wants
             ``True`` — it is the one caller for which crawling is the point rather
             than the problem.
+        virtual_clock: drive ScrollKit's content clock from modeled *device*
+            time instead of wall time (``scrollkit.dev.clock``). Default None
+            leaves wall time alone. Without it, a headless run steps frames with
+            no inter-frame sleep, so a ``duration=2.0`` item never expires and an
+            animated app scores as "never animates"; with a fixed-rate clock
+            instead, content advances at that rate rather than at the panel's.
+            Deterministic either way: modeled cost comes from operations.
 
     Synchronous wrapper around :func:`run_headless_async`. Call the async form
     directly from inside an existing event loop.
@@ -151,7 +159,7 @@ def run_headless(app, frames=None, seconds=None, screenshot=None,
         app, frames=frames, seconds=seconds, screenshot=screenshot,
         hardware=hardware, warmup_data=warmup_data, strict=strict, gif=gif,
         gif_opts=gif_opts, video=video, video_opts=video_opts,
-        throttle=throttle))
+        throttle=throttle, virtual_clock=virtual_clock))
 
 
 def record_gif(app, path, *, seconds=4.0, hardware=False, **gif_opts):
@@ -183,7 +191,7 @@ def record_video(app, path, *, seconds=4.0, hardware=False, **video_opts):
 async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
                              hardware=True, warmup_data=False, strict=False,
                              gif=None, gif_opts=None, video=None, video_opts=None,
-                             throttle=None):
+                             throttle=None, virtual_clock=None):
     """Async core of :func:`run_headless` (use inside a running event loop)."""
     if frames is None and seconds is not None:
         frames = max(1, int(round(seconds * TARGET_FPS)))
@@ -210,6 +218,7 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
     warnings = []
     first_sig = None
     last_sig = None
+    clock_installed = False
 
     try:
         await app._initialize_display()
@@ -249,6 +258,20 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
                 _pm.ambient_warnings = False
         except Exception:
             pass
+
+        # The virtual clock installs HERE and not earlier: it reads the active
+        # performance manager, and the manager does not exist until the display
+        # has been built. A caller who installs it before calling this function
+        # is installing it against nothing.
+        #
+        # Content time then advances by modeled device microseconds — the same
+        # number the feasibility report is computed from — so the preview's
+        # content moves at the panel's speed rather than the host's, and two
+        # runtimes rendering the same frames agree on the clock exactly.
+        if virtual_clock:
+            from .clock import install_virtual_clock
+            install_virtual_clock()
+            clock_installed = True
 
         import time
         app.running = True
@@ -379,6 +402,15 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
         )
     finally:
         app.running = False
+        # Before set_active(None) below, and before anything else can read the
+        # clock: a run that leaves the injection installed hands the next app in
+        # the process a clock pointing at a manager that no longer exists.
+        if clock_installed:
+            try:
+                from .clock import uninstall_virtual_clock
+                uninstall_virtual_clock()
+            except Exception:
+                pass
         # Release any still-open recording (save_gif already clears it on the
         # happy path; this covers an early error before the save).
         try:

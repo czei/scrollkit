@@ -93,6 +93,12 @@ class PerformanceManager:
         self._last_warn_frame = 0
         self._max_bitmap_px = 0           # largest live text bitmap seen (RAM proxy)
         self._last_frame_resume = None    # wall clock when throttle last released
+        # Monotonic sum of every frame's modeled cost, for the whole run. Separate
+        # from self._frames, which is a bounded deque and forgets: a clock built on
+        # it would run backwards the moment the history filled. Nothing here is
+        # measured from wall time, so this total is identical across runtimes and
+        # a virtual clock driven by it stays deterministic.
+        self._modeled_us = 0.0
 
     # --- hooks called by core/led_matrix.py (existing signatures) -------------
     def simulate_instruction_delay(self, n):
@@ -138,6 +144,7 @@ class PerformanceManager:
         total_us = self._frame.total_us
         self._frames.append(self._frame)
         self._frame_index += 1
+        self._modeled_us += total_us
         # Reset the live frame BEFORE the strict gate can raise, so a caller that
         # catches FeasibilityError and keeps rendering doesn't accumulate the next
         # frame's cost onto the (already-appended) aborted frame and corrupt the
@@ -263,6 +270,29 @@ class PerformanceManager:
     @property
     def frames(self):
         return list(self._frames)
+
+    @property
+    def frames_ended(self):
+        """How many frames have been accounted, for the whole run."""
+        return self._frame_index
+
+    @property
+    def modeled_elapsed_us(self):
+        """Modeled device microseconds since the run began.
+
+        The sum of every completed frame's cost. This is what the device clock
+        would read, and it is computed from operations rather than from wall
+        time, so two runtimes rendering the same frames agree on it exactly.
+        ``scrollkit.dev.clock`` drives a virtual clock from this, which is what
+        makes a preview's content advance at the panel's speed rather than the
+        host's.
+        """
+        return self._modeled_us
+
+    @property
+    def modeled_elapsed_s(self):
+        """``modeled_elapsed_us`` in seconds — the unit a clock wants."""
+        return self._modeled_us / 1_000_000.0
 
     def estimated_peak_ram_bytes(self):
         """Rough modeled peak RAM: app floor + largest live text bitmap."""

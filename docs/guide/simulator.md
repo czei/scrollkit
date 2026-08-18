@@ -86,6 +86,7 @@ confusion — so keep them separate:
 | **Default live window** | The app loop's fixed `await sleep(0.05)` → a ~20 FPS wall-clock target; motion is measured in pixels-per-frame | No — capped at ~20 FPS by the sleep (only a *too-slow* PC drops below it) | No — it's the authoring rate, not a device estimate |
 | **`hardware_timing=True`** | Nothing real-time: it *accumulates* modeled µs/frame (operation counts × device-measured costs) and reports an estimated hardware FPS | No — pure arithmetic, identical on any machine | Yes — a calibrated estimate |
 | **`throttle=True`** (implies hardware timing) | Each frame `time.sleep`s its *modeled* duration | No — it sleeps the device time regardless of host | Yes — the window plays at the modeled device FPS |
+| **`virtual_clock=True`** | Nothing real-time: content's *own* clock reads accumulated modeled µs instead of wall time | No — arithmetic again | Yes — duration-driven content advances at device speed |
 
 The non-obvious point: **the default window's playback speed represents neither
 your PC nor the real device.** A standard `ScrollKitApp` self-paces to a fixed
@@ -114,6 +115,46 @@ what the hardware would actually do, reach for one of the model-driven modes:
     *faster* than the device and read the verdict off a gauge, not sit through a
     6-FPS crawl on every preview. So the default computes the estimate and reports
     it; `throttle` makes you feel it.
+
+## What time does the content think it is?
+
+A fourth thing, and the one that surprises people: duration-driven content asks
+the clock how long it has been on screen, and by default the clock is wall time.
+That is right on the device and wrong in a headless run, which steps frames with
+no sleep at all — 60 frames pass in about 0.2 s, a `duration=2.0` item never
+expires, the queue never advances, and a perfectly correct animated app reports
+that it never animates.
+
+`virtual_clock=True` replaces wall time with **modeled device time**: the same
+accumulated µs/frame the feasibility estimate is built from.
+
+```python
+run_headless(app, frames=60, virtual_clock=True)   # content time == device time
+```
+
+Content then advances by what the frames would have cost the panel, so a sign
+whose items last two seconds gets two seconds of *device* time regardless of how
+fast the host renders. Because that number comes from operation counts rather
+than from a stopwatch, it is identical on any machine and in any runtime — a
+browser running ScrollKit under Pyodide and a desktop running it under CPython
+read the same clock, frame for frame.
+
+Driving your own loop instead of the harness? `scrollkit.dev.clock` has the
+primitives:
+
+```python
+from scrollkit.dev.clock import install_virtual_clock, uninstall_virtual_clock
+
+install_virtual_clock()          # after the display exists — it reads the model
+try:
+    ...
+finally:
+    uninstall_virtual_clock()
+```
+
+It reads the *active* performance manager on every tick, so it needs hardware
+timing on (`run_headless(..., hardware=True)` or `SCROLLKIT_HW_SIM=1`) and it
+raises rather than quietly returning zero if there is nothing to read.
 
 ## Tilting a laptop
 

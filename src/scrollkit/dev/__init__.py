@@ -31,6 +31,9 @@ from .harness import (  # noqa: E402
 from .capabilities import capabilities, as_text  # noqa: E402
 from .validation import validate, ValidationReport, Issue  # noqa: E402
 from .performance import performance_guide, performance_text  # noqa: E402
+from .clock import (  # noqa: E402
+    install_virtual_clock, uninstall_virtual_clock, virtual_clock_installed,
+    modeled_device_time, VirtualClockUnavailable)
 from . import metrics  # noqa: E402,F401
 
 __all__ = [
@@ -38,4 +41,7 @@ __all__ = [
     "record_video", "metrics",
     "capabilities", "as_text", "validate", "ValidationReport", "Issue",
     "performance_guide", "performance_text",
+    "install_virtual_clock", "uninstall_virtual_clock",
+    "virtual_clock_installed", "modeled_device_time",
+    "VirtualClockUnavailable",
 ]
