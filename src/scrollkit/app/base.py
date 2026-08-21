@@ -808,17 +808,38 @@ class SLDKApp:
         return UnifiedDisplay()
     
     async def _initialize_display(self) -> None:
-        """Initialize the display based on platform."""
+        """Initialize the display based on platform.
+
+        A swallowed failure here is the worst outcome this class can produce: a
+        half-initialized display no-ops every draw, so the app runs on happily,
+        feeds the watchdog, and serves its web UI behind a panel that is black
+        forever. Nothing resets, nothing retries, and the box looks dead while
+        every health signal reads green. Catching stays (a desktop without the
+        simulator installed must not be fatal) — but it is now RECORDED, in the
+        log and on the app, so "dark panel" and "healthy" can never again be
+        reported at the same time.
+        """
+        self.display_init_error = None
         try:
             # Allow application to override display creation
             self.display = await self.create_display()
             await self.display.initialize()
-            
+
         except ImportError as e:
+            self.display_init_error = "%s: %s" % (type(e).__name__, e)
             print(f"Failed to initialize display: {e}")
             print("Install simulator with 'pip install \"scrollkit[simulator]\"' for desktop development")
         except OSError as e:
+            self.display_init_error = "%s: %s" % (type(e).__name__, e)
             print(f"Display initialization failed: {e}")
+        if self.display_init_error is not None:
+            try:
+                from ..utils.error_handler import ErrorHandler
+                ErrorHandler("error_log").error(
+                    None, "DISPLAY INIT FAILED - the panel will stay dark while "
+                          "the app runs: " + self.display_init_error)
+            except Exception:
+                pass
 
     def _arm_watchdog(self, timeout=None) -> None:
         """Arm the hardware watchdog (CircuitPython only) if enabled.

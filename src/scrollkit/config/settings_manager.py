@@ -160,29 +160,69 @@ class SettingsManager:
 
     def load_settings(self):
         """
-        Load settings from the settings file.
+        Load settings from the settings file, falling back to the staged temp
+        file left by an interrupted save.
 
         Returns:
             A dictionary of settings
         """
         _logger().info(f"Loading settings {self.filename}")
-        try:
-            with open(self.filename, 'r') as f:
-                return json.load(f)
-        except (OSError, ValueError):
-            # OSError: missing file. ValueError: corrupt JSON — CircuitPython's
-            # json.load raises ValueError (there is no JSONDecodeError), and a
-            # truncated flash write must not brick boot.
-            return {}
+        for name in (self.filename, self.filename + ".tmp"):
+            try:
+                with open(name, 'r') as f:
+                    loaded = json.load(f)
+            except (OSError, ValueError):
+                # OSError: missing file. ValueError: corrupt JSON — CircuitPython's
+                # json.load raises ValueError (there is no JSONDecodeError), and a
+                # truncated flash write must not brick boot.
+                continue
+            # Valid JSON with a non-object root ("null", "[]", a bare string) is
+            # NOT handled by the above and would blow up in set_defaults() during
+            # construction — i.e. before the app can paint anything or open a log.
+            if isinstance(loaded, dict):
+                if name != self.filename:
+                    _logger().error(None, "settings.json was lost; recovered the "
+                                          "staged copy from an interrupted save")
+                return loaded
+        return {}
 
     def save_settings(self):
-        """Save settings to the settings file"""
+        """Save settings, atomically. Returns True only if they reached flash.
+
+        This file holds the WiFi credentials, and every ordinary "save my park
+        choice" rewrites it. The old version opened the live file with 'w' —
+        truncate first, stream the JSON after — so a power cut anywhere in that
+        window left a 0-byte or half-written file that silently loaded as {} on
+        the next boot: factory defaults, credentials included, with nothing in
+        the log to say why. Write a temp file first and swap it in, so the
+        window contains a COMPLETE file at all times (load_settings prefers the
+        live name and falls back to the temp one).
+
+        CircuitPython's FAT os.rename will not clobber an existing target, so
+        the swap is remove-then-rename rather than a plain rename.
+        """
         _logger().info(f"Saving settings {self.filename}")
+        import os
+        tmp = self.filename + ".tmp"
         try:
-            with open(self.filename, 'w') as f:
+            with open(tmp, 'w') as f:
                 json.dump(self.settings, f)
-        except OSError as e:
+        except (OSError, ValueError) as e:
+            # OSError: read-only mount (a USB-deploy session) or a full flash.
+            # ValueError: a non-serializable value — which under the old code
+            # raised out of a file that had ALREADY been truncated.
             _logger().error(e, f"Error saving settings to {self.filename}")
+            return False
+        try:
+            try:
+                os.remove(self.filename)
+            except OSError:
+                pass                      # first save, or already gone
+            os.rename(tmp, self.filename)
+        except OSError as e:
+            _logger().error(e, f"Error replacing {self.filename}")
+            return False
+        return True
 
     def get(self, key, default=None):
         """

@@ -311,8 +311,13 @@ class WiFiManager:
             return False
         
     def save_credentials(self):
-        """
-        Save WiFi credentials to settings manager
+        """Save WiFi credentials to the settings manager. Returns True on success.
+
+        The return value matters: the setup portal reboots the board once it
+        believes the credentials are saved, so a write that silently failed
+        (a read-only mount, a full flash) used to send the user away happy and
+        come back from the reboot with no credentials at all — looking for all
+        the world like the box had "forgotten" the WiFi it just accepted.
         """
         if hasattr(self, 'settings_manager') and self.settings_manager:
             try:
@@ -321,11 +326,17 @@ class WiFiManager:
                 self.settings_manager.settings["wifi_password"] = self.password
 
                 # Save settings to disk
-                self.settings_manager.save_settings()
+                saved = self.settings_manager.save_settings()
+                if saved is False:
+                    _logger().error(None, "WiFi credentials did NOT reach flash")
+                    return False
                 _logger().info(f"Saved WiFi credentials to settings manager")
+                return True
 
             except Exception as e:
                 _logger().error(e, "Failed to save WiFi credentials to settings manager")
+                return False
+        return False
 
     def scan_networks(self):
         """

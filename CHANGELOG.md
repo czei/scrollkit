@@ -40,6 +40,33 @@ reports and per-frame hashes are identical with them on or off.
   speed while crawling under it. It now sleeps only the unspent remainder, and a frame that
   overruns its budget does not sleep — it cannot un-spend the time, and pacing must never
   run backwards to make it up.
+- **`url_decode` mangled every non-ASCII character.** Percent-escapes are bytes, and
+  browsers encode form fields as UTF-8, so `é` arrives as `%C3%A9`. Turning each escape
+  straight into a character with `chr()` produced `Ã©` — two wrong characters, silently, in
+  whatever the user typed. For a WiFi password that means the board stores something the
+  user never entered and can never join their network, while the setup portal reports
+  success, because the corruption happens before anything checks. The bytes are now
+  collected and decoded once, with the old byte-wise reading kept as a fallback for input
+  that is not valid UTF-8 (a mangled password beats no password). Note the fix applies to
+  new saves only: a board that already stored a mangled credential keeps it until the user
+  re-enters it.
+- **`SettingsManager.save_settings` truncated the live file before writing.** That file
+  holds the WiFi credentials and is rewritten by every ordinary settings save, so a power
+  cut anywhere in the window left a 0-byte or half-written file that loaded as `{}` on the
+  next boot: factory defaults, credentials included, with nothing in the log to say why. It
+  now writes a temp file and swaps it in, and `load_settings` falls back to that temp file
+  when the live one is missing. It also returns `True`/`False` rather than swallowing the
+  failure, and rejects valid JSON with a non-object root (`null`, `[]`) which previously
+  raised during construction.
+- **A failed credential save reported success.** `WiFiManager.save_credentials` now returns
+  a result and `WiFiSetupPortal` refuses to declare the network saved when the write did
+  not land. Saving is what makes `run_setup_portal` reboot the board, so a silently failed
+  write sent the user away happy and brought the box back with no credentials at all.
+- **A swallowed display-init failure looked healthy.** `_initialize_display` caught
+  `ImportError`/`OSError` and carried on, leaving every draw a no-op: a panel black forever
+  while the watchdog was fed and the web UI served normally. Nothing reset, nothing retried,
+  and every health signal read green. It is still caught, but recorded to `error_log` and
+  exposed as `display_init_error`.
 
 ## [0.10.0] - 2026-08-02
 

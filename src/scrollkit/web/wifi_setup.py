@@ -195,7 +195,14 @@ class WiFiSetupPortal:
 
         self._wm.ssid = ssid
         self._wm.password = password
-        self._wm.save_credentials()          # -> settings.json, never a code file
+        # -> settings.json, never a code file. Believe the write, not the form:
+        # saving is what makes run_setup_portal reboot the board, so reporting
+        # success for a write that never landed sends the user away happy and
+        # brings the box back with no credentials.
+        if self._wm.save_credentials() is False:
+            self.error = ("Could not save to the device's storage. If it is "
+                          "plugged into a computer, eject the drive and try again.")
+            return False
         self.saved = True
         self.saved_ssid = ssid
         self.error = None

@@ -184,26 +184,79 @@ class TestSettingsManager:
                 # Verify result is an empty dict on failure
                 assert result == {}
     
-    def test_save_settings_success(self):
-        """Test saving settings successfully"""
-        # Create test settings
+    def test_save_settings_success(self, tmp_path):
+        """Saving writes the settings, and reports that it did."""
+        import json
+        path = str(tmp_path / "test_settings.json")
         test_settings = {
             "test_key": "test_value",
             "another_key": 123
         }
 
-        # Initialize settings manager with mocked load_settings to prevent file reading
         with patch.object(SettingsManager, 'load_settings', return_value={}):
-            manager = SettingsManager("test_settings.json")
+            manager = SettingsManager(path)
             manager.settings = test_settings
 
-            # Mock open to avoid actual file writing
-            with patch('builtins.open', mock_open()) as mock_file:
-                # Call save_settings
-                manager.save_settings()
+            assert manager.save_settings() is True
 
-                # Verify file was opened for writing
-                mock_file.assert_called_with("test_settings.json", 'w')
+        with open(path) as f:
+            assert json.load(f) == test_settings
+        # The staged copy is swapped in, not left behind.
+        assert not os.path.exists(path + ".tmp")
+
+    def test_save_settings_is_atomic(self, tmp_path):
+        """The live file is never the write target.
+
+        settings.json holds the WiFi credentials and is rewritten by every
+        ordinary "save my park choice". Truncating it and streaming JSON into
+        it left a window where a power cut produced a 0-byte file that loaded
+        as {} on the next boot — factory defaults, credentials included, with
+        nothing in the log to say why.
+        """
+        import json
+        path = str(tmp_path / "settings.json")
+        with open(path, "w") as f:
+            json.dump({"wifi_ssid": "home", "wifi_password": "hunter2"}, f)
+
+        manager = SettingsManager(path)
+        manager.settings["sort_mode"] = "max_wait"
+
+        opened = []
+        real_open = open
+
+        def _tracking_open(name, mode="r", *a, **k):
+            opened.append((str(name), mode))
+            return real_open(name, mode, *a, **k)
+
+        with patch('builtins.open', _tracking_open):
+            assert manager.save_settings() is True
+
+        writes = [name for name, mode in opened if "w" in mode]
+        assert writes, "nothing was written"
+        assert all(name.endswith(".tmp") for name in writes), \
+            "the live settings file must never be opened for writing"
+        with real_open(path) as f:
+            assert json.load(f)["wifi_ssid"] == "home"
+
+    def test_load_recovers_the_staged_copy(self, tmp_path):
+        """If the swap was interrupted, the complete temp file is still there."""
+        import json
+        path = str(tmp_path / "settings.json")
+        with open(path + ".tmp", "w") as f:
+            json.dump({"wifi_ssid": "home"}, f)
+
+        manager = SettingsManager(path)
+        assert manager.settings.get("wifi_ssid") == "home"
+
+    def test_load_rejects_a_non_dict_root(self, tmp_path):
+        """Valid JSON with the wrong root type ("null", "[]") is not corrupt to
+        json.load, so it used to reach set_defaults() and raise during
+        construction — before the app could paint anything or open a log."""
+        path = str(tmp_path / "settings.json")
+        for junk in ("null", "[]", '"a string"', "42"):
+            with open(path, "w") as f:
+                f.write(junk)
+            assert SettingsManager(path).load_settings() == {}
     
     def test_save_settings_failure(self):
         """Test handling errors when saving settings"""
