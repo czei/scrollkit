@@ -134,7 +134,29 @@ def _peak_profile(n):
                  for i in range(n))
 
 
-class RainbowChase:
+class _Dimmable:
+    """Global-brightness support for the palette effects.
+
+    Each effect rewrites all RAMP slots every frame from a cached ramp, so the
+    dim belongs in the ramp rather than in the write — the library's rule is to
+    build a ramp once and never inside a per-frame loop (see display/colors.py).
+    ``_rebuild`` therefore runs only when the scale actually changes, and
+    ``BitmapText._build`` re-runs on every ``start()``, so a brightness change
+    reaches the effect when its content next begins.
+    """
+
+    _dim = 1.0
+
+    def set_color_scale(self, f):
+        if f != self._dim:
+            self._dim = f
+            self._rebuild()
+
+    def _rebuild(self):
+        """Recompute the cached ramp from the effect's original colours."""
+
+
+class RainbowChase(_Dimmable):
     """Palette effect: rotate the colour ramp so a rainbow travels through the
     letters. Pure palette rewrites — no glyph rebuild. ``period`` advances the
     phase every N frames (>1 = a calmer, slower chase)."""
@@ -142,30 +164,42 @@ class RainbowChase:
     def __init__(self, step=1, period=1):
         self.step = step
         self.period = period if period > 1 else 1
+        self._ramp = _RAINBOW          # shared tuple at full brightness: no copy
         self._phase = 0
         self._tick = 0
 
+    def _rebuild(self):
+        f = self._dim
+        self._ramp = _RAINBOW if f >= 1.0 else tuple(_scale(c, f) for c in _RAINBOW)
+
     def apply(self, palette):
         for i in range(RAMP):
-            palette[1 + i] = _RAINBOW[(i + self._phase) % RAMP]
+            palette[1 + i] = self._ramp[(i + self._phase) % RAMP]
         self._tick += 1
         if self._tick >= self.period:
             self._tick = 0
             self._phase = (self._phase + self.step) % RAMP
 
 
-class NeonTubeCrawl:
+class NeonTubeCrawl(_Dimmable):
     """A bright pulse crawls along an otherwise-dim neon tube of one colour: one ramp
     slot glows at full ``color`` while the rest hold a dimmed version of it. Pass
     ``glow``/``base`` to set the two shades directly instead. Pure palette rewrites —
     no glyph rebuild. ``period`` advances the pulse every N frames."""
 
     def __init__(self, color=0x66FFCC, glow=None, base=None, period=2):
-        self.glow = glow if glow is not None else color
-        self.base = base if base is not None else _scale(color, 0.18)
+        self._glow0 = glow if glow is not None else color
+        self._base0 = base if base is not None else _scale(color, 0.18)
+        self.glow = self._glow0
+        self.base = self._base0
         self.period = period if period > 1 else 1
         self._phase = 0
         self._tick = 0
+
+    def _rebuild(self):
+        f = self._dim
+        self.glow = _scale(self._glow0, f)
+        self.base = _scale(self._base0, f)
 
     def apply(self, palette):
         for i in range(RAMP):
@@ -176,7 +210,7 @@ class NeonTubeCrawl:
             self._phase = (self._phase + 1) % RAMP
 
 
-class ChromeSheen:
+class ChromeSheen(_Dimmable):
     """A metallic sheen: a dark→bright ramp of ``color`` (default silver/white) with a
     highlight band that sweeps across the letters as the ramp rotates. Pass
     ``highlight`` to make the sheen a smooth TWO-colour gradient (dim ``color`` → full
@@ -191,13 +225,21 @@ class ChromeSheen:
         self.color = color
         self.highlight = highlight
         self.period = period if period > 1 else 1
-        if highlight is None:
-            self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
-        else:
-            # dim base of `color` -> full `highlight`: a smooth two-colour sheen ramp.
-            self._ramp = gradient(_scale(color, self._PROFILE[0]), highlight, RAMP)
+        self._rebuild()
         self._phase = 0
         self._tick = 0
+
+    def _rebuild(self):
+        # One multiply, not two truncations: fold the dim into the profile
+        # rather than scaling an already-scaled ramp.
+        d = self._dim
+        color, highlight = self.color, self.highlight
+        if highlight is None:
+            self._ramp = tuple(_scale(color, f * d) for f in self._PROFILE)
+        else:
+            # dim base of `color` -> full `highlight`: a smooth two-colour sheen ramp.
+            self._ramp = gradient(_scale(color, self._PROFILE[0] * d),
+                                  _scale(highlight, d), RAMP)
 
     def apply(self, palette):
         for i in range(RAMP):
@@ -208,17 +250,23 @@ class ChromeSheen:
             self._phase = (self._phase + 1) % RAMP
 
 
-class HazardStripes:
+class HazardStripes(_Dimmable):
     """Marching hazard stripes: an accent ``color`` alternating with a ``dark`` ground,
     shifting one slot each step. Pass ``a``/``b`` to set the two colours directly.
     Pure palette rewrites — no glyph rebuild."""
 
     def __init__(self, color=0xFFCC00, dark=0x101010, a=None, b=None, period=2):
-        self.a = a if a is not None else color
-        self.b = b if b is not None else dark
+        self._a0 = a if a is not None else color
+        self._b0 = b if b is not None else dark
+        self.a, self.b = self._a0, self._b0
         self.period = period if period > 1 else 1
         self._phase = 0
         self._tick = 0
+
+    def _rebuild(self):
+        f = self._dim
+        self.a = _scale(self._a0, f)
+        self.b = _scale(self._b0, f)
 
     def apply(self, palette):
         for i in range(RAMP):
@@ -229,7 +277,7 @@ class HazardStripes:
             self._phase = (self._phase + 1) % 2
 
 
-class MonoChase:
+class MonoChase(_Dimmable):
     """A single bright band of one ``color`` chases through the letters — RainbowChase,
     but monochrome (one hue at varying brightness). Pure palette rewrites — no glyph
     rebuild. ``period`` advances the chase every N frames."""
@@ -241,9 +289,13 @@ class MonoChase:
     def __init__(self, color=0xFFFFFF, period=1):
         self.color = color
         self.period = period if period > 1 else 1
-        self._ramp = tuple(_scale(color, f) for f in self._PROFILE)
+        self._rebuild()
         self._phase = 0
         self._tick = 0
+
+    def _rebuild(self):
+        d = self._dim
+        self._ramp = tuple(_scale(self.color, f * d) for f in self._PROFILE)
 
     def apply(self, palette):
         for i in range(RAMP):
@@ -321,8 +373,14 @@ class BitmapText(DisplayContent):
         bitmap = gfx.Bitmap(width, GLYPH_H, RAMP + 1)
         palette = gfx.Palette(RAMP + 1)
         palette.make_transparent(0)              # background transparent
+        # _build re-runs on every start(), so this is where a brightness change
+        # reaches the effect's cached ramp.
+        dim = getattr(display, "color_scale", 1.0)
+        setter = getattr(self.palette_effect, "set_color_scale", None)
+        if setter is not None:
+            setter(dim)
         for i in range(RAMP):
-            palette[1 + i] = _RAINBOW[i]
+            palette[1 + i] = _scale(_RAINBOW[i], dim) if dim < 1.0 else _RAINBOW[i]
         # Render every glyph ONCE; each lit pixel's palette index is its column
         # position in the ramp, so rotating the palette makes the colour chase.
         cx = 0

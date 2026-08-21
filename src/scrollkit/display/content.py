@@ -191,8 +191,14 @@ class _GradientFillMixin:
     def _ensure_grad(self, display) -> None:
         """Build (or rebuild on change) the gradient layer; idempotent per frame."""
         from .gradient_text import GradientTextLayer  # lazy: gradient path only
+        # color_scale is in the key because GradientTextLayer bakes the global
+        # software brightness into its palette at build time and never rewrites
+        # it. Without this, moving the brightness slider would leave the
+        # scrolling ride name — the default path, and the largest thing on the
+        # panel — sitting at the old brightness until the content cycled.
         key = (self.text, self.palette, self.direction, self.palette_steps,
-               self.y, id(getattr(display, "font", None)))
+               self.y, id(getattr(display, "font", None)),
+               getattr(display, "color_scale", 1.0))
         if (self._grad is not None and self._grad_key == key
                 and self._grad_display is display):
             return

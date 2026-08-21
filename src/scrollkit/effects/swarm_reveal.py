@@ -35,6 +35,7 @@ blocking :func:`show_swarm_splash` convenience wrapper, mirroring
 import asyncio
 import math
 import random
+from ..display.colors import dim_for as _dim
 
 
 # Boids tuning (radii stored squared to avoid sqrt in the gates).
@@ -190,7 +191,7 @@ class SwarmReveal:
             self._text_bmp = gfx.Bitmap(w, h, 2)
             tpal = gfx.Palette(2)
             tpal.make_transparent(0)
-            tpal[1] = self.text_color
+            tpal[1] = _dim(display, self.text_color)
         else:
             n = len(self.text_colors)
             self._text_bmp = gfx.Bitmap(w, h, n + 1)
@@ -198,7 +199,7 @@ class SwarmReveal:
             if hasattr(tpal, "make_transparent"):
                 tpal.make_transparent(0)
             for i, c in enumerate(self.text_colors):
-                tpal[i + 1] = c
+                tpal[i + 1] = _dim(display, c)
         self._text_tile = gfx.TileGrid(self._text_bmp, pixel_shader=tpal)
 
         # Birds layer (cleared + redrawn each frame). Added AFTER text so birds
@@ -206,7 +207,7 @@ class SwarmReveal:
         self._birds_bmp = gfx.Bitmap(w, h, 2)
         bpal = gfx.Palette(2)
         bpal.make_transparent(0)
-        bpal[1] = self.bird_color
+        bpal[1] = _dim(display, self.bird_color)
         self._birds_tile = gfx.TileGrid(self._birds_bmp, pixel_shader=bpal)
 
         display.add_layer(self._text_tile)

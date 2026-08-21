@@ -513,19 +513,40 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
                             crf=crf, preset=preset, border=border,
                             border_color=border_color)
 
-    async def set_brightness(self, brightness: float) -> None:
-        """Set display brightness.
-        
-        Args:
-            brightness: Float between 0.0 and 1.0
+    def set_color_scale(self, brightness: float) -> None:
+        """Set the global software brightness (0.0-1.0). Synchronous.
+
+        Software, because the hardware property is not a dimmer. On the
+        MatrixPortal S3 ``display.brightness`` is effectively on/off: 0.0 blanks
+        the panel while 0.15 and 1.0 are indistinguishable. That is how a
+        customer's sign sat dark for months on a stored "0" with a perfectly
+        healthy app behind it. So the panel is pinned to FULL and every colour
+        is scaled on its way out instead — which is what this app's own v1/v2
+        code did before the re-platform replaced it with the hardware property.
+
+        Storing the scale, pinning the hardware and invalidating the paint-index
+        cache happen together here so they cannot drift apart: a display left
+        with a stale scale but an un-pinned panel would run at full brightness,
+        which is a worse complaint than a dim one.
         """
-        self._brightness = max(0.0, min(1.0, brightness))
-        
+        self._brightness = self.color_scale = max(0.0, min(1.0, brightness))
+
+        # The paint canvas caches colour -> palette index, and those palette
+        # entries hold DIMMED values; a new scale makes every one of them stale.
+        # Safe to drop wholesale because clear() wipes the paint bitmap each
+        # frame, so no live pixel still references an index.
+        if getattr(self, "_paint_colors", None):
+            self._paint_colors = {}
+
         if self.display:
             try:
-                self.display.brightness = self._brightness
+                self.display.brightness = 1.0
             except (AttributeError, TypeError) as e:
-                print(f"Failed to set brightness: {e}")
+                print(f"Failed to pin hardware brightness: {e}")
+
+    async def set_brightness(self, brightness: float) -> None:
+        """Set display brightness. Async wrapper kept for existing callers."""
+        self.set_color_scale(brightness)
     
     async def draw_text(self, text: str, x: int = 0, y: int = 0, color: int = 0xFFFFFF, font: Any = None) -> None:
         """Draw text on display using displayio labels.
@@ -546,6 +567,14 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             font = self.font
         if font is None:
             return
+
+        # Global software brightness, applied BEFORE the reuse guard below. The
+        # ordering is load-bearing: `label.color` holds the DIMMED value, so
+        # comparing it against an undimmed incoming colour would differ every
+        # frame and rewrite the label — and a colour change rebuilds the glyph
+        # bitmap, the dominant per-frame cost on hardware. Dim first, compare
+        # like with like.
+        color = self._dim(color)
 
         # Pull the next Label slot for this frame and mutate it in place. Only
         # touch .text when it actually changed (a text change rebuilds the glyph
@@ -595,6 +624,8 @@ class UnifiedDisplay(GraphicsMixin, DisplayInterface):
             return
         if scale < 1:
             scale = 1
+
+        color = self._dim(color)        # before the reuse guard — see draw_text
 
         idx = self._scaled_idx
         if idx < len(self._scaled_pool):

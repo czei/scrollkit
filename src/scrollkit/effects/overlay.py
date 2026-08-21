@@ -37,7 +37,12 @@ class OverlayMask:
     # --- palette --------------------------------------------------------------
     def set_cover_color(self, index, color):
         """Set the color of an opaque cover index (1..N)."""
-        self.palette[index] = color
+        # Black covers (12 of the 13 transitions) are unaffected by the dim;
+        # this matters for the bright ones, e.g. LightSlitRewrite's slit. Uses
+        # the display's own helper rather than importing one: this module keeps
+        # zero module-level imports on purpose (see the docstring).
+        dim = getattr(self._display, "_dim", None)
+        self.palette[index] = dim(color) if dim is not None else color
 
     # --- bounded mutators (dirty-span only) -----------------------------------
     def _clip(self, x, y, w, h):

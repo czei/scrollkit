@@ -43,6 +43,7 @@ Typical usage::
 """
 
 import asyncio
+from ..display.colors import dim_for as _dim
 
 
 __all__ = ['DripReveal', 'show_drip_splash']
@@ -89,7 +90,9 @@ class DripReveal:
         self._bitmap = gfx.Bitmap(w, h, 2)
         palette = gfx.Palette(2)
         palette.make_transparent(0)          # composite over content below
-        palette[1] = self.color
+        # Dimmed HERE rather than at construction, so the caller's colour stays
+        # the caller's colour and a brightness change lands on the next start().
+        palette[1] = _dim(display, self.color)
         self._tile = gfx.TileGrid(self._bitmap, pixel_shader=palette)
         display.add_layer(self._tile)
         self._display = display

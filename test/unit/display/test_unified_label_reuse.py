@@ -80,3 +80,57 @@ async def test_default_bit_depth_is_4():
     assert d._bit_depth == 4
     d6 = UnifiedDisplay(64, 32, bit_depth=6)
     assert d6._bit_depth == 6
+
+
+def test_dimmed_label_colour_is_not_rewritten_each_frame(monkeypatch):
+    """The riskiest line in the dimmer, pinned.
+
+    draw_text dims BEFORE the `if label.color != color` reuse guard. Dim AFTER
+    it and the stored (dimmed) value never equals the incoming (undimmed) one,
+    so the guard misses every frame and rewrites the label -- and a colour
+    change rebuilds the glyph bitmap, the dominant per-frame cost on hardware.
+    Invisible on desktop, a frame-rate collapse on the panel.
+
+    So this counts ASSIGNMENTS, not values: comparing the value passes either
+    way, which is what makes this failure mode so easy to ship.
+    """
+    import asyncio
+    from scrollkit.display.unified import UnifiedDisplay
+
+    class _CountingLabel:
+        """Wraps a pooled Label and counts writes to .color."""
+
+        def __init__(self, inner):
+            object.__setattr__(self, "_inner", inner)
+            object.__setattr__(self, "color_writes", 0)
+
+        def __getattr__(self, name):
+            return getattr(object.__getattribute__(self, "_inner"), name)
+
+        def __setattr__(self, name, value):
+            if name == "color":
+                object.__setattr__(self, "color_writes",
+                                   object.__getattribute__(self, "color_writes") + 1)
+            setattr(object.__getattribute__(self, "_inner"), name, value)
+
+    async def _run():
+        d = UnifiedDisplay(width=64, height=32)
+        await d.initialize()
+        d.set_color_scale(0.4)
+
+        await d.clear()
+        await d.draw_text("WAIT", 0, 20, 0xFFFFFF)      # frame 1: creates the label
+        assert d._label_pool[0].color != 0xFFFFFF, "colour should be dimmed"
+
+        spy = _CountingLabel(d._label_pool[0])
+        d._label_pool[0] = spy
+
+        for _ in range(3):                               # steady state
+            await d.clear()
+            await d.draw_text("WAIT", 0, 20, 0xFFFFFF)
+
+        assert spy.color_writes == 0, (
+            "same text + same colour rewrote label.color %d time(s) -- the dim "
+            "is being applied after the reuse guard" % spy.color_writes)
+
+    asyncio.run(_run())

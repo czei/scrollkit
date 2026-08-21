@@ -64,6 +64,16 @@ class GraphicsMixin:
 
     PAINT_VALUE_COUNT = 256
 
+    # Global software brightness: every colour written to the panel is scaled by
+    # this. A class attribute so it exists BEFORE _init_graphics() runs — boot
+    # status frames draw on some paths before initialize() has finished.
+    #
+    # It is software because the hardware property isn't a dimmer: on the
+    # MatrixPortal S3 `display.brightness` is effectively on/off (0.0 blanks the
+    # panel, 0.15 and 1.0 are indistinguishable), which is how a customer's sign
+    # sat dark for months on a stored "0". See UnifiedDisplay.set_color_scale.
+    color_scale = 1.0
+
     # --- setup ----------------------------------------------------------------
     def _init_graphics(self, displayio_mod, bitmaptools_mod):
         """Create the content/layer sub-groups inside main_group and cache gfx.
@@ -162,6 +172,25 @@ class GraphicsMixin:
         self._paint_colors = {}              # 0xRRGGBB -> palette index (0 reserved)
         self.add_layer(tile)
 
+    def _dim(self, color):
+        """``color`` scaled by the global software brightness.
+
+        Identity at 1.0, so the common case costs one float compare. The maths
+        is inlined rather than imported from ``.colors``: this module keeps zero
+        module-level imports on purpose, and a per-call import in a function the
+        paint path hits for every colour is not worth the tidiness. Integer
+        shifts, no float in the arithmetic (colors.scale uses the same form).
+        """
+        f = self.color_scale
+        if f >= 1.0:
+            return color
+        if f <= 0.0:
+            return 0
+        q = int(f * 256)
+        return (((((color >> 16) & 0xFF) * q) >> 8) << 16 |
+                ((((color >> 8) & 0xFF) * q) >> 8) << 8 |
+                (((color & 0xFF) * q) >> 8))
+
     def _paint_index(self, color):
         idx = self._paint_colors.get(color)
         if idx is not None:
@@ -172,9 +201,9 @@ class GraphicsMixin:
             # it, so the most recently painted color is always the correct one
             # (caching here would alias several colors to one mutable slot).
             idx = self.PAINT_VALUE_COUNT - 1
-            self._paint_palette[idx] = color
+            self._paint_palette[idx] = self._dim(color)
             return idx
-        self._paint_palette[idx] = color
+        self._paint_palette[idx] = self._dim(color)
         self._paint_colors[color] = idx
         return idx
 
@@ -291,7 +320,7 @@ class GraphicsMixin:
         if getattr(self, "_gfx", None) is None or self._content_group is None:
             return
         self._ensure_bg()
-        self._bg_palette[0] = color
+        self._bg_palette[0] = self._dim(color)
         self._bg_tile.hidden = False
 
     # --- measurement ----------------------------------------------------------

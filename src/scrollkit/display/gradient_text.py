@@ -18,6 +18,7 @@ no per-frame allocation).
 """
 
 from .colors import gradient, multi_gradient
+from .colors import scale as _scale
 from .text_fill import clamp_palette_steps, normalize_direction
 from .text_pixels import font_text_ascent, font_text_width, pixels_from_font_text
 
@@ -104,8 +105,18 @@ class GradientTextLayer:
         bitmap = gfx.Bitmap(width, height, n + 1)
         palette = gfx.Palette(n + 1)
         palette.make_transparent(0)                 # index 0 = transparent ground
-        for i in range(n):
-            palette[1 + i] = ramp[i]
+        # Global software brightness. This palette is built ONCE and never
+        # rewritten per frame, so the dim has to be baked in here — and the
+        # owner's cache key must include the scale, or a brightness change would
+        # keep serving this layer at the old brightness (see
+        # _GradientFillMixin._ensure_grad).
+        dim = getattr(display, "color_scale", 1.0)
+        if dim >= 1.0:
+            for i in range(n):
+                palette[1 + i] = ramp[i]
+        else:
+            for i in range(n):
+                palette[1 + i] = _scale(ramp[i], dim)
 
         # Each lit pixel's palette index is its position along the axis (NO modulo,
         # so the ramp spans the whole word end-to-end rather than tiling). One O(1)

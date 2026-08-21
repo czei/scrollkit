@@ -17,7 +17,7 @@ per-frame loop. Every function takes/returns packed ``0xRRGGBB`` ints.
 """
 
 
-__all__ = ['wheel', 'spectrum', 'lerp', 'gradient', 'multi_gradient', 'scale', 'depth_palette', 'hsv']
+__all__ = ['wheel', 'spectrum', 'lerp', 'gradient', 'multi_gradient', 'scale', 'dim_for', 'depth_palette', 'hsv']
 
 def _clamp8(v):
     if v < 0:
@@ -117,6 +117,19 @@ def scale(color, factor):
     g = (((color >> 8) & 0xFF) * f) >> 8
     b = ((color & 0xFF) * f) >> 8
     return (r << 16) | (g << 8) | b
+
+
+def dim_for(display, color):
+    """``color`` scaled by ``display``'s global software brightness.
+
+    The one-liner every effect needs, so none of them has to remember the
+    ``getattr`` default. That default matters: it keeps effects working against
+    a display that predates ``color_scale`` (an older library build, a test
+    double, a mock), where the right answer is "don't dim" rather than
+    AttributeError.
+    """
+    f = getattr(display, "color_scale", 1.0)
+    return color if f >= 1.0 else scale(color, f)
 
 
 def depth_palette(color, strength=0.4, steps=2):

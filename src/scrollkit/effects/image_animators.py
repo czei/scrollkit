@@ -124,6 +124,13 @@ class IntroAnimator:
     HOLD_FRAMES = 96                 # ~5 s at the ~20 fps display loop
     wants_writable_bitmap = False
 
+    # Global software brightness, captured at start(). base_colors stays RAW —
+    # every write scales it instead. Pre-dimming the base would look cheaper but
+    # double-dims CoverAnimator (which builds its overlay colours FROM
+    # base_colors and passes them through _make_overlay) and turns detach() into
+    # a special case.
+    dim = 1.0
+
     def start(self, display, tile, bitmap, palette, base_colors):
         """Store references and build any overlay layers. Raise to abort (falls back)."""
         self.display = display
@@ -131,6 +138,7 @@ class IntroAnimator:
         self.bitmap = bitmap
         self.palette = palette
         self.base_colors = base_colors
+        self.dim = getattr(display, "color_scale", 1.0)
 
     def step(self, frame):
         """Advance the animation to ``frame`` (0-based). Called once per HOLD frame."""
@@ -145,8 +153,9 @@ class IntroAnimator:
         bmp = gfx.Bitmap(display.width, display.height, len(colors) + 1)
         pal = gfx.Palette(len(colors) + 1)
         pal[0] = 0x000000
+        d = self.dim
         for i, c in enumerate(colors):
-            pal[i + 1] = c
+            pal[i + 1] = c if d >= 1.0 else _scale_color(c, d)
         pal.make_transparent(0)
         tile = gfx.TileGrid(bmp, pixel_shader=pal)
         display.add_layer(tile)
@@ -362,6 +371,7 @@ class PalettePulseAnimator(IntroAnimator):
     def step(self, frame):
         f = self._lo + (self._hi - self._lo) * (math.sin(6.2832 * frame / self._period) + 1.0) * 0.5
         pal, base = self.palette, self.base_colors
+        f *= self.dim            # compound, not fight; _scale_color clamps (hi may be 1.6)
         for i in self._idx:
             pal[i] = _scale_color(base[i], f)
 
@@ -370,8 +380,12 @@ class PalettePulseAnimator(IntroAnimator):
         if pal is None or base is None:
             return
         try:
+            d = self.dim
             for i in self._idx:
-                pal[i] = base[i]                  # restore, so the fade starts clean
+                # Restore so the fade starts clean — at the CURRENT brightness.
+                # Restoring the raw base here is a bright flash at the
+                # hold->fade handoff.
+                pal[i] = base[i] if d >= 1.0 else _scale_color(base[i], d)
         except Exception:
             pass
 
@@ -798,8 +812,9 @@ class SpriteLiftAnimator(IntroAnimator):
         # Subject copy on its own layer (cloned palette, sky transparent).
         gfx = display.gfx
         opal = gfx.Palette(len(base_colors))
+        _d = self.dim
         for i, c in enumerate(base_colors):
-            opal[i] = c
+            opal[i] = c if _d >= 1.0 else _scale_color(c, _d)
         opal.make_transparent(0)
         obmp = gfx.Bitmap(w, h, len(base_colors))
         for (x, y), ci in lifted.items():
@@ -987,8 +1002,9 @@ class FrameCycleAnimator(IntroAnimator):
         self._pix = pix
         gfx = display.gfx
         opal = gfx.Palette(len(base_colors))
+        _d = self.dim
         for i, c in enumerate(base_colors):
-            opal[i] = c
+            opal[i] = c if _d >= 1.0 else _scale_color(c, _d)
         opal.make_transparent(0)
         k = 6.2832 / self._wl
         self._frames = []
@@ -1151,8 +1167,9 @@ class GravityDripAnimator(IntroAnimator):
         gfx = display.gfx
         ncolors = len(base_colors)
         opal = gfx.Palette(ncolors)
+        _d = self.dim
         for i, c in enumerate(base_colors):
-            opal[i] = c
+            opal[i] = c if _d >= 1.0 else _scale_color(c, _d)
         opal.make_transparent(0)
         obmp = gfx.Bitmap(w, h, ncolors)
         for px, py, ci in lifted:

@@ -103,6 +103,13 @@ class SLDKApp:
     # a boot-time hang parked the box forever.
     BOOT_WATCHDOG_TIMEOUT = 120
 
+    # Floor for the global software brightness. 0.0 here (the library imposes no
+    # product policy); an app overrides it to keep its panel readable. A stored
+    # 0 is applied before the boot splash, so it reads as a sign that flashes
+    # once and then stays black behind a perfectly healthy app — which is
+    # exactly the field failure this floor exists to make unreachable.
+    MIN_BRIGHTNESS = 0.0
+
     # Supervision deadlines (see _supervise_progress). ATTEMPT_STALL_S bounds a
     # single update_data() call that never returns (a native call ignoring its
     # socket timeout); it must comfortably exceed the longest legitimate
@@ -558,23 +565,29 @@ class SLDKApp:
 
         Called by the display loop (see _display_process) when a web save sets
         _settings_dirty, immediately before on_settings_changed(). Handles
-        settings the library owns: brightness (pushed to the display hardware)
+        settings the library owns: brightness (a global software colour scale)
         and scroll speed (propagated to every queue item that exposes a .speed
         attribute). Runs on the display-loop task, never from the web server.
         """
         if self.display is not None:
             try:
                 brightness = float(self.settings.get("brightness_scale", 0.5))
-                brightness = max(0.0, min(1.0, brightness))
-                self.display._brightness = brightness
-                # .display is the underlying displayio display on every path
-                # (S3 wrapper display, Interstate 75 FramebufferDisplay, or the
-                # simulator Display). self.display.hardware may be a raw
-                # rgbmatrix.RGBMatrix with no .display attribute — never reach
-                # through it.
-                disp = getattr(self.display, "display", None)
-                if disp is not None:
-                    disp.brightness = brightness
+                brightness = max(self.MIN_BRIGHTNESS, min(1.0, brightness))
+                # set_color_scale stores the scale, pins the hardware property to
+                # full and drops the stale paint-index cache — all three together
+                # so they cannot drift. Dimming is done in software because the
+                # hardware property is on/off on the MatrixPortal S3; see
+                # UnifiedDisplay.set_color_scale.
+                setter = getattr(self.display, "set_color_scale", None)
+                if setter is not None:
+                    setter(brightness)
+                else:
+                    # A display predating color_scale: keep the old behaviour
+                    # rather than silently ignoring the setting.
+                    self.display._brightness = brightness
+                    disp = getattr(self.display, "display", None)
+                    if disp is not None:
+                        disp.brightness = brightness
             except Exception as e:
                 print("brightness apply error:", e)
 
