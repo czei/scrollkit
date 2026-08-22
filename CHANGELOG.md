@@ -5,12 +5,51 @@ All notable changes to ScrollKit are recorded here. This project loosely follows
 
 ## [Unreleased]
 
-Two changes for a caller nobody had before: a **live preview** that wants to run at the
-device's speed rather than as fast as it can. Both are opt-in, and neither moves a pixel —
-modeled cost is computed from operation counts, never from wall time, so feasibility
-reports and per-frame hashes are identical with them on or off.
+## [0.11.0] - 2026-08-21
+
+Brightness that actually dims, a panel renderer that no longer needs pygame, and the
+pixel-art chapter the docs never had.
 
 ### Added
+- **A pygame-free rendering backend, and a 3.7x faster panel composite.** pygame is a C
+  extension over SDL with no wasm build — not in Pyodide's package set, no emscripten
+  wheels for pygame-ce on PyPI — so six calls (`Surface`, `SRCALPHA`, `draw.circle`,
+  `transform.smoothscale`, `BLEND_RGB_ADD`, `image.save`) stranded the entire LED cosmetic
+  layer on the desktop, and a browser preview showed flat squares instead of a panel.
+  `simulator/core/_surface.py` picks a backend: pygame where importable, numpy where not.
+  pygame stays primary wherever it exists, so desktop output is untouched — verified by
+  frame hash, unchanged before and after. The composite also replaces up to 4,096 small
+  per-LED array ops with a handful of whole-array writes: dots tile exactly on the pitch,
+  and 20 px glow sprites overlap on an 11 px pitch but not on a two-cell sub-lattice, where
+  the pitch is 22 ≥ 20 — so four passes cover the panel with no overlap inside any pass.
+  Additive saturation is order-independent, so the result is bit-identical rather than
+  merely close, and the test asserts that. 13.6 → 3.67 ms/frame, and measured end to end in
+  Pyodide, 190.7 → 64.8 ms/frame (5.2 → 15.4 fps), with the paint handoff going 127 → ~1 ms
+  once the panel composes into a persistent RGBA buffer the host wraps zero-copy.
+- **`scrollkit.utils.pixel_art` — `normalize_art()`, `normalize_all()`, `art_problems()`.**
+  Hand-authored ASCII art has exactly two typos, and both crash from deep inside the
+  conversion loop with nothing on the panel: a ragged row throws `IndexError`, an unmapped
+  character throws `KeyError`. Across six documented model-written signs, every
+  first-attempt failure was one of those two and nothing else — one of them a single row of
+  25 characters where its two neighbours were 26, in a 598-line program with 34 sprites,
+  which cost two full regeneration rounds. Short rows now pad with transparent, unmapped
+  whitespace becomes transparent, and any other unmapped character becomes the first lit
+  slot, because the author drew something there and substituting transparent would silently
+  delete the sprite — a worse outcome than the crash. Every repair reports one line naming
+  the sprite, and clean art passes through untouched. `art_problems()` returns the same
+  findings as a list for tests that would rather assert than repair.
+- **A pixel-art chapter.** `docs/guide/pixel-art.md` covers art as ASCII rows over palette
+  slots, authoring small and doubling, the width arithmetic for 64x32, converting to a
+  `Bitmap` once, and then animating with palette writes, tile moves and hidden flags rather
+  than redrawing. `demos/medium/pixel_wordmark.py` is the worked example: hand-authored
+  letterforms, a sprite on its own material slots, and four acts through an `ActScheduler`,
+  at ~9 palette writes a frame. Given the library's own docs, three models each built a
+  competent multi-scene sign — correct areas, real tool lists, inside the frame budget —
+  and not one drew a picture. `AGENTS.md` had no pixel-art chapter and led its content
+  section with `ScrollingText`/`StaticText`, so a text-oriented prompt produced text signs.
+- **`UnifiedDisplay.set_color_scale(brightness)` and `.color_scale`** — the software dimmer
+  behind the brightness change below. Synchronous; `set_brightness()` remains as the async
+  wrapper for existing callers.
 - **`run_headless` / `run_headless_async` take `throttle=None|True|False`.** The harness
   forced the performance manager's throttle off on every headless run, which is right for a
   test suite and left a preview with no supported path to hardware-speed playback at all.
@@ -31,7 +70,54 @@ reports and per-frame hashes are identical with them on or off.
   monotonic run total, kept separate from the bounded `frames` history a clock built on it
   would run backwards on.
 
+### Changed
+- **Brightness is a software colour scale now, not a hardware property.** `display.brightness`
+  on the MatrixPortal S3 is not a dimmer — it is effectively on/off: 0.0 blanks the panel and
+  0.15 looks identical to 1.0 (confirmed on hardware, six live changes, no visible
+  difference). The re-platform had replaced a working software dimmer with it, so the
+  brightness setting did nothing across its whole range for the entire 3.x line, and a
+  stored "0" left a customer's sign dark for months with a perfectly healthy app behind it.
+  The panel is now pinned to FULL and colours are scaled on their way out, from a RAW
+  cached base — pre-dimming the base looks cheaper but double-dims `CoverAnimator`, which
+  builds its overlay colours from `base_colors` and passes them through the same
+  `_make_overlay` that dims. Covered: `draw_text`/`draw_text_scaled`, the `set_pixel`/`fill`
+  paint path, the gradient ramp (with `color_scale` in the layer cache key, or a scrolling
+  name would keep its old brightness until the content cycled), all five `BitmapText`
+  palette effects, the write-once effect palettes, every icon overlay animator, the pulse,
+  and the three cloned palettes `SpriteLift`/`FrameCycle`/`GravityDrip` build. **Note for
+  upgraders:** a stored brightness that has been silently ignored will now take effect, so
+  a sign configured low will visibly dim on this release.
+- **`pixel_write_us` is measured now, not guessed.** The feasibility gate false-rejected a
+  field-proven act at 17.7 fps against a 20 fps target, and the whole error was one
+  constant: `pixel_writes` decided the verdict (92% of that act's frame) and the term is
+  `set_pixel_calls * 3 * profile.pixel_write_us`, where `pixel_write_us` was a hardcoded
+  5.0 that never came from a device — inside a profile reporting
+  `confidence: CALIBRATED_FROM_DEVICE`. `calibrate_device.py` now measures it (and takes
+  `--out`, so a run can be inspected without overwriting the shipped baseline). On a
+  MatrixPortal S3 it is 4.333 µs, of which the write is 3.36 µs and 74% of per-pixel cost
+  is Python loop overhead — which is why a per-pixel effect is expensive on this board
+  regardless of what it writes. The board measured runs CircuitPython 10.2.1 while the rest
+  of the baseline is 9.1.0; frame-time terms are stable across the two (bitmap_rebuild
+  +0.4%, full_refresh +0.7%), which is why this one is mixed in, while memory is *not*
+  (usable_ram −24.6% on 10.2.1) and is deliberately left at 9.1.0. The baseline records
+  that in `_pixel_write_us_source`.
+
 ### Fixed
+- **A browser preview locked the page and painted nothing.** `unified.py`'s no-pygame
+  branch skipped the await, so the whole run blocked until it finished; it now refreshes,
+  records and yields like the pygame path. `save_surface_png` opened with `import pygame`
+  and returned `None` on `ImportError`, which left the public `display.screenshot()` broken
+  in exactly the environment the numpy backend exists for, while
+  `matrix.save_screenshot()` worked. `capture_frame` and `save_surface_png` handle both
+  backends now.
+- **`swarm_reveal` was not reproducible across Python versions.** Running 35 acts in
+  CPython 3.12 and again in Pyodide's 3.13, 34 matched frame for frame and `swarm` diverged
+  from frame 0 — not flakiness, since two runs with the same seed are identical. The queue
+  came from `list(self._remaining)` over a set, and `_shuffle()` permutes whatever order it
+  is handed; set iteration order is stable within one Python build but is not guaranteed
+  across versions, so seeding the RNG was not sufficient. `sorted()` makes the seeded
+  shuffle the only source of order. Worth stating as a general rule for anything compared
+  across runtimes: never derive an ORDER from iterating a set or dict.
 - **Throttled pacing overshot every frame.** It slept the whole modeled frame cost *after*
   the frame had already rendered, so a frame took `real_work + modeled` rather than
   `max(real_work, modeled)` and a host faster than the device still ran slower than it, by
@@ -67,6 +153,24 @@ reports and per-frame hashes are identical with them on or off.
   while the watchdog was fed and the web UI served normally. Nothing reset, nothing retried,
   and every health signal read green. It is still caught, but recorded to `error_log` and
   exposed as `display_init_error`.
+
+### Docs
+- **The reveals table had no signatures.** It showed `DripReveal`'s call with `color=BRAND`
+  and then listed `SwarmReveal`, `show_reveal_splash` and the transitions with none at all.
+  A model reading that generalised the keyword it had seen and wrote
+  `SwarmReveal(pixels, color=...)`, which died at frame 1 with
+  `TypeError: unexpected keyword argument 'color'` — `SwarmReveal` takes `text_color=` and
+  `bird_color=` and has no `color=`. Reasonable inference from what the page showed; the
+  page was the problem. The table now carries each constructor's actual colour arguments
+  and says plainly that they are not shared.
+- **The `random()` availability list was written from recollection.** The warning box
+  asserted seven functions including `getrandbits` and `seed`, neither of which is called
+  anywhere in this library or in the reference sign — the same failure mode as a profile
+  reporting `CALIBRATED_FROM_DEVICE` for a term nobody measured. It now states the five the
+  shipped library and the field-proven sign actually call (`random`, `uniform`, `randint`,
+  `randrange`, `choice`) as the working set, with the provenance attached, and says what
+  `ActScheduler` does instead of shuffling, since "use the scheduler" without the reason
+  invites a hand-rolled deck anyway.
 
 ## [0.10.0] - 2026-08-02
 
