@@ -5,10 +5,16 @@ All notable changes to ScrollKit are recorded here. This project loosely follows
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-08-21
+## [0.11.1] - 2026-08-21
 
 Brightness that actually dims, a panel renderer that no longer needs pygame, and the
 pixel-art chapter the docs never had.
+
+Numbered 0.11.1 because v0.11.0 was tagged and then blocked at the gate: a test asserted
+which of two rapidly-cycling items a headless run happened to stop on, which passed on
+macOS and failed on Linux CI, and a red CI stops the upload. Nothing was ever published
+under 0.11.0 — it is a tag with no release behind it. The test now asserts that content
+expires rather than which item is up at the cutoff.
 
 ### Added
 - **A pygame-free rendering backend, and a 3.7x faster panel composite.** pygame is a C
