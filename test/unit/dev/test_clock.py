@@ -193,10 +193,41 @@ def test_the_clock_is_identical_across_two_runs():
 
 
 def test_duration_driven_content_advances():
-    """Short items, so device time passes the duration inside the frame budget."""
-    result = run_headless(_TimedApp(duration=0.05), frames=FRAMES, hardware=True,
+    """Short items expire, which is the whole point: the bug never did.
+
+    Asserted as a bound on the CURRENT item's age, not as "the last frame shows
+    TWO". Items this short turn the queue over ~18 times in 60 frames, so which
+    of the two is up at the cutoff is a phase accident that flips with a
+    one-frame change in modeled cost — it read TWO on macOS and ONE on Linux CI
+    with the clock working correctly on both. What actually separates a working
+    clock from the frozen one is that no item stays on screen longer than it
+    asked to.
+    """
+    duration = 0.05
+    result = run_headless(_TimedApp(duration=duration), frames=FRAMES,
+                          hardware=True, virtual_clock=True)
+    assert result.errors == []
+    # An item can only overrun by the single frame that discovers the expiry,
+    # and no frame in the run cost more than worst_frame_ms — which is the term
+    # to use, not the median: the discovering frame is usually the expensive
+    # rebuild frame, so a median-sized slack is too tight and fails on some
+    # frame counts. Both terms come from this same run, so the assertion
+    # carries no host-specific constant.
+    worst_frame_s = result.hardware["worst_frame_ms"] / 1000.0
+    assert result.current_content["elapsed"] <= duration + worst_frame_s
+
+
+def test_content_that_outlasts_the_run_never_advances():
+    """The other half of the pair, and the shape of the original bug.
+
+    An item longer than the run cannot expire, so it stays up and its age grows
+    to the length of the whole run. Without this the test above would also pass
+    against a clock stuck at 0.0.
+    """
+    result = run_headless(_TimedApp(duration=1e6), frames=FRAMES, hardware=True,
                           virtual_clock=True)
-    assert result.current_content["text"] == "TWO"
+    assert result.current_content["text"] == "ONE"
+    assert result.current_content["elapsed"] > 0.05
 
 
 def test_the_run_does_not_leak_the_injection():
