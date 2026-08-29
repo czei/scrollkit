@@ -111,3 +111,42 @@ async def test_palette_layout_and_identity_isolation():
 def test_feasibility_on_class():
     assert isinstance(PalettePartition.FEASIBILITY, dict)
     assert PalettePartition.FEASIBILITY["max_pixel_writes_per_frame"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Nickname -> builder
+# ---------------------------------------------------------------------------
+#
+# Each treatment advertises the partition it wants as a NICKNAME (``PARTITION =
+# "radial"``). Nothing resolved one to a callable until PARTITION_BUILDERS existed,
+# and the nicknames are regular enough to invite guessing: twelve of thirteen are
+# ``map_`` + the nickname. The thirteenth is "anchor", whose builder is
+# ``map_anchor_distance`` — and a code-generating agent burned a whole run guessing
+# ``map_anchor``. These two tests are that run, written down.
+
+
+def test_every_treatment_partition_resolves_to_a_builder():
+    from scrollkit.effects.palette_partition import builder_for
+    from scrollkit.effects.palette_treatments import TREATMENT_CLASSES
+
+    for cls in TREATMENT_CLASSES:
+        assert builder_for(cls.PARTITION) is not None, (
+            "%s wants partition %r and nothing builds it"
+            % (cls.__name__, cls.PARTITION)
+        )
+
+
+def test_the_irregular_nickname_is_the_one_worth_pinning():
+    """"anchor" is the nickname that does NOT follow map_<nickname>."""
+    from scrollkit.effects.palette_partition import (
+        PARTITION_BUILDERS, builder_for, map_anchor_distance,
+    )
+
+    assert builder_for("anchor") is map_anchor_distance
+    assert builder_for("no such partition") is None
+    irregular = [n for n, fn in PARTITION_BUILDERS.items()
+                 if fn.__name__ != "map_" + n]
+    assert irregular == ["anchor"], (
+        "the set of irregular nicknames changed: %r. Every one of these is a name an "
+        "agent will guess wrong." % (irregular,)
+    )
