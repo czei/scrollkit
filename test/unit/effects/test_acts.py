@@ -145,10 +145,15 @@ def test_an_act_takes_a_plain_iterable_of_cells():
 
 
 def test_the_registry_names_every_act():
+    from scrollkit.effects.acts import DWELLS
+
     assert act_factory("drip") is drip_in
     assert act_factory("swarm") is swarm_build
     assert act_factory("unswarm") is swarm_unbuild
     assert act_factory("no such act") is None
     assert set(supported_acts("build")) == set(BUILDS)
+    assert set(supported_acts("dwell")) == set(DWELLS)
     assert set(supported_acts("exit")) == set(EXITS)
-    assert set(supported_acts()) == set(BUILDS) | set(EXITS)
+    # Three decks, because an act is build -> dwell -> exit and the middle one is
+    # where a reference sign keeps most of its variety.
+    assert set(supported_acts()) == set(BUILDS) | set(DWELLS) | set(EXITS)

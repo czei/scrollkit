@@ -54,6 +54,17 @@ _DEFAULT_COLOR = 0xFFB030
 #: runaway guard and not a duration.
 _SWARM_MAX_STEPS = 2500
 _DRIP_MAX_STEPS = 2000
+_DWELL_MAX_STEPS = 3000
+
+#: A treatment theme is EXACTLY five stops, dark to bright: base, dim, flat, warm, hot.
+#: Every treatment unpacks it that way (``base, dim, flat, warm, hot = self.theme``), so
+#: a ramp of any other length raises from inside the effect on its first step. This is
+#: the default when a mark carries no palette of its own.
+_DEFAULT_RAMP = (0x70140E, 0x8F1B12, 0xB02318, 0xC93A1E, 0xE65A28)
+
+#: How many stops a treatment theme has. Named because the number is a contract with
+#: every class in palette_treatments, not a taste.
+_THEME_STOPS = 5
 
 
 class SimpleContext:
@@ -190,16 +201,272 @@ async def drip_in(ctx, direction="top", color=None, fall_speed=2, stagger=1):
         drip.detach()
 
 
+# ---------------------------------------------------------------------------
+# The library's own catalogue, as acts
+# ---------------------------------------------------------------------------
+#
+# These three functions are where the menu actually comes from. A reference sign's
+# thirty-seven acts are mostly not bespoke code: twenty-four are a transition or a
+# palette treatment applied to the mark, selected by name. Wrapping the three
+# selection mechanisms turns those into deck entries without writing them out.
+
+
+def _centre(slots):
+    """The mark's bounding-box centre, for the partitions that need an anchor."""
+    xs = [x for (x, _y) in slots]
+    ys = [y for (_x, y) in slots]
+    if not xs:
+        return 0, 0
+    return (min(xs) + max(xs)) // 2, (min(ys) + max(ys)) // 2
+
+
+def _partition_for(nickname, slots, groups):
+    """``(group_map, n)`` for a treatment's partition, or ``None`` if it needs more.
+
+    The builders take different arguments — an anchor column, a centre, nothing at
+    all — so this supplies them from the mark's own geometry. ``map_route`` is the one
+    that cannot be served: it needs the glyph stroke paths and terminus pixels of a
+    specific mark, which is app knowledge and not derivable from a set of cells. The
+    two treatments that want it are simply not offered rather than offered broken.
+    """
+    from . import palette_partition as P
+
+    cx, cy = _centre(slots)
+    if nickname == "diagonal":
+        return P.map_diagonal(slots, groups)
+    if nickname == "anchor":
+        return P.map_anchor_distance(slots, cx, groups)
+    if nickname == "radial":
+        return P.map_radial(slots, cx, cy, groups)
+    if nickname == "angle":
+        return P.map_angle(slots, cx, cy, max(groups, 14))
+    if nickname == "rain":
+        return P.map_rain(slots, groups)
+    if nickname == "checker":
+        return P.map_checker(slots, 4)
+    if nickname == "exposure":
+        return P.map_exposure(slots)
+    if nickname == "regions":
+        return P.map_regions(slots, groups)
+    if nickname == "topology":
+        return P.map_topology(slots)
+    return None
+
+
+def _theme(colors):
+    """Exactly five stops, whatever the caller had.
+
+    A mark's palette is however many colours its art needed; a treatment theme is a
+    five-stop ramp its author unpacks by name. Resampled rather than refused, because
+    "your wordmark has six colours so you may not have a heat sweep" is not a rule
+    anyone would accept, and picking five from a ramp is a well-defined thing to do.
+    """
+    colors = list(colors)
+    if len(colors) == _THEME_STOPS:
+        return colors
+    if len(colors) < 2:
+        return list(_DEFAULT_RAMP)
+    # Evenly spaced across the ramp, endpoints included, so the darkest and brightest
+    # the author chose stay the darkest and brightest the treatment sees.
+    last = len(colors) - 1
+    return [colors[round(i * last / (_THEME_STOPS - 1))] for i in range(_THEME_STOPS)]
+
+
+def transitions_available():
+    """Transition names that can drive a MARK, which is not all of them.
+
+    A cover-and-swap transition hides the panel, runs a callback while nothing is
+    visible, and uncovers the result — that is the model an act needs. ``Drop from Sky``
+    is a different thing wearing the same word: it hooks ``pre_render_hook`` and
+    animates a content Label's x/y through the display process, so its ``start`` never
+    calls the swap callback at all and a mark handed to it stays hidden.
+
+    It is excluded rather than offered and left to fail, for the reason the route
+    treatments are: a menu entry that cannot work is worse than an absent one.
+    """
+    from .transitions import _TRANSITION_MAP
+
+    return tuple(name for name, cls in _TRANSITION_MAP.items()
+                 if not hasattr(cls, "pre_render_hook"))
+
+
+def _treatment_extras(cls, theme):
+    """Positional arguments a treatment needs beyond ``(fx, theme)``, or ``None``.
+
+    Only ``lo`` and ``hi`` are servable, and the ramp's ends are the obvious answer for
+    them — a gradient dwell between the darkest and brightest stop the author chose.
+    Anything else required is something this module cannot invent, so the treatment is
+    not offered.
+    """
+    try:
+        import inspect
+
+        params = list(inspect.signature(cls.__init__).parameters.values())[3:]
+    except (TypeError, ValueError):       # pragma: no cover - builtins
+        return ()
+    extras = []
+    for param in params:
+        if param.default is not param.empty:
+            break
+        if param.name == "lo":
+            extras.append(theme[0])
+        elif param.name == "hi":
+            extras.append(theme[-1])
+        else:
+            return None
+    return tuple(extras)
+
+
+def treatments_available():
+    """Treatment names this module can drive over an arbitrary mark.
+
+    Not every treatment in the library: the two route-based ones need a mark's stroke
+    paths, so they are excluded here rather than offered and left to fail.
+    """
+    from .palette_treatments import TREATMENT_CLASSES
+
+    probe = {(0, 0): 1, (1, 1): 1, (2, 2): 1, (3, 1): 1}
+    names = []
+    for cls in TREATMENT_CLASSES:
+        if _partition_for(cls.PARTITION, probe, 4) is None:
+            continue
+        if _treatment_extras(cls, _DEFAULT_RAMP) is None:
+            continue
+        names.append(cls.__name__)
+    return tuple(names)
+
+
+async def treatment_dwell(ctx, treatment="VelvetSweep", ramp=None, groups=10):
+    """A palette treatment over the mark: the DWELL between a build and an exit.
+
+    The mark is not redrawn. A :class:`PalettePartition` groups its own pixels and the
+    treatment animates the groups by rewriting palette entries — zero pixel writes a
+    frame, which is why a reference sign can afford a dozen of these. Name any of
+    :func:`treatments_available`.
+    """
+    from .palette_partition import PalettePartition
+    from . import palette_treatments as T
+
+    cls = getattr(T, treatment, None)
+    if cls is None or cls not in T.TREATMENT_CLASSES:
+        raise RuntimeError("no treatment named %r. Known: %s"
+                           % (treatment, ", ".join(treatments_available())))
+    # **Slot 1 is body; anything above it is identity and stays out of the sweep.**
+    # That is the convention PalettePartition and the map_ builders share, and it is
+    # how a reference sign stops a heat treatment recolouring an eye. A mark that
+    # carries its own slots keeps them; a plain one is all body, because it has no
+    # such distinction to lose.
+    slots = (dict(ctx.slots) if hasattr(ctx.slots, "items")
+             else {cell: 1 for cell in ctx.slots})
+
+    built = _partition_for(cls.PARTITION, slots, groups)
+    if built is None:
+        raise RuntimeError(
+            "%s wants the %r partition, which needs a mark's own stroke paths"
+            % (treatment, cls.PARTITION))
+    group_map, n = built
+
+    theme = _theme(ramp or getattr(ctx, "colors", None) or _DEFAULT_RAMP)
+    # The mark's own non-body colours, so an identity pixel keeps looking like itself
+    # while the body is swept. Slots are 1-based into the ramp, and slot 1 is body.
+    top = max(slots.values())
+    identity = tuple(theme[1:top]) if top > 1 else ()
+
+    fx = PalettePartition(ctx.display.gfx, slots, group_map, n,
+                          identity_colors=identity,
+                          width=ctx.display.width, height=ctx.display.height)
+    ctx.display.add_layer(fx.tile)
+    try:
+        ctx.hide()
+        fx.tile.hidden = False
+        extras = _treatment_extras(cls, theme)
+        if extras is None:
+            raise RuntimeError("%s needs arguments this module cannot supply"
+                               % (treatment,))
+        effect = cls(fx, theme, *extras)
+        if hasattr(effect, "start"):
+            effect.start(ctx.display)
+        ok = await _drive(ctx, effect, _DWELL_MAX_STEPS, lambda e: e.is_complete)
+        fx.tile.hidden = True
+        if ok:
+            ctx.show()
+        return ok
+    finally:
+        ctx.display.remove_layer(fx.tile)
+
+
+async def reveal_via(ctx, transition="Iris Snap"):
+    """A screen transition covers the panel, the mark appears behind it, it uncovers.
+
+    Thirteen builds from one function — every name in
+    :func:`scrollkit.effects.transitions.supported_names`.
+    """
+    return await _swap_via(ctx, transition, ctx.show, before=ctx.hide)
+
+
+async def hide_via(ctx, transition="Pixel Dissolve"):
+    """The same, taking the mark away. Thirteen exits from one function."""
+    return await _swap_via(ctx, transition, ctx.hide)
+
+
+async def _swap_via(ctx, name, swap, before=None):
+    """Drive one screen transition: cover, run ``swap`` while hidden, uncover."""
+    from .transitions import transition_factory
+
+    if name not in transitions_available():
+        raise RuntimeError("no transition named %r that can drive a mark. Known: %s"
+                           % (name, ", ".join(transitions_available())))
+    tr = transition_factory(name)
+    if before is not None:
+        before()
+    await tr.start(ctx.display, swap)
+    try:
+        while not tr.is_complete:
+            if not ctx.running:
+                return False
+            await tr.render(ctx.display)
+            if await ctx.frame() is False:
+                return False
+        return True
+    finally:
+        # Not every transition has one — DropFromSky does not — and an act must not
+        # fail on the way out of a transition that succeeded.
+        detach = getattr(tr, "detach", None)
+        if callable(detach):
+            detach()
+
+
+async def wink_in(ctx, color=None, off_per_frame=44, hold_seconds=0.6):
+    """Every LED lights, then everything that is not the mark winks off."""
+    from .reveal_splash import show_reveal_splash
+
+    ctx.show()
+    ok = await show_reveal_splash(ctx.display, _positions(ctx.slots),
+                                  color=color if color is not None else _DEFAULT_COLOR,
+                                  off_per_frame=off_per_frame,
+                                  hold_seconds=hold_seconds)
+    return ok is not False and bool(ctx.running)
+
+
 #: name -> build. Mirrors :func:`scrollkit.effects.transitions.transition_factory`:
 #: a name is what an app, a catalogue or a person selecting from a menu can hold.
 BUILDS = {
     "swarm": swarm_build,
     "drip": drip_in,
+    "wink": wink_in,
+    "reveal": reveal_via,
 }
 
 #: name -> exit.
 EXITS = {
     "unswarm": swarm_unbuild,
+    "hide": hide_via,
+}
+
+#: name -> dwell. The middle of build -> dwell -> exit, and the deck a reference sign
+#: has most of: twelve of its fifteen dwells are a treatment over a partition.
+DWELLS = {
+    "treatment": treatment_dwell,
 }
 
 
@@ -209,13 +476,15 @@ def act_factory(name):
     ``None`` rather than a raise, matching ``transition_factory``: the caller decides
     whether an unknown name is a typo or a feature it does not have yet.
     """
-    return BUILDS.get(name) or EXITS.get(name)
+    return BUILDS.get(name) or DWELLS.get(name) or EXITS.get(name)
 
 
 def supported_acts(kind=None):
-    """Act names, all of them or just ``"build"`` / ``"exit"``."""
+    """Act names, all of them or one deck: ``"build"``, ``"dwell"``, ``"exit"``."""
     if kind == "build":
         return tuple(BUILDS)
+    if kind == "dwell":
+        return tuple(DWELLS)
     if kind == "exit":
         return tuple(EXITS)
-    return tuple(BUILDS) + tuple(EXITS)
+    return tuple(BUILDS) + tuple(DWELLS) + tuple(EXITS)
