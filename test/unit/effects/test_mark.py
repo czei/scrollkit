@@ -137,3 +137,65 @@ def test_detach_is_safe_twice_and_before_attach():
         m.detach()
 
     asyncio.run(go())
+
+
+# ---------------------------------------------------------------------------
+# From hand-authored art
+# ---------------------------------------------------------------------------
+
+ART = (
+    ".##.",
+    "#oo#",
+    "#ww#",
+    ".##.",
+)
+ART_CHARS = {"#": 0xB02318, "o": 0xFFB030, "w": 0xFFF1D8}
+
+
+def test_from_art_lights_exactly_the_mapped_characters():
+    async def go():
+        d = await _display()
+        mark = PixelMark.from_art(ART, ART_CHARS, x=10, y=5).attach(d)
+        return _lit(mark), mark.colors
+
+    lit, colors = asyncio.run(go())
+    # Eight '#', two 'o', two 'w'; the four '.' are holes.
+    assert len(lit) == 12
+    assert (10, 5) not in lit, "a dot is background, not a colour"
+    assert (11, 5) in lit
+    assert set(colors) == set(ART_CHARS.values())
+
+
+def test_an_unmapped_character_is_a_hole_not_a_guess():
+    """A character nobody defined is missing information, and inventing a colour for
+    it would put a shape on the panel that the author never drew."""
+    async def go():
+        d = await _display()
+        mark = PixelMark.from_art(("#?#",), {"#": 0xB02318}).attach(d)
+        return _lit(mark)
+
+    assert asyncio.run(go()) == {(0, 0), (2, 0)}
+
+
+def test_the_palette_holds_only_what_the_art_uses():
+    mark = PixelMark.from_art(ART, dict(ART_CHARS, z=0x00FF00))
+    assert len(mark.colors) == 3, "the unused colour is not in the ramp"
+
+
+def test_art_plays_through_an_act():
+    """The whole path: hand-authored art, on the panel, revealed by a library act."""
+    async def go():
+        d = await _display()
+        mark = PixelMark.from_art(ART, ART_CHARS, x=20, y=10).attach(d)
+
+        async def frame():
+            await d.show()
+            return True
+
+        ok = await drip_in(mark.context(d, frame=frame))
+        return ok, mark._tile.hidden, _lit(mark)
+
+    ok, hidden, lit = asyncio.run(go())
+    assert ok is True
+    assert hidden is False
+    assert len(lit) == 12

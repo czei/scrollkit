@@ -57,6 +57,42 @@ class PixelMark:
         cells = pixels_from_font_text(display.font, text, x=x, y=y, scale=scale)
         return cls(cells, color=color)
 
+    @classmethod
+    def from_art(cls, rows, chars, x=0, y=0):
+        """A mark from ASCII art: rows of characters, and what colour each one is.
+
+        The format hand-authored pixel art already uses — a tuple of equal-length
+        strings where a character names a colour — so a drawing goes on the panel
+        without being converted into anything first.
+
+        Args:
+            rows:  Equal-length strings, one per row. Ragged rows are tolerated; a
+                   short one simply has fewer lit cells, which is what a short row
+                   means. See :func:`scrollkit.utils.pixel_art.normalize_art` for
+                   repairing them properly.
+            chars: ``{character: 0xRRGGBB}``. A character absent from this map is
+                   NOT LIT — that is how "." and " " become background without being
+                   special-cased, and it means an unmapped character is a hole rather
+                   than a guess.
+            x, y:  Where the art's top-left corner sits on the panel.
+
+        The palette is built from the colours actually used, in first-seen order, so
+        a mark carries only the entries it needs.
+        """
+        ramp = []
+        index = {}
+        cells = {}
+        for row_y, row in enumerate(rows):
+            for row_x, ch in enumerate(row):
+                color = chars.get(ch)
+                if color is None:
+                    continue
+                if ch not in index:
+                    ramp.append(color)
+                    index[ch] = len(ramp)
+                cells[(x + row_x, y + row_y)] = index[ch]
+        return cls(cells, colors=ramp)
+
     # -- the layer ----------------------------------------------------------
 
     def attach(self, display):
