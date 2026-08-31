@@ -448,6 +448,105 @@ async def wink_in(ctx, color=None, off_per_frame=44, hold_seconds=0.6):
     return ok is not False and bool(ctx.running)
 
 
+# ---------------------------------------------------------------------------
+# A whole sign: art, a deck, and a scheduler
+# ---------------------------------------------------------------------------
+
+
+def selectable():
+    """The menu, one entry per CHOICE rather than per function.
+
+    Seven act functions serve about forty selections, because a transition is both a
+    build and an exit and every driveable treatment is its own dwell. A person picking
+    from a list picks "Iris Snap", not "reveal_via with transition=Iris Snap", so the
+    expansion happens here — once, where the acts are — rather than in each caller.
+
+    Each entry is ``(name, kind, family, act, options)``:
+
+    ``family``  What it looks like. Two entries sharing a family are "similar" and
+                the scheduler will not play them back to back. A treatment's family is
+                its PARTITION, because two treatments over the same grouping of pixels
+                genuinely do look alike; a transition is its own family, which is the
+                honest answer when nobody has grouped them by eye.
+    """
+    from . import palette_treatments as T
+
+    out = []
+    for name in transitions_available():
+        out.append((name, "build", "t:" + name, reveal_via, {"transition": name}))
+    for name in treatments_available():
+        family = getattr(getattr(T, name), "PARTITION", name)
+        out.append((name, "dwell", "p:" + str(family), treatment_dwell,
+                    {"treatment": name}))
+    for name in transitions_available():
+        out.append((name, "exit", "t:" + name, hide_via, {"transition": name}))
+    for kind, deck in (("build", BUILDS), ("exit", EXITS)):
+        for name in deck:
+            if name in ("reveal", "hide"):
+                continue
+            out.append((name, kind, "a:" + name, deck[name], {}))
+    return out
+
+
+def _deck(entries, kind):
+    """Scheduler deck for one kind: ``(name, family, act, options)`` tuples."""
+    return [(n, fam, fn, opts) for n, k, fam, fn, opts in entries if k == kind]
+
+
+async def play_sign(ctx, chosen=None, scheduler=None, acts=None):
+    """Play a sign: build, dwell, exit, again, until told to stop.
+
+    This is what a sign IS — a reference sign's 1,755 acts are 13 builds x 15 dwells x
+    9 exits, drawn from by a picker rather than written out as a sequence. So a deck is
+    chosen and the ORDER is not: `ActScheduler` leads with the least-recently-seen and
+    never repeats a family twice running, which is why a shipped sign does not visibly
+    loop.
+
+    Args:
+        chosen:    What to draw from, or ``None`` for everything available. Entries
+                   are ``"kind:name"`` — ``"build:Iris Snap"`` — because **the same
+                   name is often two different choices**: every transition is both a
+                   build and an exit, and someone who kept "Pixel Dissolve" to end on
+                   did not thereby ask for it to open with. A bare ``"name"`` selects
+                   it in every kind it appears in, which is the forgiving reading when
+                   nobody has said otherwise.
+
+                   A name that is not on the menu is ignored rather than raising: a
+                   deck is a preference, and one stale entry should not stop a sign.
+        acts:      How many build-dwell-exit cycles to play. ``None`` runs until
+                   ``ctx.running`` goes false, which is what a panel on a wall wants.
+
+    Returns the number of complete cycles played.
+    """
+    from ..utils.scheduler import ActScheduler
+
+    entries = selectable()
+    if chosen is not None:
+        wanted = set(chosen)
+        entries = [e for e in entries
+                   if e[0] in wanted or "%s:%s" % (e[1], e[0]) in wanted]
+    builds, dwells, exits = (_deck(entries, k) for k in ("build", "dwell", "exit"))
+    if not (builds and exits):
+        raise RuntimeError(
+            "a sign needs at least one build and one exit; got %d and %d"
+            % (len(builds), len(exits))
+        )
+
+    sched = scheduler or ActScheduler()
+    played = 0
+    avoid = ()
+    while ctx.running and (acts is None or played < acts):
+        for key, deck in (("build", builds), ("dwell", dwells), ("exit", exits)):
+            if not deck:
+                continue          # a sign with no dwells is a sign that flashes
+            name, family, fn, options = sched.pick(deck, key, avoid=avoid)
+            avoid = (family,)
+            if not await fn(ctx, **options):
+                return played
+        played += 1
+    return played
+
+
 #: name -> build. Mirrors :func:`scrollkit.effects.transitions.transition_factory`:
 #: a name is what an app, a catalogue or a person selecting from a menu can hold.
 BUILDS = {
