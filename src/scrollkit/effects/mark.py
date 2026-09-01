@@ -137,6 +137,19 @@ class PixelMark:
         self._display = display
         return self
 
+    @property
+    def tile(self):
+        """The mark's layer, or ``None`` before :meth:`attach`.
+
+        Read-only, and exposed because a mark is a thing that MOVES: the image
+        animators — :class:`~scrollkit.effects.image_animators.MotionAnimator` and
+        :class:`~scrollkit.effects.image_animators.PoseCycler` — take a TileGrid, and a
+        host driving a mark along a path had no way to hand them one without reaching
+        into a private attribute. Position it by setting ``tile.x`` / ``tile.y``; the
+        cells themselves are fixed at :meth:`attach` time.
+        """
+        return self._tile
+
     def detach(self):
         """Remove the layer (no-op if it was never attached, or already gone)."""
         if self._display is not None and self._tile is not None:

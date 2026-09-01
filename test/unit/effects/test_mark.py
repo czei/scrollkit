@@ -199,3 +199,18 @@ def test_art_plays_through_an_act():
     assert ok is True
     assert hidden is False
     assert len(lit) == 12
+
+
+@pytest.mark.asyncio
+async def test_a_mark_exposes_its_layer_so_an_animator_can_move_it():
+    """A mark is a thing that MOVES. The image animators take a TileGrid, and without
+    this a host driving a mark along a path had to reach into a private attribute."""
+    d = await _display()
+    mark = PixelMark.from_art(("##", "##"), {"#": 0xFF8800}, x=3, y=4)
+    assert mark.tile is None                      # nothing to move before it is attached
+    mark.attach(d)
+    assert mark.tile is not None
+    mark.tile.x, mark.tile.y = 7, 2               # what an animator does every frame
+    assert (mark.tile.x, mark.tile.y) == (7, 2)
+    mark.detach()
+    assert mark.tile is None

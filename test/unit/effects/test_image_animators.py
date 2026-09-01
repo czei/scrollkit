@@ -15,6 +15,7 @@ import pytest
 pygame = pytest.importorskip("pygame")
 
 from scrollkit.display.simulator import SimulatorDisplay
+from scrollkit.effects import easing
 from scrollkit.effects import image_animators as ia
 
 BASE = [0x000000, 0x336688, 0xAAEEFF, 0xEE4444, 0x88DD55]
@@ -62,6 +63,8 @@ ALL_ANIMATORS = [
     lambda: ia.TwinkleAnimator(count=10),
     lambda: ia.MotionAnimator(path="bob", amp=2),
     lambda: ia.MotionAnimator(path="traverse_lr", bob_amp=1),
+    lambda: ia.MotionAnimator(path="point_to_point", from_xy=(-24, 0), to_xy=(18, 6),
+                              frames=30, curve="ease_out_quad"),
     lambda: ia.EmitterAnimator(box=(30, 8, 34, 10), vy=-0.5),
     lambda: ia.PalettePulseAnimator(match=(0xEE4444,), tol=8),
     lambda: ia.RegionShiftAnimator(box=(26, 3, 37, 7), amp=1, period=12),
@@ -552,3 +555,178 @@ def test_feasibility_on_classes_only():
         assert "hardware_safe" in cls.FEASIBILITY
     assert not hasattr(ia.copy_to_writable, "FEASIBILITY")
     assert not hasattr(ia._shuffle, "FEASIBILITY")
+
+
+# -- pose cycling and point_to_point (LogoBox motion files) ---------------------
+#
+# Two primitives a *drawn character* needs and a fixed deck of acts cannot supply: a
+# flap only means something for the specific thing that was drawn, and `traverse_lr`
+# crosses the panel and exits rather than landing on a slot.
+
+
+def _pose_tiles(d, n):
+    """``n`` tiny distinguishable layers on the display, as a subject's poses."""
+    gfx = d.gfx
+    tiles = []
+    for i in range(n):
+        bmp = gfx.Bitmap(64, 32, 2)
+        pal = gfx.Palette(2)
+        pal[1] = 0xFFFFFF
+        pal.make_transparent(0)
+        bmp[i, 0] = 1                                 # a different lit cell per pose
+        tile = gfx.TileGrid(bmp, pixel_shader=pal)
+        d.add_layer(tile)
+        tiles.append(tile)
+    return tiles
+
+
+@pytest.mark.asyncio
+async def test_pose_cycler_shows_one_pose_and_moves_it():
+    """darkowl's ``_fly_pose``, generalised: one wing pose on screen, at (x, y)."""
+    d = await _make_display()
+    tiles = _pose_tiles(d, 3)
+    cyc = ia.PoseCycler(tiles, period=3)
+
+    for frame, expect in ((0, 0), (2, 0), (3, 1), (5, 1), (6, 2), (9, 0)):
+        assert cyc.step(frame, x=frame, y=1) == expect
+        visible = [i for i, t in enumerate(tiles) if not t.hidden]
+        assert visible == [expect]                    # exactly one, never two
+        assert tiles[expect].x == frame and tiles[expect].y == 1
+
+    cyc.hide()
+    assert all(t.hidden for t in tiles)
+    for t in tiles:
+        d.remove_layer(t)
+
+
+@pytest.mark.asyncio
+async def test_pose_cycler_order_can_revisit_a_tile():
+    """A cel that goes UP -> MID -> DOWN -> MID is an order, not a tile count."""
+    d = await _make_display()
+    tiles = _pose_tiles(d, 3)
+    cyc = ia.PoseCycler(tiles, period=2, order=(0, 1, 2, 1))
+    assert [cyc.pose_at(f) for f in range(0, 8)] == [0, 0, 1, 1, 2, 2, 1, 1]
+    assert cyc.pose_at(8) == 0                        # and round again
+    for t in tiles:
+        d.remove_layer(t)
+
+
+@pytest.mark.asyncio
+async def test_pose_cycler_holds_the_axis_it_was_not_given():
+    """A bob writes only ``y``; the subject must not snap back to x=0 for it."""
+    d = await _make_display()
+    tiles = _pose_tiles(d, 2)
+    cyc = ia.PoseCycler(tiles, period=1)
+    cyc.step(0, x=12, y=5)
+    cyc.step(1, y=6)                                  # x omitted
+    assert (tiles[1].x, tiles[1].y) == (12, 6)
+    for t in tiles:
+        d.remove_layer(t)
+
+
+@pytest.mark.asyncio
+async def test_pose_cycler_refuses_an_order_naming_a_tile_that_is_not_there():
+    d = await _make_display()
+    tiles = _pose_tiles(d, 2)
+    with pytest.raises(ValueError):
+        ia.PoseCycler(tiles, order=(0, 1, 2))
+    with pytest.raises(ValueError):
+        ia.PoseCycler([])
+    for t in tiles:
+        d.remove_layer(t)
+
+
+@pytest.mark.asyncio
+async def test_point_to_point_lands_on_its_target_and_stays():
+    """The whole reason it exists: ``traverse_lr`` exits, this one arrives."""
+    d = await _make_display()
+    anim = ia.MotionAnimator(path="point_to_point", from_xy=(66, 4), to_xy=(20, 9),
+                             frames=26, curve="ease_out_quad")
+    tile, bmp, pal = _attach(d, anim)
+    anim.step(0)
+    assert (tile.x, tile.y) == (66, 4)
+    anim.step(25)                                     # frames - 1
+    assert (tile.x, tile.y) == (20, 9)
+    anim.step(60)                                     # past the end: clamped, not past
+    assert (tile.x, tile.y) == (20, 9)
+    anim.detach()
+    assert (tile.x, tile.y) == (20, 9)                # landed subjects do NOT recenter
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_point_to_point_uses_the_library_easing_table():
+    """Not its own float math — the same ``interp`` every transition already reads."""
+    d = await _make_display()
+    anim = ia.MotionAnimator(path="point_to_point", from_xy=(0, 0), to_xy=(40, 20),
+                             frames=21, curve=easing.EASE_IN_OUT)
+    tile, bmp, pal = _attach(d, anim)
+    for frame in (3, 7, 12, 18):
+        anim.step(frame)
+        progress = (frame * 255) // 20
+        assert tile.x == easing.interp(easing.EASE_IN_OUT, 0, 40, progress)
+        assert tile.y == easing.interp(easing.EASE_IN_OUT, 0, 20, progress)
+    d.remove_layer(tile)
+
+
+def test_point_to_point_refuses_a_move_with_no_endpoints():
+    """A silent no-op is the failure mode with nothing to read; this one says so."""
+    with pytest.raises(ValueError):
+        ia.MotionAnimator(path="point_to_point")
+    with pytest.raises(ValueError):
+        ia.MotionAnimator(path="point_to_point", from_xy=(0, 0))
+
+
+@pytest.mark.asyncio
+async def test_motion_cycles_poses_while_it_travels():
+    """Both primitives together: the subject flaps AS it flies to its slot."""
+    d = await _make_display()
+    poses = _pose_tiles(d, 3)
+    anim = ia.MotionAnimator(path="point_to_point", from_xy=(60, 2), to_xy=(10, 12),
+                             frames=24, curve="linear", poses=poses, pose_frames=2)
+    tile, bmp, pal = _attach(d, anim)
+    assert all(t.hidden for t in poses)               # nothing shown before the first step
+
+    seen = []
+    xs = []
+    for frame in range(0, 24):
+        anim.step(frame)
+        visible = [i for i, t in enumerate(poses) if not t.hidden]
+        assert len(visible) == 1                      # exactly one pose, every frame
+        seen.append(visible[0])
+        xs.append(poses[visible[0]].x)
+    assert len(set(seen)) == 3                        # it cycled all three
+    assert xs[0] == 60 and xs[-1] < xs[0]             # and travelled while doing it
+    assert tile.x == 0                                # the host's own tile never moved
+
+    anim.detach()
+    for t in poses:
+        d.remove_layer(t)
+    d.remove_layer(tile)
+
+
+@pytest.mark.asyncio
+async def test_motion_paths_tuple_matches_what_step_implements():
+    """The drift guard. A host validates a path name against this tuple, so a name in
+    it that moves nothing — or a branch missing from it — is a lie to that host."""
+    d = await _make_display()
+    assert "point_to_point" in ia.MOTION_PATHS
+    for name in ia.MOTION_PATHS:
+        kwargs = {"from_xy": (-30, -4), "to_xy": (12, 8), "frames": 20} \
+            if name == "point_to_point" else {}
+        anim = ia.MotionAnimator(path=name, amp=3, bob_amp=2, delay=2, **kwargs)
+        tile, bmp, pal = _attach(d, anim)
+        moved = set()
+        for frame in range(0, anim.HOLD_FRAMES, 3):
+            anim.step(frame)
+            moved.add((tile.x, tile.y))
+        assert len(moved) > 1, "%s moves nothing" % name
+        anim.detach()
+        d.remove_layer(tile)
+
+    unknown = ia.MotionAnimator(path="sashay")
+    tile, bmp, pal = _attach(d, unknown)
+    for frame in range(0, 40, 3):
+        unknown.step(frame)
+    assert (tile.x, tile.y) == (0, 0)                 # not in the tuple, does nothing
+    d.remove_layer(tile)
