@@ -54,7 +54,10 @@ from scrollkit.display.content import DisplayContent, StaticText, ScrollingText,
 from scrollkit.effects.transitions import transition_factory, Transition
 from scrollkit.effects.particles import ParticleEngine
 from scrollkit.effects.reveal_splash import show_reveal_splash
-from scrollkit.effects.image_animators import TwinkleAnimator  # + 13 more image animators
+from scrollkit.effects.image_animators import TwinkleAnimator, PoseCycler, MOTION_PATHS
+from scrollkit.effects.mark import PixelMark
+from scrollkit.effects.acts import play_sign, selectable, act_factory, supported_acts
+from scrollkit.effects.palette_partition import PARTITION_BUILDERS, builder_for
 ```
 
 ## Web

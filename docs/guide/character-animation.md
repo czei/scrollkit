@@ -83,16 +83,17 @@ From here on, animating the character means writing `tile.x`, `tile.y`, and
 
 A character reads as *alive* the moment its silhouette changes while it
 moves. Two poses are enough for a small sprite. Draw the wing up and the wing
-down, then alternate every few frames:
+down, then alternate every few frames.
+
+`PoseCycler` is that, and it is the only piece you need: it advances a list of
+tiles as **one moving subject**, showing exactly one at a time at wherever you
+put it and hiding the rest.
 
 ```python
-def _fly_pose(self, tiles, frame, x, y):
-    """Show one wing pose of the flapping owl at (x, y), hide the other."""
-    up = (frame // 3) % 2 == 0
-    show, hide = (tiles[0], tiles[1]) if up else (tiles[1], tiles[0])
-    show.x, show.y = x, y
-    show.hidden = False
-    hide.hidden = True
+from scrollkit.effects.image_animators import PoseCycler
+
+flap = PoseCycler(wing_tiles, period=3)      # two poses, swap every 3 frames
+flap.step(frame, x, y)                       # once per frame; returns the pose shown
 ```
 
 ![Two-pose flap](../assets/reference/characters/owl-flap.gif){ width="300" }
@@ -103,26 +104,48 @@ art mirrored (next section).*
 A bigger sprite deserves a real cel cycle. The big owl has three authored
 poses — wings UP, MID (glide), DOWN — cycled `UP → MID → DOWN → MID` so the
 wing passes through the glide position on both the upstroke and the
-downstroke, exactly like a hand-drawn flap:
+downstroke, exactly like a hand-drawn flap. That is the same class with a beat
+order:
 
 ```python
-def _big_pose(self, tiles, frame, x, y):
-    """Cel flap for the big owl: UP -> MID -> DOWN -> MID, 2 frames each."""
-    pose = (0, 1, 2, 1)[(frame // 2) % 4]
-    for i, tile in enumerate(tiles):
-        if i == pose:
-            tile.x, tile.y = x, y
-            tile.hidden = False
-        else:
-            tile.hidden = True
+cel = PoseCycler(owl_tiles, period=2, order=(0, 1, 2, 1))
 ```
 
 ![Three-pose cel flap](../assets/reference/characters/owl-cel-flap.gif){ width="300" }
 
 *The 24x16 owl's three-pose cel cycle, riding a sine swoop across the panel.*
 
+The beat order is its own argument rather than just `len(tiles)` precisely
+because of this case: three poses, four beats. `pose_at(frame)` tells you which
+index is up without touching the tiles, and `hide()` takes the whole subject off
+screen.
+
+Two details that are decisions, not defaults. **Position is held on the cycler**
+rather than read back off the tiles, so a caller that writes one axis per frame
+(a bob that only moves `y`) does not have to restate the other: pass `None` for
+"leave that axis alone". And it is **integer-only**, because a `TileGrid` takes
+whole pixels and rounding at the call site is how a subject ends up drifting half
+a pixel on every pose swap.
+
 Every pose is its own prebuilt TileGrid; "changing pose" is two `hidden`
 flags. Never rebuild bitmaps to change a frame of animation.
+
+### Flying while flapping
+
+A pose cycle and a flight path are the same subject, so `MotionAnimator` takes
+the poses directly and drives them instead of the one tile it was handed:
+
+```python
+from scrollkit.effects.image_animators import MotionAnimator
+
+fly = MotionAnimator(path="point_to_point", from_xy=(-24, 2), to_xy=(8, 11),
+                     frames=40, curve="ease_out_quad",
+                     poses=owl_tiles, pose_frames=2, pose_order=(0, 1, 2, 1))
+```
+
+`point_to_point` is the path that **lands**: `traverse_lr` crosses the panel and
+exits, so it cannot put a character down on a spot. See
+[Effects](effects.md#motion-paths-and-landing-on-a-spot) for the full path list.
 
 ## Mirroring for direction
 

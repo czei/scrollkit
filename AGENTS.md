@@ -165,6 +165,15 @@ LOGO = normalize_art(LOGO, CHAR_TO_SLOT, name="LOGO")
 GLYPHS = normalize_all(GLYPHS, CHAR_TO_SLOT)      # a whole {name: rows} map
 
 # 2. Convert to a Bitmap ONCE (this is the only per-pixel loop you may write).
+#    OR DON'T WRITE IT AT ALL: PixelMark.from_art does exactly this, takes
+#    {character: 0xRRGGBB} instead of slot numbers, drops off-panel cells rather
+#    than crashing, and gives you a mark the acts can build and exit. Prefer it
+#    unless you need the raw tile. See docs/guide/acts.md.
+from scrollkit.effects.mark import PixelMark
+mark = PixelMark.from_art(LOGO, {"#": 0xFFB020, "o": 0xE86010}, x=10, y=8)
+mark.attach(display)           # hidden; mark.show() / mark.hide() / mark.tile
+
+# The long way, when you want the Bitmap yourself:
 gfx = display.gfx                                 # displayio on device, sim on desktop
 bmp = gfx.Bitmap(max(len(r) for r in LOGO), len(LOGO), 3)  # longest row, not row 0
 for y, row in enumerate(LOGO):
@@ -211,6 +220,28 @@ if d.step(): d.detach()        # step() per frame, True when assembled
 # also: SwarmReveal, show_reveal_splash, and the 13 named transitions
 ```
 
+**Better: use the acts, which are those reveals already wired to a mark.** An act
+takes a duck-typed context and knows nothing else, so it works on YOUR mark without
+being copied into your app. Seven functions cover 39 selections, because every
+transition is both a build and an exit and every driveable treatment is a dwell:
+
+```python
+from scrollkit.effects.acts import selectable, play_sign, act_factory
+from scrollkit.effects.mark import PixelMark
+
+mark = PixelMark.from_art(LOGO, CHARS, x=10, y=8).attach(display)
+await play_sign(mark.context(display))     # build -> dwell -> exit, forever, no repeats
+
+# or drive one at a time
+ctx = mark.context(display)
+await act_factory("drip")(ctx, direction="bottom")
+selectable()   # (name, kind, family, act, options): 15 builds, 11 dwells, 13 exits
+```
+
+An app that already owns its wordmark passes **itself** as the context: the protocol
+is seven names (`slots`, `display`, `running`, `frame()`, `show()`, `hide()`, plus an
+optional `colors`), and there is nothing to inherit. Full guide: `docs/guide/acts.md`.
+
 !!! warning "A hand-rolled reveal is how a feasible sign becomes an infeasible one"
     Writing your own build/exit animation means touching pixels per frame — the
     one thing the cost model says never to do — during the busiest moment of the
@@ -233,6 +264,21 @@ ACTS = (("forge",  "anvil",  self._act_forge),      # (name, family, callable)
 sched = ActScheduler()
 name, family, run = sched.pick(ACTS, "acts", avoid={self._last_family})
 ```
+
+**`play_sign` is that whole loop, already written.** It draws a build, a dwell and
+an exit from `selectable()` through an `ActScheduler` and repeats until
+`ctx.running` goes false. Hand-write the deck above only for acts that are genuinely
+yours (the anvil, the laser); for everything the library already has, pass a
+`chosen=` list and let it schedule:
+
+```python
+await play_sign(ctx, chosen=["swarm", "HaloPulse", "VelvetSweep", "exit:CRT Collapse"])
+```
+
+Entries are `"kind:name"` because **the same name is often two different choices**:
+every transition is both a build and an exit, so a bare `"Pixel Dissolve"` selects it
+in both decks. A deck with no exit is refused outright, since a sign that ended
+mid-build leaves the panel in a state no act chose.
 
 Give the sign **one act per thing the organization actually does** — the subject
 sprite changes, the wordmark stays. That is what makes it a sign for *them*.
@@ -258,6 +304,10 @@ run, since a scheduled sign shows a different act every few seconds.
 library reveal for the build/exit, a `PalettePartition` + treatment on at least
 one act, and an `ActScheduler` over at least three family-tagged acts. A sign
 missing the middle two runs fine and looks like a screensaver.
+
+The cheapest way to get all four is `PixelMark` + `play_sign`, which is the library
+reveal, the treatment and the scheduler in one call; then add your own acts beside
+the ones it schedules. See `docs/guide/acts.md`.
 
 Determinism, because signs are compared frame-for-frame between sim and device:
 count frames, never read a clock; never derive an *order* from iterating a `set`
@@ -407,11 +457,20 @@ exceptions, and the hardware stutter/RAM warnings. Treat `errors` as blockers an
 ```python
 from scrollkit.dev import capabilities, as_text
 cat = capabilities()            # JSON-able dict, introspected from live code
-# cat["content_types"], cat["priorities"], cat["effects"],
-# cat["transitions"], cat["scrolling"], cat["palette_effects"],
-# cat["image_animators"], cat["named_colors"], cat["display_api"], cat["hardware"]
+# cat["panel"], cat["verification"], cat["content_types"], cat["priorities"],
+# cat["effects"], cat["transitions"], cat["scrolling"], cat["palette_effects"],
+# cat["palette_treatments"], cat["composition"], cat["image_animators"],
+# cat["text_fills"], cat["color_utilities"], cat["named_colors"],
+# cat["display_api"], cat["hardware"], cat["sensors"], cat["performance"]
 print(as_text(cat))             # compact human/agent-readable summary
 ```
+
+**`cat["composition"]` is the one to read first if you are building a sign.** Every
+other key names *effects*; this one names the machinery that varies them: the
+`slots → map → PalettePartition → treatment` recipe, all ten partition builders with
+their live signatures, `ActScheduler`, and the transition and treatment lookups. A
+treatment cannot run without a partition, so a catalogue listing thirteen treatments
+and no builders documents thirteen effects you cannot actually build.
 
 Prefer `capabilities()` over guessing class/parameter names — it reflects the
 installed library exactly (and can't drift from prose docs).

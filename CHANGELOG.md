@@ -5,6 +5,118 @@ All notable changes to ScrollKit are recorded here. This project loosely follows
 
 ## [Unreleased]
 
+Marks and acts: the half of a sign that could not previously be reused.
+
+### Added
+- **`scrollkit.effects.acts`: build → dwell → exit over any mark.** The palette
+  treatments were already portable dwells, because a treatment takes a
+  `PalettePartition` and nothing else, which is why twelve of a reference sign's
+  fifteen dwells are one-liners. Builds and exits were not: they got written inside
+  the app that owned the mark and reached into its tiles, its layout and its palette,
+  so reusing one meant copying it. An act is now handed a duck-typed context and
+  knows nothing else (`ctx.slots`, `.colors`, `.display`, `.running`, `await
+  .frame()`, `.show()`, `.hide()`), so an app passes *itself* and inherits nothing.
+  `swarm_build`, `swarm_unbuild`, `drip_in`, `wink_in`, `reveal_via`, `hide_via` and
+  `treatment_dwell`, with `act_factory` / `supported_acts` mirroring the transition
+  registry. The tests check LIT PIXELS after each act rather than the return value,
+  because returning `True` over a black panel is the exact failure this prevents, and
+  they cover the early exits too: a stopping sign, a dead surface, and an exit that
+  must leave nothing visible. The port also found that the two original acts differed
+  by accident rather than design (one checked `running` and one did not; one bounded
+  at 2,000 steps and the other at 2,500, and the one that ignored `running` would
+  keep a stopping sign on screen for another two thousand frames). Both now share one
+  driver.
+- **Seven act functions, 39 selections.** Twenty-four of a reference sign's
+  thirty-seven acts are not bespoke code at all: they are a transition or a palette
+  treatment applied to the mark, chosen by name. So `reveal_via` and `hide_via` each
+  wrap 12 transitions and `treatment_dwell` wraps 11 treatments, and `selectable()`
+  returns the menu one entry per *choice* rather than per function: 15 builds, 11
+  dwells, 13 exits. Each entry carries a visual `family`, and a treatment's family is
+  its **partition**, because two treatments animating the same grouping of pixels
+  genuinely do look alike. Eleven treatments, nine families.
+- **`play_sign()`: a whole sign, not a written sequence.** Draws build, dwell and
+  exit from an `ActScheduler` and repeats until told to stop, leading with the
+  least-recently-seen entry and never playing two of a family back to back, which is
+  why a panel running it for a week does not visibly loop. A choice is a **kind and a
+  name** (`"exit:Pixel Dissolve"`), because every transition is both a build and an
+  exit and someone who kept a transition to end on did not thereby ask for it to open
+  with; a bare name still selects every kind, which is the forgiving reading when
+  nobody has said otherwise. A deck with no exit is refused rather than played half,
+  since a sign that ended mid-build leaves the panel in a state no act chose.
+- **`scrollkit.effects.mark.PixelMark`: the mark an act reveals.** Every build ends
+  by calling `ctx.show()` to hand the real thing back and drop its overlay, and that
+  step assumes something real is underneath. An app that owns its wordmark has it;
+  anything else had nothing to borrow, so the drops landed, the overlay detached, and
+  the panel went black while the act cheerfully returned `True`. `PixelMark` is the
+  minimal version: lit cells and colours in, one bitmap, one palette and one tile
+  out. `from_text()` builds one from the display's own font, so a deck of acts can be
+  assembled and judged before any art is drawn; `from_art()` takes rows of characters
+  plus `{character: colour}`, the format pixel art is already authored in, so a
+  drawing goes on the panel without being converted into anything first. An unmapped
+  character is a hole rather than a guess, which is how `.` and space become
+  background without being special-cased.
+- **`PixelMark.tile`.** The image animators take a `TileGrid`, and a host driving a
+  mark along a path had no way to hand them one without reaching into a private
+  attribute.
+- **`PoseCycler`** (`effects/image_animators`) advances a list of tiles as one
+  moving subject, exactly one visible at a time. This is what a sign otherwise writes
+  by hand: darkowl's `_fly_pose` is two tiles at period 3, and its `_big_pose` is the
+  four-beat `UP → MID → DOWN → MID` cel at period 2, which is why the beat `order` is
+  its own argument and not just `len(tiles)`.
+- **`MotionAnimator(path="point_to_point", ...)` and `MOTION_PATHS`.** `traverse_lr`
+  crosses the panel and exits, so it has no destination and cannot put a subject down
+  on a slot. This one **lands**: `from_xy`, `to_xy`, a frame count and a named curve,
+  computed with `easing.interp` so a curve behaves here the way it behaves in every
+  transition. Like traverse it does not recenter at detach, because snapping a
+  subject home would undo the whole move, and it takes `poses` so the subject can flap
+  while it flies. `MOTION_PATHS` is exported so a host letting something else choose a
+  path validates against the animator's own list rather than a copy that drifts;
+  constructing `point_to_point` without endpoints raises rather than quietly
+  travelling from `(0, 0)` to `(0, 0)`.
+- **`PARTITION_BUILDERS` and `builder_for()`** (`effects/palette_partition`) are the
+  inverse of `treatments_for()`. Every treatment advertises the partition it wants as
+  a nickname (`HaloPulse.PARTITION` is `"radial"`) and nothing resolved a nickname to
+  a callable, so the catalogue emitted the bare string and a reader had to guess
+  `map_radial`. Twelve of the thirteen are `map_` plus the nickname, which is worse
+  than no convention: regular enough to be trusted and then guessed, and the one that
+  breaks it is `"anchor"`, whose builder is `map_anchor_distance`. A code-generating
+  agent spent an entire run guessing at exactly that name.
+- **`capabilities()["composition"]`**, a new category for the combinators. The
+  catalogue named every effect and not one of them, and a treatment cannot run
+  without a partition, so it documented thirteen effects that could not be built from
+  it. Now carries the `slots → map → PalettePartition → treatment` recipe, all ten
+  builders with live signatures, `ActScheduler`, and the transition and treatment
+  lookups, in under 1.8 KB of JSON: less than one panel image. Every treatment
+  entry also gains `partition_call`,
+  rendered from the live signature so it cannot drift:
+  `map_anchor_distance(pixel_slots, anchor_x, n=10)`.
+- **A "Marks & Acts" guide** (`docs/guide/acts.md`), plus `PoseCycler` and
+  `point_to_point` in the character-animation and effects guides and the
+  nickname-to-builder resolution in the palette-treatments guide.
+
+### Fixed
+- **`run_headless(app, frames=N)` now bounds a self-driving app.** `frames` bounded
+  only one of the two program shapes. An app whose `setup()` returns is driven by the
+  harness's own loop, which counts to `frames`; an app that never returns from
+  `setup()` (the `while self.running` shape a generated sign uses) never reached that
+  loop, so `frames` was silently ignored and `run_headless(app, frames=20)` rendered
+  until something killed the process. The cap now counts at `display.show()`, the one
+  call both shapes make exactly once per frame, and stops the run at the frame
+  boundary. The wrapper goes on the display *instance* and comes off again, because
+  wrapping `UnifiedDisplay.show` on the class leaks into every later app in the same
+  process and counts each frame once per wrap; the frame signature is read before the
+  stop unwinds, because teardown drops the display, the performance manager and every
+  recorded frame on the way out. Stopping a loop that never planned to stop costs one
+  thing worth knowing: the unwind goes *through* `show()`, so whatever the app's loop
+  does after showing its last frame does not run for that frame.
+- **A mark wider than the panel no longer takes the sign down on its first dwell.**
+  `PixelMark.attach()` dropped off-panel cells from the bitmap but kept them in
+  `slots`, so the mark went on describing pixels it never drew. Six of the seven acts
+  survived that; `treatment_dwell` did not, because it hands `ctx.slots` straight to a
+  panel-sized `PalettePartition`, which raised `IndexError`. That is the exact failure
+  the drop was there to prevent. `attach()` now narrows `slots` to the cells that fit,
+  preserving shape (a mapping stays a mapping, so per-pixel indices survive).
+
 ## [0.11.1] - 2026-08-21
 
 Brightness that actually dims, a panel renderer that no longer needs pygame, and the
