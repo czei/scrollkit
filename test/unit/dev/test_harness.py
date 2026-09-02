@@ -334,3 +334,68 @@ def test_non_strict_run_only_warns_on_heavy_effect():
     result = run_headless(_StrictHeavyApp(), frames=30, strict=False)
     assert result.ok is True
     assert not any("feasibility" in e.lower() for e in result.errors)
+
+
+# -- the frame cap: `frames` bounds the self-driving shape too ----------------
+#
+# An app whose setup() returns is driven by the harness's own loop, which counts
+# to `frames`. An app that never returns from setup() -- the `while self.running`
+# shape a generated sign uses -- was not bounded by anything: run_headless(frames=20)
+# rendered until the process was killed. These pin that it now stops.
+
+class _SelfDrivingApp(_ScrollApp):
+    """Owns its loop and never returns from setup(), like a generated sign."""
+
+    def __init__(self):
+        super().__init__()
+        self.shown = 0
+
+    async def setup(self):
+        while self.running:
+            await self.display.clear()
+            await self.display.set_pixel(self.shown % 64, 4, 0x00FF00)
+            await self.display.show()
+            self.shown += 1
+
+
+def test_frames_bounds_a_self_driving_app():
+    # The regression: this call used to never return.
+    result = run_headless(_SelfDrivingApp(), frames=20, hardware=False)
+    assert result.frames == 20
+
+
+def test_a_self_driving_app_stops_at_the_cap_it_was_given():
+    app = _SelfDrivingApp()
+    result = run_headless(app, frames=15, hardware=False)
+    # Fifteen frames reached the panel, and the app was stopped *inside* the
+    # fifteenth show() rather than after it: the stop unwinds through the frame
+    # boundary, so whatever the loop body does after show() -- here `shown += 1`
+    # -- does not run for that last frame. That is the price of stopping a loop
+    # that never planned to stop, and it is why the cap counts at the display
+    # rather than trusting a counter the app keeps.
+    assert result.frames == 15
+    assert app.shown == 14
+
+
+def test_a_self_driving_app_still_reports_pixels_and_motion():
+    # The signature has to be read before the cap raises: teardown unwinds with
+    # the exception and drops the display, so a metric taken after finds nothing.
+    result = run_headless(_SelfDrivingApp(), frames=20, hardware=False)
+    assert result.advanced is True
+    assert result.is_blank is False
+    assert result.errors == []
+
+
+def test_the_cap_does_not_outlive_the_run():
+    # The wrapper goes on the instance and comes off again; the class-level
+    # monkeypatch it replaces leaked into every later app in the process.
+    app = _SelfDrivingApp()
+    run_headless(app, frames=10, hardware=False)
+    assert "show" not in vars(app.display)
+
+
+def test_the_queue_shape_is_unchanged_by_the_cap():
+    # The cap must not fire for an app that returns from setup() normally.
+    result = run_headless(_ScrollApp(), frames=40, hardware=False)
+    assert result.frames == 40
+    assert result.errors == []
