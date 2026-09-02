@@ -214,3 +214,45 @@ async def test_a_mark_exposes_its_layer_so_an_animator_can_move_it():
     assert (mark.tile.x, mark.tile.y) == (7, 2)
     mark.detach()
     assert mark.tile is None
+
+
+# -- off-panel cells leave the mark entirely ---------------------------------
+#
+# attach() always dropped an off-panel cell from the BITMAP, but kept it in `slots`,
+# so the mark went on describing pixels it never drew. Six of the seven acts survived
+# that; `treatment_dwell` did not, because it hands `ctx.slots` straight to a
+# panel-sized PalettePartition. A wordmark one column too wide therefore raised
+# IndexError on its first dwell -- the exact failure the drop was there to prevent.
+
+
+@pytest.mark.asyncio
+async def test_attach_drops_off_panel_cells_from_the_slots_too():
+    d = await _display()
+    cells = {(60, 5): 1, (63, 5): 1, (64, 5): 1, (99, 5): 1, (10, 40): 1, (-2, 5): 1}
+    mark = PixelMark(cells, colors=RAMP).attach(d)
+    assert set(mark.slots) == {(60, 5), (63, 5)}
+    assert mark.slots[(60, 5)] == 1, "a mapping stays a mapping, indices intact"
+
+
+@pytest.mark.asyncio
+async def test_a_bare_iterable_of_cells_keeps_its_shape():
+    d = await _display()
+    mark = PixelMark([(1, 1), (2, 2), (70, 2)]).attach(d)
+    assert list(mark.slots) == [(1, 1), (2, 2)]
+    assert not hasattr(mark.slots, "items"), "an iterable must not become a mapping"
+
+
+@pytest.mark.asyncio
+async def test_a_wordmark_wider_than_the_panel_still_dwells():
+    """The regression: this raised IndexError from inside PalettePartition."""
+    from scrollkit.effects.acts import treatment_dwell
+
+    d = await _display()
+    mark = PixelMark.from_text(d, "BLUE RIDGE COFFEE", y=12).attach(d)
+    assert max(x for (x, _y) in mark.slots) < d.width
+
+    async def frame():
+        await d.show()
+        return True
+
+    assert await treatment_dwell(mark.context(d, frame=frame)) is True

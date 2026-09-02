@@ -101,6 +101,10 @@ class PixelMark:
         Hidden rather than visible, because every act's first move is to clear the
         panel: attaching visible would flash the finished mark for one frame before
         the act that assembles it begins.
+
+        This is also where the panel's bounds are first known, so it is where
+        ``slots`` is narrowed to the cells that actually fit. Art is authored by hand,
+        and a wordmark placed one column too far right should not take the sign down.
         """
         gfx = display.gfx
         indexed = hasattr(self.slots, "items")
@@ -116,6 +120,14 @@ class PixelMark:
         else:
             palette[1] = _dim(display, self.color)
 
+        # **The cells that made it onto the panel BECOME the mark's slots.** Dropping
+        # an off-panel cell from the bitmap and keeping it here would leave the mark
+        # describing pixels it never drew, and ``treatment_dwell`` hands ``ctx.slots``
+        # straight to a panel-sized PalettePartition — so a wordmark one column too
+        # wide raised IndexError on its first dwell, which is the exact failure the
+        # drop was there to prevent. The shape is preserved: a mapping stays a mapping
+        # so per-pixel indices survive, an iterable stays a plain list of cells.
+        kept = {} if indexed else []
         for cell in self.slots:
             x, y = cell
             if not (0 <= x < display.width and 0 <= y < display.height):
@@ -129,6 +141,11 @@ class PixelMark:
                 bitmap[x, y] = slot
             else:
                 bitmap[x, y] = 1
+            if indexed:
+                kept[cell] = self.slots[cell]
+            else:
+                kept.append(cell)
+        self.slots = kept
 
         self._bitmap = bitmap
         self._tile = gfx.TileGrid(bitmap, pixel_shader=palette)
