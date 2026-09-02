@@ -252,10 +252,77 @@ def _palette_treatments():
         from ..effects.palette_treatments import TREATMENT_CLASSES
     except ImportError:
         return out
+    try:
+        from ..effects.palette_partition import builder_for
+    except ImportError:
+        builder_for = lambda _name: None            # noqa: E731
     for cls in TREATMENT_CLASSES:
-        out.append({"name": cls.__name__, "doc": _first_line(cls),
-                    "partition": cls.PARTITION,
-                    "feasibility": getattr(cls, "FEASIBILITY", None)})
+        entry = {"name": cls.__name__, "doc": _first_line(cls),
+                 "partition": cls.PARTITION,
+                 "feasibility": getattr(cls, "FEASIBILITY", None)}
+        # **The nickname alone is a dangling pointer.** "anchor" does not name a
+        # function; map_anchor_distance does. Resolved through the registry and
+        # rendered from the LIVE signature, so it cannot drift from the code.
+        builder = builder_for(cls.PARTITION)
+        if builder is not None:
+            try:
+                entry["partition_call"] = "%s%s" % (
+                    builder.__name__, inspect.signature(builder))
+            except (TypeError, ValueError):
+                entry["partition_call"] = builder.__name__
+        out.append(entry)
+    return out
+
+
+def _composition():
+    """The combinators: how one drawing becomes many acts.
+
+    Catalogued because they were the documented gap. Every EFFECT was listed and
+    none of the machinery that varies it, so a reader came away with thirteen
+    treatments and no way to build the partition all thirteen require.
+    """
+    out = {"recipe": [
+        "slots = pixel_slots_of_your_art          # [(x, y), ...] the lit pixels",
+        "group_map, n = map_radial(slots, cx, cy) # any PARTITION_BUILDERS entry",
+        "fx = PalettePartition(displayio, slots, group_map, n)",
+        "treatment = HaloPulse(fx, ramp)          # any treatment whose PARTITION matches",
+        "# then drive treatment frame by frame; swap fx.tile in while it runs",
+    ], "why": (
+        "One drawing x 10 partitions x 13 treatments is the variation budget, and "
+        "none of it needs more pixel art. Compose build -> dwell -> exit and the "
+        "counts multiply again."
+    )}
+    try:
+        from ..effects.palette_partition import PARTITION_BUILDERS
+        out["partition_builders"] = {
+            nickname: "%s%s" % (fn.__name__, inspect.signature(fn))
+            for nickname, fn in PARTITION_BUILDERS.items()
+        }
+    except ImportError:
+        pass
+    for label, module, names in (
+        ("scheduling", "..utils.scheduler", ("ActScheduler",)),
+        ("transition_lookup", "..effects.transitions",
+         ("transition_factory", "supported_names", "transitions_for")),
+        ("treatment_lookup", "..effects.palette_treatments", ("treatments_for",)),
+    ):
+        try:
+            mod = __import__(module.lstrip("."), globals(), locals(),
+                             ["*"], module.count(".") - 1)
+        except ImportError:
+            continue
+        entries = {}
+        for name in names:
+            obj = getattr(mod, name, None)
+            if obj is None:
+                continue
+            try:
+                entries[name] = "%s%s — %s" % (name, inspect.signature(obj),
+                                               _first_line(obj))
+            except (TypeError, ValueError):
+                entries[name] = "%s — %s" % (name, _first_line(obj))
+        if entries:
+            out[label] = entries
     return out
 
 
@@ -388,6 +455,7 @@ def capabilities():
                     ("effects", _effects), ("transitions", _transitions),
                     ("scrolling", _scrolling), ("palette_effects", _palette_effects),
                     ("palette_treatments", _palette_treatments),
+                    ("composition", _composition),
                     ("image_animators", _image_animators),
                     ("text_fills", _text_fills), ("color_utilities", _color_utilities),
                     ("named_colors", _named_colors),

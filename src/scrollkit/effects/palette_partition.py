@@ -292,3 +292,39 @@ def _bfs_depth(pixels):
         if p not in depth:
             depth[p] = 0
     return depth
+
+
+# ---------------------------------------------------------------------------
+# Nickname -> builder
+# ---------------------------------------------------------------------------
+
+#: Partition nickname -> the function that builds it.
+#:
+#: Every treatment carries a ``PARTITION`` nickname — ``VelvetSweep.PARTITION`` is
+#: ``"diagonal"`` — and until this table existed nothing resolved one to a callable.
+#: Twelve of the thirteen are ``map_`` + the nickname, which is worse than no
+#: convention at all: it is regular enough to be trusted and then guessed, and the
+#: one that breaks it is ``"anchor"`` -> :func:`map_anchor_distance`. A generating
+#: agent burned an entire run guessing at exactly that name.
+PARTITION_BUILDERS = {
+    "diagonal": map_diagonal,
+    "anchor": map_anchor_distance,
+    "radial": map_radial,
+    "angle": map_angle,
+    "rain": map_rain,
+    "checker": map_checker,
+    "exposure": map_exposure,
+    "regions": map_regions,
+    "topology": map_topology,
+    "route": map_route,
+}
+
+
+def builder_for(partition):
+    """The partition builder named by a treatment's ``PARTITION``, or ``None``.
+
+    The inverse of :func:`scrollkit.effects.palette_treatments.treatments_for`:
+    that answers "what can I run on this partition", this answers "what builds the
+    partition this treatment wants".
+    """
+    return PARTITION_BUILDERS.get(partition)

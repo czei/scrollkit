@@ -69,6 +69,7 @@ nav:
       - Gradient Text: guide/gradient-text.md
       - Palette-Animated Bitmap Text: guide/bitmap-text.md
       - Palette Partitions & Treatments: guide/palette-treatments.md
+      - Marks & Acts: guide/acts.md
       - Character Animation: guide/character-animation.md
       - Sensors & Tilt: guide/sensors.md
       - Web Interface: guide/web.md

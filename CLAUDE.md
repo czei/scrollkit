@@ -232,6 +232,24 @@ are all gone.
 - **Standalone, orthogonal** (NOT the `Transition` contract): the splash animations
   (`reveal_splash` / `drip_splash` / `swarm_reveal`), `particles`, and
   `text_render`. Leave them as-is.
+- **Acts are a SECOND contract, deliberately distinct from `Transition`, and not a
+  merger of it** (`effects/acts.py`). A transition swaps one screen's
+  *content* for another's; an act is a beat in a sign's show over a **mark**:
+  build → dwell → exit. Keep the two categories separate: an act *wraps* a
+  transition (`reveal_via` / `hide_via`), it does not replace or subsume one, and
+  the splashes and treatments stay their own categories too. The act contract is a
+  **duck-typed context**, not a base class: `ctx.slots` / `.colors` / `.display` /
+  `.running` / `await .frame()` / `.show()` / `.hide()`. An app passes *itself*;
+  there is nothing to inherit, and `SimpleContext` exists only for callers that own
+  no tiles. `effects/mark.PixelMark` is the minimal mark for anything with no app to
+  own one. Dispatch mirrors transitions exactly: a literal `BUILDS`/`DWELLS`/`EXITS`
+  dict plus `act_factory()` / `supported_acts()`, lazily imported, **not** a
+  registry or plugin loader. `selectable()` expands those seven functions into the
+  39 name-level choices a menu shows; `play_sign()` drives them through
+  `ActScheduler`. Two things are refused rather than offered broken, and that
+  judgement is the point: `Drop from Sky` (its `pre_render_hook` means `start()`
+  never calls the swap callback, so a mark handed to it stays hidden) and the two
+  `map_route` treatments (they need a mark's own stroke paths).
 - **The safety mechanism for any new effect is the strict gate, not a plugin
   loader**: `run_headless(app, strict=True)` raises `FeasibilityError` if an effect
   allocates per frame or busts the ~50 ms (20 fps) budget. The annotated reference

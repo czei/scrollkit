@@ -13,6 +13,13 @@ sleep, so the same app + same frame count always reaches the same visual state
 (reproducible compare across edits) and the run finishes fast. ``seconds=S`` is
 sugar for ``frames = round(S * 20)`` (the display loop targets 20 FPS).
 
+``frames`` bounds both program shapes. An app whose ``setup()`` returns is driven
+by the harness's own loop; an app that never returns from ``setup()`` — the
+self-driving ``while self.running`` shape — is stopped at the frame boundary once
+it has shown that many frames. Either way ``run_headless`` returns. Stopping the
+self-driving shape unwinds *through* ``display.show()``, so whatever that app's
+loop does after showing its last frame does not run for that frame.
+
 Desktop-only — imported via ``scrollkit.dev``, which raises on CircuitPython.
 """
 
@@ -23,6 +30,94 @@ from . import metrics as _metrics
 # The display loop in app/base.py paces itself at 20 FPS; seconds->frames uses it.
 TARGET_FPS = 20
 DEFAULT_FRAMES = 120
+
+
+class _FrameCapReached(BaseException):
+    """Stop a self-driving app at its frame cap, from outside.
+
+    ``BaseException`` and not ``Exception`` on purpose: it has to unwind out of
+    arbitrary app code and out of this harness, and both catch ``Exception``
+    broadly. It never escapes :func:`run_headless_async` — it is caught at the
+    ``setup()`` boundary, while ``app.display`` is still live.
+    """
+
+
+class _FrameCap:
+    """Bound a run at ``frames`` displayed frames, whichever shape the app is.
+
+    Counts at ``display.show()`` — the one call both program shapes make exactly
+    once per frame — and raises :class:`_FrameCapReached` through it at the cap.
+
+    Two details worth keeping. The wrapper goes on the display *instance* and is
+    removed on exit; wrapping ``UnifiedDisplay.show`` on the class (as the
+    LogoBox spike did) leaks into every later app in the same process and counts
+    each frame once per wrap. And the frame signature is read *before* the raise,
+    because teardown runs as the exception unwinds and drops the display, the
+    active ``PerformanceManager`` and every recorded frame — read it afterwards
+    and there is nothing left to read.
+    """
+
+    _MISSING = object()
+
+    def __init__(self, app, frames):
+        self.app = app
+        self.frames = frames
+        self.count = 0
+        self.first_sig = None
+        self.last_sig = None
+        self._display = None
+        self._prev = self._MISSING
+
+    def __enter__(self):
+        display = self.app.display
+        if display is None or not hasattr(display, "show"):
+            return self
+        self._display = display
+        try:
+            self._prev = vars(display).get("show", self._MISSING)
+        except TypeError:            # no __dict__ (slots); restore by assignment
+            self._prev = display.show
+        original = display.show
+
+        async def show(*a, **kw):
+            result = await original(*a, **kw)
+            self.count += 1
+            at_cap = self.count >= self.frames
+            # Only the two ends get a signature: `advanced` compares first to
+            # last, and hashing the panel on every frame in between costs real
+            # wall time -- enough of it to make an unpaced run measurably slower
+            # than the hardware it is supposed to be outrunning.
+            #
+            # The one at the cap is read HERE, before the raise, because teardown
+            # runs as the exception unwinds and drops the display, the active
+            # PerformanceManager and every recorded frame.
+            if self.count == 1 or at_cap:
+                sig = None
+                if self.app.display is not None:
+                    buf = _metrics.buffer_from_display(self.app.display)
+                    sig = _metrics.signature(buf) if buf is not None else None
+                if sig is not None:
+                    if self.first_sig is None:
+                        self.first_sig = sig
+                    self.last_sig = sig
+            if at_cap:
+                raise _FrameCapReached()
+            return result
+
+        display.show = show
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._display is None:
+            return False
+        if self._prev is self._MISSING:
+            try:
+                del self._display.show
+            except AttributeError:
+                pass
+        else:
+            self._display.show = self._prev
+        return False
 
 
 class RunResult:
@@ -277,10 +372,26 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
         app.running = True
         app._run_start = time.monotonic() if hasattr(time, "monotonic") else None
 
-        try:
-            await app.setup()
-        except Exception as e:  # surface, don't crash the harness
-            errors.append("setup() failed: %r" % (e,))
+        # `frames` has to bound BOTH program shapes, and for a long time it
+        # bounded only one. The queue shape returns from setup() and is driven by
+        # the loop below, which counts to `frames`. The self-driving shape never
+        # returns from setup() — it owns a `while self.running` loop — so the loop
+        # below was never reached and `frames` was silently ignored:
+        # run_headless(app, frames=20) rendered until something killed the
+        # process. Cap it at the frame boundary instead; the queue shape returns
+        # long before the cap can fire, so its behaviour is unchanged.
+        cap = _FrameCap(app, frames)
+        self_driven = False
+        with cap:
+            try:
+                await app.setup()
+            except _FrameCapReached:
+                self_driven = True   # never returned; it rendered its full quota
+            except Exception as e:  # surface, don't crash the harness
+                errors.append("setup() failed: %r" % (e,))
+        if cap.first_sig is not None:
+            first_sig = cap.first_sig
+            last_sig = cap.last_sig
 
         if warmup_data:
             try:
@@ -294,7 +405,10 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
         # periodic memory report. Never a copy of the loop: the strict gate
         # must exercise exactly the code path that ships, transitions included.
         app._reset_frame_state()
-        for i in range(frames):
+        # A self-driving app already rendered all `frames` of them inside setup();
+        # stepping it again here would render twice what was asked for.
+        remaining = 0 if self_driven else max(0, frames - cap.count)
+        for i in range(remaining):
             try:
                 closed = await app.step_frame() is False
                 if closed:
@@ -383,7 +497,10 @@ async def run_headless_async(app, frames=None, seconds=None, screenshot=None,
             memory = None
 
         return RunResult(
-            frames=app._frame_count,
+            # A self-driving app never goes through step_frame(), so the app's own
+            # counter stayed at zero however much it painted; the cap counted the
+            # frames it actually showed.
+            frames=cap.count if self_driven else app._frame_count,
             estimated_hardware_fps=(hw_dict or {}).get("estimated_hardware_fps"),
             bright_pixels=snap["bright_pixels"],
             lit_pixels=snap["lit_pixels"],

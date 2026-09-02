@@ -46,6 +46,31 @@ Partition builders (each returns `(group_map, n_groups)`):
 | `map_topology` | endpoints / corners / junctions / runs | stroke anatomy |
 | `map_route` | BFS order along glyph strokes | crawling packets |
 
+### From a nickname to a builder
+
+A treatment advertises the partition it wants as a **nickname**:
+`HaloPulse.PARTITION` is `"radial"`. That is not the name of a function, and
+guessing at it is a trap, because twelve of the thirteen are `map_` plus the
+nickname and the one that is not is `"anchor"`, whose builder is
+`map_anchor_distance`. Regular enough to be trusted, then wrong.
+
+So resolve it instead of guessing:
+
+```python
+from scrollkit.effects.palette_partition import PARTITION_BUILDERS, builder_for
+
+builder_for("anchor")        # <function map_anchor_distance>
+builder_for("nonsense")      # None
+PARTITION_BUILDERS           # the whole nickname -> callable table (10 entries)
+```
+
+`builder_for` is the inverse of `treatments_for`: that one answers "what can I run
+on this partition", this one answers "what builds the partition this treatment
+wants". `capabilities()` renders each treatment's `partition_call` from the live
+signature, so the catalogue shows
+`map_anchor_distance(pixel_slots, anchor_x, n=10)` rather than the bare word
+`anchor`.
+
 ## The treatments
 
 Thirteen frame-driven classes animate a partition; each names its

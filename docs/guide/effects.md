@@ -49,7 +49,9 @@ heavily-annotated reference in `demos/medium/golden_transition.py`.
 | `scrollkit.display.bitmap_text` | palette-animated bitmap text ([guide](bitmap-text.md)) |
 | `scrollkit.effects.particles` | standalone particle systems (sparkles, rain, embers, snow) |
 | `scrollkit.effects.reveal_splash` / `.drip_splash` / `.swarm_reveal` | splash-reveal helpers: `show_reveal_splash`, `show_drip_splash`, `show_swarm_splash` |
-| `scrollkit.effects.image_animators` | per-frame animators that decorate a static image already on screen (twinkle, motion, emitter, glow, region-shift, orbit, blink, sprite-lift, cover, vanish, frame-cycle, cel-walk, combo) |
+| `scrollkit.effects.image_animators` | per-frame animators that decorate a static image already on screen (twinkle, motion, emitter, glow, region-shift, orbit, blink, sprite-lift, cover, vanish, frame-cycle, cel-walk, combo), plus `PoseCycler` for cycling authored poses as one moving subject |
+| `scrollkit.effects.mark` | `PixelMark`: a set of lit cells as a show/hide layer, for an app that owns no wordmark of its own ([guide](acts.md)) |
+| `scrollkit.effects.acts` | build → dwell → exit over any mark, and `play_sign` to run a whole sign ([guide](acts.md)) |
 
 Effects run with functionally equivalent behaviour on hardware and in the
 simulator — same effect types and sequencing, though exact pixel timing differs.
@@ -190,9 +192,45 @@ The fourteen animators use four motion substrates and compose with `ComboAnimato
 | Substrate | Animators | What it does |
 |-----------|-----------|--------------|
 | **Transparent overlay** above the image (sparse writes cleared by one C `fill`) | `TwinkleAnimator`, `EmitterAnimator`, `OrbiterAnimator`, `BlinkAnimator`, `CoverAnimator` | shimmer, drifting particles, an orbiting sprite, a wink/flicker, a masked-until-cue patch |
-| **Move a tile** — the image's own `TileGrid` or a lifted copy of its subject | `MotionAnimator`, `SpriteLiftAnimator` | traverse / rise / bob / jiggle; or lift a subject onto its own layer and cross a fixed scene (the hole row-inpaints) |
+| **Move a tile** — the image's own `TileGrid` or a lifted copy of its subject | `MotionAnimator`, `SpriteLiftAnimator` | traverse / rise / point_to_point / bob / jiggle; or lift a subject onto its own layer and cross a fixed scene (the hole row-inpaints) |
 | **Rewrite the loaded Bitmap** or palette entries | `RegionShiftAnimator`, `RegionRotateAnimator`, `VanishAnimator`, `FrameCycleAnimator`, `PalettePulseAnimator` | wing/flag/jaw motion (sine/ramp/ripple/hinge waves), a true region rotation about a pivot (a head nodding — `exclude` keeps the attached body static), staged erases (a bite), pre-baked ripple frames, a breathing glow |
 | **Play authored cels** — a tile-indexed sibling spritesheet | `CelWalkAnimator` | swap between distinct authored frames (a true walk cycle) while striding across; frames live in a `<name>_walk.bmp` strip, O(1) per frame (a tile index + an `x` write) |
+
+### Motion paths, and landing on a spot
+
+`MOTION_PATHS` is every path `MotionAnimator` understands, exported as a tuple so a
+host that lets something *else* choose one (a config file, a request, a model)
+validates against the animator's own list instead of keeping a copy that drifts. An
+unknown path does not raise; the subject simply stands still, which is why a name
+arriving from outside should be checked against this first.
+
+```python
+from scrollkit.effects.image_animators import MotionAnimator, MOTION_PATHS
+# ('traverse_lr', 'traverse_rl', 'rise', 'bob', 'jiggle', 'point_to_point')
+```
+
+`traverse_lr` crosses the panel and exits, so it has no destination and cannot put a
+subject down on a slot. **`point_to_point` lands.** It travels `from_xy` to `to_xy`
+over `frames`, eased by any name in
+[`scrollkit.effects.easing.CURVES`](transitions.md), computed with the same
+`easing.interp` the transitions use so a curve behaves here exactly as it does
+everywhere else:
+
+```python
+fly = MotionAnimator(path="point_to_point", from_xy=(-24, 2), to_xy=(8, 11),
+                     frames=40, curve="ease_out_quad",
+                     poses=wing_tiles, pose_frames=3)   # flap while it flies
+```
+
+Like `traverse` and `rise`, it deliberately does **not** recenter at `detach()`: it
+has arrived where it was sent, and snapping it home would undo the whole move.
+Constructing it without both endpoints raises, rather than quietly travelling from
+`(0, 0)` to `(0, 0)`, because a move that goes nowhere is the failure mode with
+nothing to read.
+
+`poses=` hands the motion to a `PoseCycler`, which advances a list of tiles as one
+moving subject with exactly one visible at a time. See
+[Character Animation](character-animation.md#pose-cycling-the-flap).
 
 Like the showcase effects, every animator carries a `FEASIBILITY` dict on the **class**
 (`hardware_safe`, `allocates_per_frame`, `max_pixel_writes_per_frame`,

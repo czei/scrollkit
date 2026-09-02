@@ -30,6 +30,13 @@ into RAM. Import each submodule directly instead:
 - **Palette treatments** (dwell animations on a partition — the gallery) —
   ``from scrollkit.effects.palette_treatments import VelvetSweep, HaloPulse,
   TREATMENT_CLASSES, treatments_for``
+- **Marks** (a set of lit cells as a show/hide layer, for an app that owns no
+  wordmark of its own) —
+  ``from scrollkit.effects.mark import PixelMark``
+- **Acts** (build -> dwell -> exit over any mark, driven by a duck-typed context —
+  NOT the ``Transition`` contract) —
+  ``from scrollkit.effects.acts import play_sign, selectable, act_factory,
+  supported_acts, drip_in, swarm_build, treatment_dwell, reveal_via, hide_via``
 - **Swirl entrance** (sprites spiral in onto their targets) —
   ``from scrollkit.effects.swirl_in import SwirlIn``
 - **Text-rendering helpers** —

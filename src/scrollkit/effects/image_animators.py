@@ -41,6 +41,8 @@ can ``follow_tile`` a moving image).
 import math
 import random
 
+from . import easing
+
 
 def _shuffle(lst):
     """In-place Fisher-Yates (random.shuffle is absent on CircuitPython)."""
@@ -220,55 +222,195 @@ class TwinkleAnimator(IntroAnimator):
         self._points = None
 
 
+class PoseCycler:
+    """Advance a list of tiles as ONE moving subject: a flap, a walk, a scurry.
+
+    Exactly one tile is visible at a time and it sits where the caller puts it; every
+    other tile is hidden. That is the whole idea, and it is what a sign otherwise
+    writes by hand — darkowl-led-logo's ``_fly_pose`` swaps two wing poses every three
+    frames, and its ``_big_pose`` runs a four-beat UP -> MID -> DOWN -> MID cel at two.
+    Both are this class with different arguments.
+
+    Args:
+        tiles:  The pose layers, in order, already added to the display.
+        period: Frames one beat holds before the next.
+        order:  Which tile each beat shows, as indices into ``tiles``. Defaults to
+                straight through (``0..n-1``). A cel that goes UP -> MID -> DOWN -> MID
+                is ``(0, 1, 2, 1)`` — which is why the beat order is its own argument
+                and not simply ``len(tiles)``.
+
+    Position is held here rather than read back off the tiles, so a caller that moves
+    one axis per frame (a bob that only writes ``y``) does not have to restate the
+    other. It is integer-only: a TileGrid takes whole pixels, and rounding at the call
+    site is how a subject ends up drifting half a pixel per pose swap.
+    """
+
+    def __init__(self, tiles, period=3, order=None):
+        self.tiles = list(tiles)
+        if not self.tiles:
+            raise ValueError("poses: no tiles")
+        self.period = max(1, int(period))
+        self.order = tuple(order) if order else tuple(range(len(self.tiles)))
+        if not self.order or max(self.order) >= len(self.tiles) or min(self.order) < 0:
+            raise ValueError("poses: order names a tile that is not there")
+        self.x = 0
+        self.y = 0
+        self.shown = None
+
+    def pose_at(self, frame):
+        """Which tile index is on screen at ``frame``."""
+        return self.order[(frame // self.period) % len(self.order)]
+
+    def step(self, frame, x=None, y=None):
+        """Show ``frame``'s pose at ``(x, y)``; hide the rest. Returns the index shown.
+
+        ``x``/``y`` of ``None`` mean "leave that axis where it was".
+        """
+        if x is not None:
+            self.x = int(x)
+        if y is not None:
+            self.y = int(y)
+        index = self.pose_at(frame)
+        for i, tile in enumerate(self.tiles):
+            if i == index:
+                tile.x = self.x
+                tile.y = self.y
+                tile.hidden = False
+            else:
+                tile.hidden = True
+        self.shown = index
+        return index
+
+    def hide(self):
+        """Take every pose off screen (idempotent)."""
+        for tile in self.tiles:
+            tile.hidden = True
+        self.shown = None
+
+
+#: Every path :class:`MotionAnimator` understands.
+#:
+#: Exported as a tuple so a host that lets something else choose a path — a config
+#: file, a request, a model — validates the choice against the animator's own list
+#: instead of keeping a copy that drifts out of date. A path not in here does not
+#: raise; the subject simply stands still, which is why a caller that accepts a name
+#: from outside should check it against this first.
+MOTION_PATHS = ("traverse_lr", "traverse_rl", "rise", "bob", "jiggle", "point_to_point")
+
+
 class MotionAnimator(IntroAnimator):
-    """Move the whole image tile: traverse across, blast off, bob, or jiggle.
+    """Move the whole image tile: traverse across, blast off, land, bob, or jiggle.
 
     ``traverse_lr``/``traverse_rl`` cross the panel starting and ending fully off-screen;
     ``rise`` launches upward off the top after ``delay`` frames (with a tiny pre-launch
-    shudder); ``bob``/``jiggle`` oscillate in place and recenter at detach. Traverse/rise
-    deliberately do NOT recenter — the subject has left, and the fade shows empty sky.
+    shudder); ``point_to_point`` travels from one coordinate to another along a named
+    easing curve and STAYS there; ``bob``/``jiggle`` oscillate in place and recenter at
+    detach. Traverse, rise and point_to_point deliberately do NOT recenter — the first
+    two have left the panel, and the third has arrived where it was sent, so snapping it
+    home at detach would undo the whole move.
+
+    Args:
+        path:     One of :data:`MOTION_PATHS`.
+        amp:      Oscillation amplitude for ``bob``/``jiggle``.
+        bob_amp:  Vertical wobble added to a traverse.
+        delay:    ``rise`` only — frames of pre-launch shudder.
+        from_xy:  ``point_to_point`` only — where the subject starts, ``(x, y)``.
+        to_xy:    ``point_to_point`` only — where it lands.
+        frames:   ``point_to_point`` only — how long the move takes. Sets HOLD_FRAMES.
+        curve:    ``point_to_point`` only — a name from
+                  :data:`scrollkit.effects.easing.CURVES`.
+        poses:    Optional tiles to CYCLE as the subject moves, instead of moving the
+                  one tile the host supplied. See :class:`PoseCycler`.
+        pose_frames / pose_order: that cycler's ``period`` and ``order``.
+
+    ``point_to_point`` exists because ``traverse_lr`` crosses and exits: it has no
+    destination, so it cannot put a subject down on a slot. This one lands.
     """
 
-    def __init__(self, path="bob", amp=2, bob_amp=0, delay=0):
+    def __init__(self, path="bob", amp=2, bob_amp=0, delay=0,
+                 from_xy=None, to_xy=None, frames=None, curve=easing.LINEAR,
+                 poses=None, pose_frames=3, pose_order=None):
         self._path = path
         self._amp = amp
         self._bob_amp = bob_amp
         self._delay = delay
+        self._curve = curve
+        self._frame = 0
         if path in ("traverse_lr", "traverse_rl"):
             self.HOLD_FRAMES = 104
         elif path == "rise":
             self.HOLD_FRAMES = 84
+        elif path == "point_to_point":
+            if from_xy is None or to_xy is None:
+                # Refused at construction rather than defaulted to (0, 0): a move with
+                # no endpoints is not a shorter move, it is a subject that never goes
+                # anywhere, and a silent no-op is the failure mode with nothing to read.
+                raise ValueError("point_to_point: needs from_xy and to_xy")
+            if frames is not None:
+                self.HOLD_FRAMES = max(1, int(frames))
+        self._from = (int(from_xy[0]), int(from_xy[1])) if from_xy else None
+        self._to = (int(to_xy[0]), int(to_xy[1])) if to_xy else None
+        self._poses = PoseCycler(poses, period=pose_frames,
+                                 order=pose_order) if poses else None
+
+    def start(self, display, tile, bitmap, palette, base_colors):
+        super().start(display, tile, bitmap, palette, base_colors)
+        if self._poses is not None:
+            # All of them are on the display and all of them are visible until someone
+            # says otherwise; the first step() picks one. Hiding here rather than there
+            # keeps the whole stack from showing at once for the frames before it.
+            self._poses.hide()
 
     def step(self, frame):
-        tile = self.tile
+        self._frame = frame
         p = self._path
+        x = y = None
         if p == "traverse_lr" or p == "traverse_rl":
             span = self.HOLD_FRAMES - 1
             t = frame / span if span else 1.0
             if t > 1.0:
                 t = 1.0
             x0, x1 = (-66, 66) if p == "traverse_lr" else (66, -66)
-            tile.x = int(round(x0 + (x1 - x0) * t))
+            x = int(round(x0 + (x1 - x0) * t))
             if self._bob_amp:
-                tile.y = int(round(self._bob_amp * math.sin(frame * 0.3)))
+                y = int(round(self._bob_amp * math.sin(frame * 0.3)))
         elif p == "rise":
             if frame < self._delay:
-                tile.x = 1 if (frame // 3) & 1 else 0      # pre-launch shudder
+                x = 1 if (frame // 3) & 1 else 0           # pre-launch shudder
             else:
-                tile.x = 0
+                x = 0
                 t = (frame - self._delay) / float(max(1, self.HOLD_FRAMES - self._delay))
-                tile.y = -int(round(40 * t * t))           # ease-in launch, exits the top
+                y = -int(round(40 * t * t))                # ease-in launch, exits the top
+        elif p == "point_to_point":
+            # Integer easing, straight out of the library's own table — the same
+            # `interp` the transitions use, so a curve named here behaves the way the
+            # same curve behaves everywhere else, on the device as well as the desktop.
+            span = self.HOLD_FRAMES - 1
+            progress = 255 if span <= 0 else min(255, (frame * 255) // span)
+            x = easing.interp(self._curve, self._from[0], self._to[0], progress)
+            y = easing.interp(self._curve, self._from[1], self._to[1], progress)
         elif p == "bob":
-            tile.y = int(round(self._amp * math.sin(frame * 0.25)))
+            y = int(round(self._amp * math.sin(frame * 0.25)))
         elif p == "jiggle":
-            tile.x = int(round(self._amp * math.sin(frame * 0.9)))
-            tile.y = int(round((self._amp * 0.5) * math.sin(frame * 1.3)))
+            x = int(round(self._amp * math.sin(frame * 0.9)))
+            y = int(round((self._amp * 0.5) * math.sin(frame * 1.3)))
+        self._place(frame, x, y)
+
+    def _place(self, frame, x, y):
+        """Put the subject at ``(x, y)`` — through the pose cycler when there is one."""
+        if self._poses is not None:
+            self._poses.step(frame, x, y)
+            return
+        tile = self.tile
+        if x is not None:
+            tile.x = x
+        if y is not None:
+            tile.y = y
 
     def detach(self):
         if self._path in ("bob", "jiggle"):      # in-place motions settle back to center
             try:
-                self.tile.x = 0
-                self.tile.y = 0
+                self._place(self._frame, 0, 0)
             except Exception:
                 pass
 
