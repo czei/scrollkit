@@ -297,20 +297,21 @@ def _treatment_extras(cls, theme):
     them — a gradient dwell between the darkest and brightest stop the author chose.
     Anything else required is something this module cannot invent, so the treatment is
     not offered.
-    """
-    try:
-        import inspect
 
-        params = list(inspect.signature(cls.__init__).parameters.values())[3:]
-    except (TypeError, ValueError):       # pragma: no cover - builtins
-        return ()
+    Read from the class's ``EXTRA_ARGS`` and **not** from ``inspect.signature``, which
+    is the whole point: CircuitPython has no ``inspect``, so the introspecting version
+    raised ImportError on the board and took ``treatments_available``, ``selectable``,
+    ``treatment_dwell`` and ``play_sign`` down with it. Widening the ``except`` would
+    not have fixed it either, only moved the failure: swallowing the error reports
+    "no extras needed" and then calls ``GradientDwell(fx, theme)`` without its
+    required ``lo``/``hi``. A test pins every ``EXTRA_ARGS`` against the real
+    signature, so declaring it cannot drift from the code it describes.
+    """
     extras = []
-    for param in params:
-        if param.default is not param.empty:
-            break
-        if param.name == "lo":
+    for name in getattr(cls, "EXTRA_ARGS", ()):
+        if name == "lo":
             extras.append(theme[0])
-        elif param.name == "hi":
+        elif name == "hi":
             extras.append(theme[-1])
         else:
             return None

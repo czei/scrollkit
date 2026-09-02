@@ -93,6 +93,13 @@ class _Treatment:
     FEASIBILITY = _PALETTE_ONLY
     PARTITION = None                 # recommended partition builder name
 
+    #: Positional arguments this treatment REQUIRES after ``(fx, theme)``, by name.
+    #: Declared rather than introspected because CircuitPython has no ``inspect``:
+    #: reading ``__init__``'s signature works on the desktop and raises ImportError
+    #: on the board, which took the whole dwell half of a sign down with it. A test
+    #: keeps every value in lockstep with the real signature, so this cannot drift.
+    EXTRA_ARGS = ()
+
     def __init__(self, fx, theme):
         self.fx = fx
         self.theme = tuple(theme)
@@ -472,6 +479,7 @@ class GradientDwell(_Treatment):
     returns to flat (one Nocturne Library chapter)."""
 
     PARTITION = "diagonal"
+    EXTRA_ARGS = ("lo", "hi")
 
     def __init__(self, fx, theme, lo, hi, fade=12, holds=(20, 12)):
         self.lo = lo
@@ -534,6 +542,7 @@ class RouteCircuit(_Treatment):
     outbound and the inbound walks)."""
 
     PARTITION = "route"
+    EXTRA_ARGS = ("routes",)
 
     def __init__(self, fx, theme, routes, passes=2, base_color=0x4A0D06,
                  fade=8):
@@ -595,6 +604,7 @@ class PacketTrace(_Treatment):
     """
 
     PARTITION = "route"
+    EXTRA_ARGS = ("paths", "runs")
     FEASIBILITY = {
         "hardware_safe": True,
         "allocates_per_frame": False,

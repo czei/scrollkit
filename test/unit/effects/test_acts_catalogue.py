@@ -24,6 +24,8 @@ pygame = pytest.importorskip("pygame")
 from scrollkit.effects import acts as A  # noqa: E402
 from scrollkit.effects.mark import PixelMark  # noqa: E402
 from scrollkit.effects.acts import transitions_available  # noqa: E402
+from scrollkit.effects import palette_treatments as T  # noqa: E402
+from scrollkit.effects.palette_treatments import TREATMENT_CLASSES  # noqa: E402
 
 CELLS = {(x, 12): 1 for x in range(8, 40)}
 CELLS.update({(x, 13): 1 for x in range(8, 40)})
@@ -141,3 +143,63 @@ def test_the_menu_is_bigger_than_the_functions_that_serve_it():
                   + len(A.EXITS) - 1)        # hide is counted above
     assert len(A.supported_acts()) < 10
     assert selectable >= 35, selectable
+
+
+# -- EXTRA_ARGS is declared, so it has to be checked -------------------------
+#
+# `_treatment_extras` used to read `inspect.signature(cls.__init__)`, which cannot
+# drift but also cannot run: CircuitPython has no `inspect`, and the `except
+# (TypeError, ValueError)` around it did not catch ImportError, so every entry point
+# that calls it raised on the board. The declaration is the device-safe replacement;
+# this is the test that keeps it honest.
+
+
+def _required_positionals(cls):
+    """Names of `__init__` params after (self, fx, theme) that have no default."""
+    import inspect
+
+    params = list(inspect.signature(cls.__init__).parameters.values())[3:]
+    out = []
+    for param in params:
+        if param.default is not param.empty:
+            break
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            break
+        out.append(param.name)
+    return tuple(out)
+
+
+@pytest.mark.parametrize("cls", TREATMENT_CLASSES, ids=lambda c: c.__name__)
+def test_extra_args_matches_the_real_signature(cls):
+    assert cls.EXTRA_ARGS == _required_positionals(cls), (
+        "%s.EXTRA_ARGS is out of step with its own __init__" % cls.__name__)
+
+
+def test_the_device_path_does_not_introspect_signatures():
+    """The regression, as the board would meet it.
+
+    Stubbing `inspect` out of __import__ is how this class of bug is testable at all
+    without hardware: the simulator imports the same CPython stdlib the library is
+    NOT allowed to rely on.
+    """
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def no_inspect(name, *args, **kwargs):
+        if name == "inspect":
+            raise ImportError("no module named 'inspect'")
+        return real_import(name, *args, **kwargs)
+
+    saved = sys.modules.pop("inspect", None)
+    builtins.__import__ = no_inspect
+    try:
+        assert len(A.treatments_available()) == 11
+        assert len(A.selectable()) == 39
+        assert A._treatment_extras(T.GradientDwell, RAMP) == (RAMP[0], RAMP[-1])
+        assert A._treatment_extras(T.RouteCircuit, RAMP) is None
+    finally:
+        builtins.__import__ = real_import
+        if saved is not None:
+            sys.modules["inspect"] = saved

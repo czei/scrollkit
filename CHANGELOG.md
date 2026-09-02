@@ -93,6 +93,17 @@ Marks and acts: the half of a sign that could not previously be reused.
 - **A "Marks & Acts" guide** (`docs/guide/acts.md`), plus `PoseCycler` and
   `point_to_point` in the character-animation and effects guides and the
   nickname-to-builder resolution in the palette-treatments guide.
+- **`_Treatment.EXTRA_ARGS`, and a device-path guard against the reason for it.**
+  Deciding which arguments a treatment needs by reading `inspect.signature` works on
+  the desktop and raises `ImportError` on CircuitPython, which has no `inspect`, and
+  the `except (TypeError, ValueError)` around it did not catch that: on a board,
+  `treatments_available()`, `selectable()`, `treatment_dwell()` and `play_sign()`
+  all died at import rather than degrading. Each treatment now declares its required
+  positional arguments as class metadata, the way it already declares `PARTITION`
+  and `FEASIBILITY`, and a test pins every declaration against the real signature so
+  it cannot drift. `test_circuitpython_compat.py` gains a static scan of the device
+  path for imports of modules CircuitPython lacks; guarded imports (`try: import x /
+  except ImportError`) are still allowed, since that is how `typing` is handled.
 
 ### Fixed
 - **`run_headless(app, frames=N)` now bounds a self-driving app.** `frames` bounded

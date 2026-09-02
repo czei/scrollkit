@@ -534,3 +534,91 @@ class TestInfraModuleImportSafety:
                 for h, mod in saved.items():
                     if mod is not None:
                         sys.modules[h] = mod
+
+class TestDevicePathBannedModules:
+    """The device path must not import a stdlib module CircuitPython lacks.
+
+    The sibling scanners above check HOW `math` and `random` are used; nothing
+    checked WHICH modules get imported at all, which is how `import inspect` reached
+    `effects/acts.py` and stayed there. On the board that raises ImportError, and it
+    was inside an `except (TypeError, ValueError)` that did not catch it, so the
+    whole dwell half of a sign (`treatments_available`, `selectable`,
+    `treatment_dwell`, `play_sign`) died on import rather than degrading.
+
+    Only modules that are BOTH absent on CircuitPython and currently unused here are
+    listed, so this passes today and fails the moment one is introduced. It is
+    deliberately not the complete list of absent modules: `subprocess`, `shlex`,
+    `argparse` and friends are still imported by the desktop-only publishing tool
+    under `ota/`, and untangling that is a separate job from stopping the next
+    `inspect`.
+
+    A guarded import is fine and is not flagged. `try: import x / except ImportError`
+    is the established pattern here (it is how `typing` is handled), because the
+    module then degrades instead of failing to load.
+    """
+
+    BANNED = frozenset({
+        "inspect", "pathlib", "threading", "multiprocessing", "dataclasses",
+        "abc", "heapq", "pickle", "logging", "unittest", "ctypes", "sqlite3",
+        "copy", "weakref", "decimal", "fractions", "statistics", "uuid",
+        "datetime", "concurrent", "asyncio.subprocess",
+    })
+
+    EXCLUDED_DIRS = ("simulator", "dev")
+
+    def _device_path_files(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        root = os.path.normpath(os.path.join(here, "..", "..", "src", "scrollkit"))
+        assert os.path.isdir(root), "device-path root not found: %s" % root
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in self.EXCLUDED_DIRS]
+            for name in filenames:
+                if name.endswith(".py"):
+                    yield os.path.join(dirpath, name)
+
+    @staticmethod
+    def _import_guarded_lines(tree):
+        """Lines inside a ``try`` whose handlers catch ImportError (or everything)."""
+        def catches_import_error(handler):
+            if handler.type is None:                       # bare except
+                return True
+            names = (handler.type.elts if isinstance(handler.type, ast.Tuple)
+                     else [handler.type])
+            return any(isinstance(n, ast.Name)
+                       and n.id in ("ImportError", "Exception", "OSError")
+                       for n in names)
+
+        guarded = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Try) and any(
+                    catches_import_error(h) for h in node.handlers):
+                for stmt in node.body:
+                    for sub in ast.walk(stmt):
+                        lineno = getattr(sub, "lineno", None)
+                        if lineno is not None:
+                            guarded.add(lineno)
+        return guarded
+
+    def test_device_path_imports_no_module_circuitpython_lacks(self):
+        offenders = []
+        for path in self._device_path_files():
+            with open(path, "r") as f:
+                tree = ast.parse(f.read(), filename=path)
+            guarded = self._import_guarded_lines(tree)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    roots = [a.name.split(".")[0] for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                    roots = [(node.module or "").split(".")[0]]
+                else:
+                    continue
+                if node.lineno in guarded:
+                    continue
+                for root in roots:
+                    if root in self.BANNED:
+                        offenders.append("%s:%d imports %s" % (path, node.lineno, root))
+
+        assert not offenders, (
+            "Device-path code imports modules CircuitPython does not have. The board "
+            "raises ImportError at import time, which the simulator never will:\n  "
+            + "\n  ".join(sorted(offenders)))
